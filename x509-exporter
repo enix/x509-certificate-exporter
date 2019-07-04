@@ -33,6 +33,7 @@ def parse_args():
         '--port',
         default=9090,
         metavar='PORT',
+        type=int,
         help='prometheus exporter listening port')
 
     parser.add_argument(
@@ -150,6 +151,7 @@ def main():
 
     x509_filepaths = walk_files_and_dirs(args)
     REGISTRY.register(X509Collector(x509_filepaths))
+    logging.info("starting exporter on port %d" % args.port)
     start_http_server(args.port)
     while True:
         time.sleep(LOOP_SLEEP_TIME)

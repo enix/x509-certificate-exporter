@@ -12,8 +12,6 @@ from prometheus_client.core import GaugeMetricFamily, REGISTRY
 
 from pyasn1.type.useful import GeneralizedTime
 
-LOOP_SLEEP_TIME = 300
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -110,36 +108,45 @@ class X509Collector:
     def collect(self):
         for x509_filepath in self.x509_filepaths:
             with open(x509_filepath, 'rt') as file:
-                x509 = self.parse_x509(file)
-                labels = self.build_labels(x509, x509_filepath)
+                try:
+                    x509 = self.parse_x509(file)
+                    labels = self.build_labels(x509, x509_filepath)
 
-                not_before, not_after, expired = self.build_metrics(x509)
+                    not_before, not_after, expired = self.build_metrics(x509)
 
-                metric = GaugeMetricFamily(
-                    'x509_cert_not_before',
-                    "x509 certificate not_before timestamp",
-                    labels=labels.keys())
-                metric.add_metric(labels.values(), not_before)
-                yield metric
+                    metric = GaugeMetricFamily(
+                        'x509_cert_not_before',
+                        "x509 certificate not_before timestamp",
+                        labels=labels.keys())
+                    metric.add_metric(labels.values(), not_before)
+                    yield metric
 
-                metric = GaugeMetricFamily(
-                    'x509_cert_not_after',
-                    "x509 certificate not_after timestamp",
-                    labels=labels.keys())
-                metric.add_metric(labels.values(), not_after)
-                yield metric
+                    metric = GaugeMetricFamily(
+                        'x509_cert_not_after',
+                        "x509 certificate not_after timestamp",
+                        labels=labels.keys())
+                    metric.add_metric(labels.values(), not_after)
+                    yield metric
 
-                metric = GaugeMetricFamily(
-                    'x509_cert_expired',
-                    "x509 certificate expiration boolean",
-                    labels=labels.keys())
-                metric.add_metric(labels.values(), expired)
-                yield metric
+                    metric = GaugeMetricFamily(
+                        'x509_cert_expired',
+                        "x509 certificate expiration boolean",
+                        labels=labels.keys())
+                    metric.add_metric(labels.values(), expired)
+                    yield metric
+                except:
+                    logging.warning(
+                        "not able to parse and compute: %s"
+                        % x509_filepath)
+
+LOOP_SLEEP_TIME = 300
 
 
 def main():
     args = parse_args()
-    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format='%(asctime)s %(levelname)s %(message)s')
 
     x509_filepaths = walk_files_and_dirs(args)
     REGISTRY.register(X509Collector(x509_filepaths))

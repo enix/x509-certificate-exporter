@@ -21,6 +21,9 @@ optional arguments:
   --debug               enable debug mode
   ```
 
+# Docker image
+A docker image is available here [enix/x509-exporter](https://hub.docker.com/r/enix/x509-exporter)
+
 # Kubernetes
 This exporter has been built with a kubernetes usage in mind, so it should be pretty straighforward to setup.
 

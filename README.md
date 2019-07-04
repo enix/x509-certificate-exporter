@@ -1,6 +1,5 @@
 # About
-`x509-exporter` is a prometheus exporter which presents metrics about certificate files.
-Noticeably you will be able to monitor certificate expiration.
+a prometheus exporter which presents certificate file metrics enabling certificate expiration monitoring
 
 The following metrics are available:
 * x509_cert_not_before
@@ -22,11 +21,17 @@ optional arguments:
   --debug               enable debug mode
   ```
 
+# Kubernetes
+This exporter has been built with a kubernetes usage in mind, so it should be pretty straighforward to setup.
+
 # FAQ
 ## Why are you using the `not after` timestamp rather than a remaining number of seconds ?
 For two reasons.
+
 First, prometheus tends to do better storage consumption when a value stays identical over checks.
-Second, it is better to build the remaining time through a prometheus query as some latency (seconds) can exist between this exporter check and your alert or query being run.
+
+Then, it is better to compute the remaining time through a prometheus query as some latency (seconds) can exist between this exporter check and your alert or query being run.
+
 Here is an exemple:
 ```
 x509_cert_not_after - time()

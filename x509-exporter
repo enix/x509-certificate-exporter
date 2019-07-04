@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+
+import argparse
+import logging
+import os
+import time
+
+from OpenSSL import crypto
+
+from prometheus_client import start_http_server
+from prometheus_client.core import GaugeMetricFamily, REGISTRY
+
+from pyasn1.type.useful import GeneralizedTime
+
+LOOP_SLEEP_TIME = 300
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '-f',
+        '--watch-file',
+        action='append',
+        metavar='FILE_PATH',
+        help='one or more x509 certificate file')
+    parser.add_argument(
+        '-d',
+        '--watch-dir',
+        action='append',
+        metavar='DIR_PATH',
+        help='one or more directory which contains x509 certificate files')
+    parser.add_argument(
+        '-p',
+        '--port',
+        default=9090,
+        metavar='PORT',
+        help='prometheus exporter listening port')
+
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='enable debug mode')
+
+    return parser.parse_args()
+
+
+def walk_files_and_dirs(args):
+    x509_filepaths = set([])
+    if args.watch_file:
+        for filename in args.watch_file:
+            try:
+                os.stat(filename)
+                x509_filepaths.add(filename)
+            except:
+                logging.warning("not able to stat file: %s" % filename)
+    if args.watch_dir:
+        for directory in args.watch_dir:
+            for root, subdirectories, filenames in os.walk(directory):
+                for filename in filenames:
+                    x509_filepaths.add(os.path.join(root, filename))
+    return x509_filepaths
+
+
+class X509Collector:
+    def __init__(self, x509_filepaths):
+        self.x509_filepaths = x509_filepaths
+
+    def serialize_x509name(self, x509name):
+        return b' '.join(
+            b'='.join(component) for component in x509name.get_components()
+        ).decode('utf-8')
+
+    def build_labels(self, x509, x509_filepath):
+        subject = x509.get_subject()
+        labels = {
+            'filename': os.path.basename(x509_filepath),
+            'filepath': x509_filepath,
+            'serial_number': "%s" % x509.get_serial_number(),
+            'issuer': self.serialize_x509name(x509.get_issuer())
+        }
+        if subject.C:
+            labels['C'] = subject.C
+        if subject.ST:
+            labels['ST'] = subject.ST
+        if subject.L:
+            labels['L'] = subject.L
+        if subject.O:
+            labels['O'] = subject.O
+        if subject.OU:
+            labels['OU'] = subject.OU
+        if subject.CN:
+            labels['CN'] = subject.CN
+        return labels
+
+    def parse_x509(self, file):
+        return crypto.load_certificate(crypto.FILETYPE_PEM, file.read())
+
+    def build_metrics(self, x509):
+        x509_not_before_asn1_time = GeneralizedTime(x509.get_notBefore())
+        x509_not_before_ts = x509_not_before_asn1_time.asDateTime.timestamp()
+
+        x509_not_after_asn1_time = GeneralizedTime(x509.get_notAfter())
+        x509_not_after_ts = x509_not_after_asn1_time.asDateTime.timestamp()
+
+        expired = float(x509.has_expired())
+
+        return (x509_not_before_ts, x509_not_after_ts, expired)
+
+    def collect(self):
+        for x509_filepath in self.x509_filepaths:
+            with open(x509_filepath, 'rt') as file:
+                x509 = self.parse_x509(file)
+                labels = self.build_labels(x509, x509_filepath)
+
+                not_before, not_after, expired = self.build_metrics(x509)
+
+                metric = GaugeMetricFamily(
+                    'x509_cert_not_before',
+                    "x509 certificate not_before timestamp",
+                    labels=labels.keys())
+                metric.add_metric(labels.values(), not_before)
+                yield metric
+
+                metric = GaugeMetricFamily(
+                    'x509_cert_not_after',
+                    "x509 certificate not_after timestamp",
+                    labels=labels.keys())
+                metric.add_metric(labels.values(), not_after)
+                yield metric
+
+                metric = GaugeMetricFamily(
+                    'x509_cert_expired',
+                    "x509 certificate expiration boolean",
+                    labels=labels.keys())
+                metric.add_metric(labels.values(), expired)
+                yield metric
+
+
+def main():
+    args = parse_args()
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
+
+    x509_filepaths = walk_files_and_dirs(args)
+    REGISTRY.register(X509Collector(x509_filepaths))
+    start_http_server(args.port)
+    while True:
+        time.sleep(LOOP_SLEEP_TIME)
+
+if __name__ == '__main__':
+    main()

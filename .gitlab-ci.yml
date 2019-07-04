@@ -1,0 +1,25 @@
+stages:
+  - build
+  - release
+
+variables:
+  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+
+build:
+  stage: build
+  image: docker:stable-dind
+  script:
+    - echo "Logging to GitLab Container Registry with CI credentials..."
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker build --tag $IMAGE_TAG .
+    - docker push $IMAGE_TAG
+
+semantic-release:
+  stage: release
+  image: enix/semantic-release:gitlab
+  only:
+    - master
+  except:
+    - tags
+  script:
+    - semantic-release --ci

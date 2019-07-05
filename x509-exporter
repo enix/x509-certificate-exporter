@@ -97,27 +97,34 @@ class X509Collector:
             b'='.join(component) for component in x509name.get_components()
         ).decode('utf-8')
 
+    def add_x509name_components_labels(self, x509name, labels, prefix):
+        """Add x509 name components to label list."""
+        if x509name.C:
+            labels[prefix + '_C'] = x509name.C
+        if x509name.ST:
+            labels[prefix + '_ST'] = x509name.ST
+        if x509name.L:
+            labels[prefix + '_L'] = x509name.L
+        if x509name.O:
+            labels[prefix + '_O'] = x509name.O
+        if x509name.OU:
+            labels[prefix + '_OU'] = x509name.OU
+        if x509name.CN:
+            labels[prefix + '_CN'] = x509name.CN
+
     def build_labels(self, x509, x509_filepath):
         """Return prometheus metric labels."""
-        subject = x509.get_subject()
         labels = {
             'filename': os.path.basename(x509_filepath),
             'filepath': x509_filepath,
             'serial_number': "%s" % x509.get_serial_number(),
-            'issuer': self.serialize_x509name(x509.get_issuer())
         }
-        if subject.C:
-            labels['C'] = subject.C
-        if subject.ST:
-            labels['ST'] = subject.ST
-        if subject.L:
-            labels['L'] = subject.L
-        if subject.O:
-            labels['O'] = subject.O
-        if subject.OU:
-            labels['OU'] = subject.OU
-        if subject.CN:
-            labels['CN'] = subject.CN
+        self.add_x509name_components_labels(
+            x509.get_issuer(),
+            labels, "issuer")
+        self.add_x509name_components_labels(
+            x509.get_subject(),
+            labels, "subject")
         return labels
 
     def build_metrics(self, x509):

@@ -14,6 +14,7 @@ from pyasn1.type.useful import GeneralizedTime
 
 
 def parse_args():
+    """Return the parsed arguments."""
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -44,7 +45,13 @@ def parse_args():
     return parser.parse_args()
 
 
+def parse_x509(file):
+    """x509 parsing helper."""
+    return crypto.load_certificate(crypto.FILETYPE_PEM, file.read())
+
+
 def walk_files_and_dirs(args):
+    """Compile a deduped list of files."""
     x509_filepaths = set([])
     if args.watch_file:
         for filename in args.watch_file:
@@ -61,16 +68,37 @@ def walk_files_and_dirs(args):
     return x509_filepaths
 
 
+def check_certificates(x509_filepaths):
+    """Verify file content and sanitize the filepaths."""
+    valid_certificates = []
+    for x509_filepath in x509_filepaths:
+        with open(x509_filepath, 'rt') as file:
+            try:
+                parse_x509(file)
+                logging.info(
+                    "valid x509 certificate detected: %s"
+                    % x509_filepath)
+                valid_certificates += [x509_filepath]
+            except:
+                logging.warning("not able to parse: %s" % x509_filepath)
+    return valid_certificates
+
+
 class X509Collector:
+    """a prometheus x509 collector."""
+
     def __init__(self, x509_filepaths):
+        """Take a set of filepaths as argument."""
         self.x509_filepaths = x509_filepaths
 
     def serialize_x509name(self, x509name):
+        """Helper to serialize a x509Name as a string."""
         return b' '.join(
             b'='.join(component) for component in x509name.get_components()
         ).decode('utf-8')
 
     def build_labels(self, x509, x509_filepath):
+        """Return prometheus metric labels."""
         subject = x509.get_subject()
         labels = {
             'filename': os.path.basename(x509_filepath),
@@ -92,10 +120,8 @@ class X509Collector:
             labels['CN'] = subject.CN
         return labels
 
-    def parse_x509(self, file):
-        return crypto.load_certificate(crypto.FILETYPE_PEM, file.read())
-
     def build_metrics(self, x509):
+        """Return prometheus metrics."""
         x509_not_before_asn1_time = GeneralizedTime(x509.get_notBefore())
         x509_not_before_ts = x509_not_before_asn1_time.asDateTime.timestamp()
 
@@ -107,10 +133,11 @@ class X509Collector:
         return (x509_not_before_ts, x509_not_after_ts, expired)
 
     def collect(self):
+        """The main Prometheus collector function."""
         for x509_filepath in self.x509_filepaths:
             with open(x509_filepath, 'rt') as file:
                 try:
-                    x509 = self.parse_x509(file)
+                    x509 = parse_x509(file)
                     labels = self.build_labels(x509, x509_filepath)
 
                     not_before, not_after, expired = self.build_metrics(x509)
@@ -144,12 +171,15 @@ LOOP_SLEEP_TIME = 300
 
 
 def main():
+    """x509-exporter main function."""
     args = parse_args()
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
         format='%(asctime)s %(levelname)s %(message)s')
 
     x509_filepaths = walk_files_and_dirs(args)
+    x509_filepaths = check_certificates(x509_filepaths)
+    logging.info("monitoring %d certificate(s)" % len(x509_filepaths))
     REGISTRY.register(X509Collector(x509_filepaths))
     logging.info("starting exporter on port %d" % args.port)
     start_http_server(args.port)

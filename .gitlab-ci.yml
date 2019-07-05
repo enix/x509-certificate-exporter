@@ -32,6 +32,10 @@ publish-docker-hub:
     refs:
       - /^v([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
   image: docker:stable
+  before_script:
+    - echo $DOCKER_HUB_IMAGE_TAG
+    - echo $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
+    - echo ${CI_COMMIT_REF_NAME:1}
   script:
     - echo "Logging to GitLab Container Registry with CI credentials..."
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"

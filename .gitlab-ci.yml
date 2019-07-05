@@ -5,7 +5,6 @@ stages:
 
 variables:
   IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
-  DOCKER_HUB_IMAGE_TAG: $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
 
 build:
   stage: build
@@ -32,16 +31,12 @@ publish-docker-hub:
     refs:
       - /^v([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
   image: docker:stable
-  before_script:
-    - echo $DOCKER_HUB_IMAGE_TAG
-    - echo $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
-    - echo ${CI_COMMIT_REF_NAME:1}
   script:
     - echo "Logging to GitLab Container Registry with CI credentials..."
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - docker pull $IMAGE_TAG
-    - docker tag $IMAGE_TAG $DOCKER_HUB_IMAGE_TAG
+    - docker tag $IMAGE_TAG $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
     - echo "Logging to Docker Hub Registry with Enix credentials..."
     - docker login -u "$DOCKER_HUB_USER" -p "$DOCKER_HUB_PASSWORD"
     - echo "Push release $CI_COMMIT_REF_NAME ..."
-    - docker push $DOCKER_HUB_IMAGE_TAG
+    - docker push $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}

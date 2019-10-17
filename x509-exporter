@@ -174,7 +174,11 @@ class X509Collector:
         kubex509_filepaths = []
         for kubeconf_filepath in self.kubeconf_filepaths:
             try:
-                conf = yaml.load(open(kubeconf_filepath, 'r'))
+                with open(kubeconf_filepath, 'r') as kubeconf:
+                    try:
+                        conf = yaml.load(kubeconf, Loader=yaml.FullLoader)
+                    except AttributeError:
+                        conf = yaml.load(kubeconf)
                 cert_roots = [('cluster', 'certificate-authority'),
                               ('user', 'client-certificate')]
                 for item_type, key_base in cert_roots:

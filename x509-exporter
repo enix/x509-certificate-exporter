@@ -199,7 +199,8 @@ class X509Collector:
 
         for x509_filepath in self.x509_filepaths + kubex509_filepaths:
             try:
-                yield from self.emit_x509(parse_x509(filepath=x509_filepath),
+                x509 = parse_x509(filepath=x509_filepath)
+                yield from self.emit_x509(x509,
                                           self.build_labels(x509, x509_filepath))
             except:
                 logging.warning("not able to parse and compute: %s",

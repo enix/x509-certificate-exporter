@@ -4,6 +4,8 @@ import argparse
 import logging
 import os
 import time
+import base64
+import yaml
 
 from OpenSSL import crypto
 
@@ -30,6 +32,13 @@ def parse_args():
         metavar='DIR_PATH',
         help='one or more directory which contains x509 certificate files')
     parser.add_argument(
+        '-k',
+        '--watch-kubeconf',
+        action='append',
+        metavar='KUBE_PATH',
+        help='one or more Kubernetes client configuration (kind Config) which'
+             ' contains embedded x509 certificates or PEM file paths')
+    parser.add_argument(
         '-p',
         '--port',
         default=9090,
@@ -45,12 +54,17 @@ def parse_args():
     return parser.parse_args()
 
 
-def parse_x509(file):
+def parse_x509(filepath=None, b64=None, plain=None):
     """x509 parsing helper."""
-    return crypto.load_certificate(crypto.FILETYPE_PEM, file.read())
+    if filepath:
+        plain = open(filepath, 'rt').read()
+    elif base64:
+        plain = base64.b64decode(b64)
+
+    return crypto.load_certificate(crypto.FILETYPE_PEM, plain)
 
 
-def walk_files_and_dirs(args):
+def walk_x509_files_and_dirs(args):
     """Compile a deduped list of files."""
     x509_filepaths = set([])
     if args.watch_file:
@@ -68,28 +82,41 @@ def walk_files_and_dirs(args):
     return x509_filepaths
 
 
+def walk_kubeconf_files(args):
+    """Compile a deduped list of Kubernetes client configurations."""
+    kubeconf_filepaths = set([])
+    if args.watch_kubeconf:
+        for filename in args.watch_kubeconf:
+            try:
+                conf = yaml.load(open(filename, 'r'))
+                if conf['kind'] == 'Config' and conf['apiVersion'] == 'v1':
+                    kubeconf_filepaths.add(filename)
+            except:
+                logging.warning("not able to parse file: %s", filename)
+    return kubeconf_filepaths
+
+
 def check_certificates(x509_filepaths):
     """Verify file content and sanitize the filepaths."""
     valid_certificates = []
     for x509_filepath in x509_filepaths:
-        with open(x509_filepath, 'rt') as file:
-            try:
-                parse_x509(file)
-                logging.info(
-                    "valid x509 certificate detected: %s"
-                    % x509_filepath)
-                valid_certificates += [x509_filepath]
-            except:
-                logging.warning("not able to parse: %s" % x509_filepath)
+        try:
+            parse_x509(filepath=x509_filepath)
+            logging.info("valid x509 certificate detected: %s",
+                         x509_filepath)
+            valid_certificates += [x509_filepath]
+        except:
+            logging.warning("not able to parse: %s", x509_filepath)
     return valid_certificates
 
 
 class X509Collector:
     """a prometheus x509 collector."""
 
-    def __init__(self, x509_filepaths):
+    def __init__(self, x509_filepaths, kubeconf_filepaths):
         """Take a set of filepaths as argument."""
         self.x509_filepaths = x509_filepaths
+        self.kubeconf_filepaths = kubeconf_filepaths
 
     def serialize_x509name(self, x509name):
         """Helper to serialize a x509Name as a string."""
@@ -112,13 +139,16 @@ class X509Collector:
         if x509name.CN:
             labels[prefix + '_CN'] = x509name.CN
 
-    def build_labels(self, x509, x509_filepath):
+    def build_labels(self, x509, filepath, embedded=None):
         """Return prometheus metric labels."""
         labels = {
-            'filename': os.path.basename(x509_filepath),
-            'filepath': x509_filepath,
+            'filename': os.path.basename(filepath),
+            'filepath': filepath,
             'serial_number': "%s" % x509.get_serial_number(),
         }
+        if embedded:
+            labels.update(dict(zip(('embedded_kind', 'embedded_key'),
+                                   embedded)))
         self.add_x509name_components_labels(
             x509.get_issuer(),
             labels, "issuer")
@@ -141,38 +171,65 @@ class X509Collector:
 
     def collect(self):
         """The main Prometheus collector function."""
-        for x509_filepath in self.x509_filepaths:
-            with open(x509_filepath, 'rt') as file:
-                try:
-                    x509 = parse_x509(file)
-                    labels = self.build_labels(x509, x509_filepath)
+        kubex509_filepaths = []
+        for kubeconf_filepath in self.kubeconf_filepaths:
+            try:
+                conf = yaml.load(open(kubeconf_filepath, 'r'))
+                cert_roots = [('cluster', 'certificate-authority'),
+                              ('user', 'client-certificate')]
+                for item_type, key_base in cert_roots:
+                    for item in conf.get("{}s".format(item_type), []):
+                        name = item.get("name")
+                        item_data = item.get(item_type)
+                        if not name or not item_data:
+                            continue
 
-                    not_before, not_after, expired = self.build_metrics(x509)
+                        if key_base in item_data:
+                            kubex509_filepaths.append(item_data.get(key_base))
 
-                    metric = GaugeMetricFamily(
-                        'x509_cert_not_before',
-                        "x509 certificate not_before timestamp",
-                        labels=labels.keys())
-                    metric.add_metric(labels.values(), not_before)
-                    yield metric
+                        mbed_key = "{}-data".format(key_base)
+                        if mbed_key in item_data:
+                            x509 = parse_x509(b64=item_data.get(mbed_key))
+                            labels = self.build_labels(x509, kubeconf_filepath,
+                                                       embedded=(item_type, name))
+                            yield from self.emit_x509(x509, labels)
+            except:
+                logging.warning("not able to parse and compute: %s",
+                                kubeconf_filepath)
 
-                    metric = GaugeMetricFamily(
-                        'x509_cert_not_after',
-                        "x509 certificate not_after timestamp",
-                        labels=labels.keys())
-                    metric.add_metric(labels.values(), not_after)
-                    yield metric
+        for x509_filepath in self.x509_filepaths + kubex509_filepaths:
+            try:
+                yield from self.emit_x509(parse_x509(filepath=x509_filepath),
+                                          self.build_labels(x509, x509_filepath))
+            except:
+                logging.warning("not able to parse and compute: %s",
+                                x509_filepath)
 
-                    metric = GaugeMetricFamily(
-                        'x509_cert_expired',
-                        "x509 certificate expiration boolean",
-                        labels=labels.keys())
-                    metric.add_metric(labels.values(), expired)
-                    yield metric
-                except:
-                    logging.warning(
-                        "not able to parse and compute: %s"
-                        % x509_filepath)
+    def emit_x509(self, x509, labels):
+        """Produce Prometheus metrics."""
+        not_before, not_after, expired = self.build_metrics(x509)
+
+        metric = GaugeMetricFamily(
+            'x509_cert_not_before',
+            "x509 certificate not_before timestamp",
+            labels=labels.keys())
+        metric.add_metric(labels.values(), not_before)
+        yield metric
+
+        metric = GaugeMetricFamily(
+            'x509_cert_not_after',
+            "x509 certificate not_after timestamp",
+            labels=labels.keys())
+        metric.add_metric(labels.values(), not_after)
+        yield metric
+
+        metric = GaugeMetricFamily(
+            'x509_cert_expired',
+            "x509 certificate expiration boolean",
+            labels=labels.keys())
+        metric.add_metric(labels.values(), expired)
+        yield metric
+
 
 LOOP_SLEEP_TIME = 300
 
@@ -184,11 +241,12 @@ def main():
         level=logging.DEBUG if args.debug else logging.INFO,
         format='%(asctime)s %(levelname)s %(message)s')
 
-    x509_filepaths = walk_files_and_dirs(args)
+    x509_filepaths = walk_x509_files_and_dirs(args)
     x509_filepaths = check_certificates(x509_filepaths)
-    logging.info("monitoring %d certificate(s)" % len(x509_filepaths))
-    REGISTRY.register(X509Collector(x509_filepaths))
-    logging.info("starting exporter on port %d" % args.port)
+    kubeconfig_filepaths = walk_kubeconf_files(args)
+    logging.info("monitoring %s certificate(s) and %s kubeconfig(s)",
+                 len(x509_filepaths), len(kubeconfig_filepaths))
+    REGISTRY.register(X509Collector(x509_filepaths, kubeconfig_filepaths))
     start_http_server(args.port)
     while True:
         time.sleep(LOOP_SLEEP_TIME)

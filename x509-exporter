@@ -54,6 +54,16 @@ def parse_args():
     return parser.parse_args()
 
 
+def yaml_parser(fileobj):
+    """Returns a PyYAML parser avoiding warnings."""
+    try:
+        parser = yaml.load(fileobj, Loader=yaml.FullLoader)
+    except AttributeError:
+        parser = yaml.load(fileobj)
+
+    return parser
+
+
 def parse_x509(filepath=None, b64=None, plain=None):
     """x509 parsing helper."""
     if filepath:
@@ -88,7 +98,8 @@ def walk_kubeconf_files(args):
     if args.watch_kubeconf:
         for filename in args.watch_kubeconf:
             try:
-                conf = yaml.load(open(filename, 'r'))
+                with open(filename, 'r') as kubeconf:
+                    conf = yaml_parser(kubeconf)
                 if conf['kind'] == 'Config' and conf['apiVersion'] == 'v1':
                     kubeconf_filepaths.add(filename)
             except:
@@ -175,10 +186,7 @@ class X509Collector:
         for kubeconf_filepath in self.kubeconf_filepaths:
             try:
                 with open(kubeconf_filepath, 'r') as kubeconf:
-                    try:
-                        conf = yaml.load(kubeconf, Loader=yaml.FullLoader)
-                    except AttributeError:
-                        conf = yaml.load(kubeconf)
+                    conf = yaml_parser(kubeconf)
                 cert_roots = [('cluster', 'certificate-authority'),
                               ('user', 'client-certificate')]
                 for item_type, key_base in cert_roots:

@@ -73,7 +73,7 @@ def walk_x509_files_and_dirs(args):
                 os.stat(filename)
                 x509_filepaths.add(filename)
             except:
-                logging.warning("not able to stat file: %s" % filename)
+                logging.warning("not able to stat file: %s", filename)
     if args.watch_dir:
         for directory in args.watch_dir:
             for root, subdirectories, filenames in os.walk(directory):
@@ -247,9 +247,11 @@ def main():
     logging.info("monitoring %s certificate(s) and %s kubeconfig(s)",
                  len(x509_filepaths), len(kubeconfig_filepaths))
     REGISTRY.register(X509Collector(x509_filepaths, kubeconfig_filepaths))
+    logging.info("starting exporter on port %d", args.port)
     start_http_server(args.port)
     while True:
         time.sleep(LOOP_SLEEP_TIME)
+
 
 if __name__ == '__main__':
     main()

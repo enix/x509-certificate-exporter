@@ -68,7 +68,7 @@ def parse_x509(filepath=None, b64=None, plain=None):
     """x509 parsing helper."""
     if filepath:
         plain = open(filepath, 'rt').read()
-    elif base64:
+    elif b64:
         plain = base64.b64decode(b64)
 
     return crypto.load_certificate(crypto.FILETYPE_PEM, plain)

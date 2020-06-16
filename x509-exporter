@@ -86,9 +86,10 @@ def walk_x509_files_and_dirs(args):
                 logging.warning("not able to stat file: %s", filename)
     if args.watch_dir:
         for directory in args.watch_dir:
-            for root, subdirectories, filenames in os.walk(directory):
-                for filename in filenames:
-                    x509_filepaths.add(os.path.join(root, filename))
+            for filename in os.listdir(directory):
+                filepath = os.path.join(directory, filename)
+                if os.path.isfile(filepath):
+                    x509_filepaths.add(filepath)
     return x509_filepaths
 
 

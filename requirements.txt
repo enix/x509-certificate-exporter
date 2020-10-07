@@ -1,4 +1,0 @@
-pyOpenSSL
-prometheus_client
-pyasn1
-PyYAML

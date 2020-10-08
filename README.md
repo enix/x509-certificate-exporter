@@ -1,34 +1,53 @@
-# About
-a prometheus exporter which presents certificate file metrics enabling certificate expiration monitoring
+# x509 Exporter
+
+A prometheus exporter which presents certificate file metrics enabling certificate expiration monitoring.
 
 The following metrics are available:
 * x509_cert_not_before
 * x509_cert_not_after
 * x509_cert_expired
 
-# Usage
+## Installation
+
+### Docker image
+
+A docker image is available here : [enix/x509-exporter](https://hub.docker.com/r/enix/x509-exporter)
+
+### From source
+
+You can build the executable by using :
+
 ```
-usage: x509-exporter [-h] [-f FILE_PATH] [-d DIR_PATH] [-p PORT] [--debug]
+go build ./cmd/x509-exporter
+```
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -f FILE_PATH, --watch-file FILE_PATH
-                        one or more x509 certificate file
-  -d DIR_PATH, --watch-dir DIR_PATH
-                        one or more directory which contains x509 certificate
-                        files
-  -p PORT, --port PORT  prometheus exporter listening port
-  --debug               enable debug mode
-  ```
+## Usage
 
-# Docker image
-A docker image is available here [enix/x509-exporter](https://hub.docker.com/r/enix/x509-exporter)
+```
+Usage: x509-exporter [-h] [--debug] [-d value] [-f value] [-k value] [-p value] [parameters ...]
 
-# Kubernetes
+     --debug       enable debug mode
+ -d, --watch-dir=value
+                   watch one or more directory which contains x509 certificate
+                   files
+ -f, --watch-file=value
+                   watch one or more x509 certificate file
+ -h, --help        show this help message and exit
+ -k, --watch-kubeconf=value
+                   watch one or more Kubernetes client configuration (kind
+                   Config) which contains embedded x509 certificates or PEM
+                   file paths
+ -p, --port=value  prometheus exporter listening port [9090]
+```
+
+## FAQ
+
+### Can I use it in my Kubernetes cluster ?
+
 This exporter has been built with a kubernetes usage in mind, so it should be pretty straighforward to setup.
 
-# FAQ
-## Why are you using the `not after` timestamp rather than a remaining number of seconds ?
+### Why are you using the `not after` timestamp rather than a remaining number of seconds ?
+
 For two reasons.
 
 First, prometheus tends to do better storage consumption when a value stays identical over checks.
@@ -36,6 +55,7 @@ First, prometheus tends to do better storage consumption when a value stays iden
 Then, it is better to compute the remaining time through a prometheus query as some latency (seconds) can exist between this exporter check and your alert or query being run.
 
 Here is an exemple:
+
 ```
 x509_cert_not_after - time()
 ```

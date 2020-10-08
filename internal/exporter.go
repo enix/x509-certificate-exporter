@@ -2,11 +2,16 @@ package exporter
 
 import (
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os/exec"
 	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -18,16 +23,56 @@ type Exporter struct {
 	Port        int
 	Files       []string
 	Directories []string
-	Kubeconfigs []string
+	YAMLs       []string
+	YAMLPaths   []YAMLCertRef
 
-	collector collector
+	isDiscovery bool
 }
+
+// YAMLCertRef : Contains information to access certificates in yaml files
+type YAMLCertRef struct {
+	CertMatchExpr string
+	IDMatchExpr   string
+	Format        YAMLCertFormat
+}
+
+// YAMLCertFormat : Type of cert encoding in YAML files
+type YAMLCertFormat int
+
+// YAMLCertFormat : Impl
+const (
+	YAMLCertFormatFile   YAMLCertFormat = iota
+	YAMLCertFormatBase64                = iota
+)
+
+type certificateRef struct {
+	path         string
+	format       certificateFormat
+	yamlPaths    []YAMLCertRef
+	certificates []*parsedCertificate
+	userIDs      []string
+}
+
+type parsedCertificate struct {
+	cert        *x509.Certificate
+	userID      string
+	yqMatchExpr string
+}
+
+type certificateFormat int
+
+const (
+	certificateFormatPEM  certificateFormat = iota
+	certificateFormatYAML                   = iota
+)
 
 // Run : Start exporter and listen for requests
 func (exporter *Exporter) Run() {
-	exporter.discoverCertificates()
+	exporter.isDiscovery = true
+	exporter.parseAllCertificates()
+	exporter.isDiscovery = false
 
-	prometheus.MustRegister(&exporter.collector)
+	prometheus.MustRegister(&collector{exporter: exporter})
 	http.Handle("/metrics", promhttp.Handler())
 
 	listen := fmt.Sprintf(":%d", exporter.Port)
@@ -35,18 +80,30 @@ func (exporter *Exporter) Run() {
 	http.ListenAndServe(listen, nil)
 }
 
-func (exporter *Exporter) discoverCertificates() {
-	exporter.collector.certificates = []string{}
+func (exporter *Exporter) parseAllCertificates() []*certificateRef {
+	output := []*certificateRef{}
 
 	for _, file := range exporter.Files {
-		exporter.checkAndRegisterCertificate(file)
+		output = append(output, &certificateRef{
+			path:   file,
+			format: certificateFormatPEM,
+		})
+	}
+
+	for _, file := range exporter.YAMLs {
+		output = append(output, &certificateRef{
+			path:      file,
+			format:    certificateFormatYAML,
+			yamlPaths: exporter.YAMLPaths,
+		})
 	}
 
 	for _, dir := range exporter.Directories {
 		files, err := ioutil.ReadDir(dir)
 		if err != nil {
-			log.Debug(err)
-			log.Warnf("failed to open directory \"%s\", ignoring it", dir)
+			if exporter.isDiscovery {
+				log.Warnf("failed to open directory \"%s\", ignoring it", dir)
+			}
 			continue
 		}
 
@@ -55,41 +112,129 @@ func (exporter *Exporter) discoverCertificates() {
 				continue
 			}
 
-			exporter.checkAndRegisterCertificate(path.Join(dir, file.Name()))
+			output = append(output, &certificateRef{
+				path:   path.Join(dir, file.Name()),
+				format: certificateFormatPEM,
+			})
 		}
 	}
 
-	exporter.collector.certificates = unique(exporter.collector.certificates)
-}
+	output = unique(output)
+	for _, cert := range output {
+		err := cert.parse()
 
-func (exporter *Exporter) checkAndRegisterCertificate(path string) {
-	_, err := parseCertificate(path)
+		if !exporter.isDiscovery {
+			continue
+		}
 
-	if err == nil {
-		log.Infof("valid certificate found \"%s\"", path)
-		exporter.collector.certificates = append(exporter.collector.certificates, path)
-	} else {
-		log.Warnf("failed to load \"%s\", ignoring it", path)
+		if err != nil {
+			log.Warnf("failed to load \"%s\", %s", cert.path, err.Error())
+		} else if len(cert.certificates) == 0 {
+			log.Warnf("no certificate(s) found in \"%s\"", cert.path)
+		} else {
+			log.Infof("%d valid certificate(s) found in \"%s\"", len(cert.certificates), cert.path)
+		}
 	}
+
+	return output
 }
 
-func parseCertificate(path string) (*x509.Certificate, error) {
+func (cert *certificateRef) parse() error {
+	var err error
+
+	switch cert.format {
+	case certificateFormatPEM:
+		cert.certificates, err = readAndParsePEMFile(cert.path)
+	case certificateFormatYAML:
+		cert.certificates, err = readAndParseYAMLFile(cert.path, cert.yamlPaths)
+	}
+
+	return err
+}
+
+func readAndParsePEMFile(path string) ([]*parsedCertificate, error) {
 	contents, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Debug(err)
 		return nil, err
 	}
 
-	block, rest := pem.Decode(contents)
-	if len(rest) > 0 {
-		return nil, fmt.Errorf("failed to parse PEM file \"%s\"", path)
-	}
-
-	cert, err := x509.ParseCertificate(block.Bytes)
+	output := []*parsedCertificate{}
+	certs, err := parsePEM(contents)
 	if err != nil {
-		log.Debug(err)
 		return nil, err
 	}
 
-	return cert, nil
+	for _, cert := range certs {
+		output = append(output, &parsedCertificate{cert: cert})
+	}
+
+	return output, nil
+}
+
+func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCertificate, error) {
+	output := []*parsedCertificate{}
+
+	for _, exprs := range yamlPaths {
+		rawCerts, err := exec.Command("yq", "r", filePath, exprs.CertMatchExpr).CombinedOutput()
+		if err != nil {
+			return nil, errors.New(string(rawCerts))
+		}
+		if len(rawCerts) == 0 {
+			continue
+		}
+
+		var decodedCerts []byte
+		if exprs.Format == YAMLCertFormatBase64 {
+			decodedCerts = make([]byte, base64.StdEncoding.DecodedLen(len(rawCerts)))
+			base64.StdEncoding.Decode(decodedCerts, []byte(rawCerts))
+		} else if exprs.Format == YAMLCertFormatFile {
+			certPath := path.Join(filepath.Dir(filePath), string(rawCerts))
+			decodedCerts, err = ioutil.ReadFile(strings.TrimRight(certPath, "\n"))
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		certs, err := parsePEM(decodedCerts)
+		if err != nil {
+			return nil, err
+		}
+
+		rawUserIDs, err := exec.Command("yq", "r", filePath, exprs.IDMatchExpr).Output()
+		if err != nil {
+			return nil, err
+		}
+		userIDs := strings.Split(string(rawUserIDs), "\n")
+
+		for index, cert := range certs {
+			output = append(output, &parsedCertificate{
+				cert:        cert,
+				userID:      userIDs[index],
+				yqMatchExpr: exprs.CertMatchExpr,
+			})
+		}
+	}
+
+	return output, nil
+}
+
+func parsePEM(data []byte) ([]*x509.Certificate, error) {
+	output := []*x509.Certificate{}
+
+	for {
+		block, rest := pem.Decode(data)
+		if block == nil {
+			break
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		output = append(output, cert)
+		data = rest
+	}
+
+	return output, nil
 }

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	exporter "enix.io/x509-exporter/internal"
 	getopt "github.com/pborman/getopt/v2"
 	log "github.com/sirupsen/logrus"
@@ -32,7 +34,15 @@ func main() {
 	getopt.FlagLong(&kubeconfigs, "watch-kubeconf", 'k', "watch one or more Kubernetes client configuration (kind Config) which contains embedded x509 certificates or PEM file paths")
 
 	getopt.Parse()
+
 	if *help {
+		getopt.Usage()
+		return
+	}
+
+	if len(files)+len(directories)+len(kubeconfigs) == 0 {
+		log.Warn("no watch path(s) were specified")
+		fmt.Println()
 		getopt.Usage()
 		return
 	}
@@ -45,7 +55,29 @@ func main() {
 		Port:        *port,
 		Files:       files,
 		Directories: directories,
-		Kubeconfigs: kubeconfigs,
+		YAMLs:       kubeconfigs,
+		YAMLPaths: []exporter.YAMLCertRef{
+			{
+				CertMatchExpr: "clusters.[*].cluster.certificate-authority-data",
+				IDMatchExpr:   "clusters.[*].name",
+				Format:        exporter.YAMLCertFormatBase64,
+			},
+			{
+				CertMatchExpr: "clusters.[*].cluster.certificate-authority",
+				IDMatchExpr:   "clusters.[*].name",
+				Format:        exporter.YAMLCertFormatFile,
+			},
+			{
+				CertMatchExpr: "users.[*].user.client-certificate-data",
+				IDMatchExpr:   "users.[*].name",
+				Format:        exporter.YAMLCertFormatBase64,
+			},
+			{
+				CertMatchExpr: "users.[*].user.client-certificate",
+				IDMatchExpr:   "users.[*].name",
+				Format:        exporter.YAMLCertFormatFile,
+			},
+		},
 	}
 
 	exporter.Run()

@@ -1,51 +1,64 @@
 package exporter
 
 import (
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type collector struct {
-	certificates []string
+	exporter *Exporter
 }
 
 func (collector *collector) Describe(ch chan<- *prometheus.Desc) {}
 
 func (collector *collector) Collect(ch chan<- prometheus.Metric) {
-	for _, file := range collector.certificates {
-		cert, _ := parseCertificate(file)
-		metrics := getMetricsForCertificate(cert, file)
+	certRefs := collector.exporter.parseAllCertificates()
 
-		for _, metric := range metrics {
-			ch <- metric
+	for _, certRef := range certRefs {
+		for _, cert := range certRef.certificates {
+			metrics := getMetricsForCertificate(cert, certRef)
+			for _, metric := range metrics {
+				ch <- metric
+			}
 		}
 	}
 }
 
-func getMetricsForCertificate(cert *x509.Certificate, path string) []prometheus.Metric {
+func getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
 	baseLabels := []string{
 		"filename",
 		"filepath",
 		"serial_number",
 	}
 	baseLabelsValue := []string{
-		filepath.Base(path),
-		path,
-		cert.SerialNumber.String(),
+		filepath.Base(ref.path),
+		ref.path,
+		certData.cert.SerialNumber.String(),
 	}
 
-	issuerLabels, issuerLabelsValue := getLabelsFromName(&cert.Issuer, "issuer")
-	subjectLabels, subjectLabelsValue := getLabelsFromName(&cert.Subject, "subject")
+	issuerLabels, issuerLabelsValue := getLabelsFromName(&certData.cert.Issuer, "issuer")
+	subjectLabels, subjectLabelsValue := getLabelsFromName(&certData.cert.Subject, "subject")
 	labels := append(baseLabels, append(issuerLabels, subjectLabels...)...)
 	labelsValue := append(baseLabelsValue, append(issuerLabelsValue, subjectLabelsValue...)...)
 
+	if ref.format == certificateFormatYAML {
+		kind := strings.Split(certData.yqMatchExpr, ".")[0]
+		labels = append(labels, "embedded_kind")
+		labelsValue = append(labelsValue, strings.TrimRight(kind, "s"))
+	}
+
+	if len(certData.userID) > 0 {
+		labels = append(labels, "embedded_key")
+		labelsValue = append(labelsValue, certData.userID)
+	}
+
 	expired := 0.
-	if time.Now().Unix() > cert.NotAfter.Unix() {
+	if time.Now().Unix() > certData.cert.NotAfter.Unix() {
 		expired = 1.
 	}
 
@@ -69,7 +82,7 @@ func getMetricsForCertificate(cert *x509.Certificate, path string) []prometheus.
 				nil,
 			),
 			prometheus.CounterValue,
-			float64(cert.NotBefore.Unix()),
+			float64(certData.cert.NotBefore.Unix()),
 			labelsValue...,
 		),
 		prometheus.MustNewConstMetric(
@@ -80,7 +93,7 @@ func getMetricsForCertificate(cert *x509.Certificate, path string) []prometheus.
 				nil,
 			),
 			prometheus.CounterValue,
-			float64(cert.NotAfter.Unix()),
+			float64(certData.cert.NotAfter.Unix()),
 			labelsValue...,
 		),
 	}

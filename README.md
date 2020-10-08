@@ -11,7 +11,7 @@ The following metrics are available:
 
 ### Docker image
 
-A docker image is available here : [enix/x509-exporter](https://hub.docker.com/r/enix/x509-exporter)
+A docker image is available at [enix/x509-exporter](https://hub.docker.com/r/enix/x509-exporter)
 
 ### From source
 

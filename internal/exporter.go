@@ -97,10 +97,14 @@ const (
 var isDiscovery = false
 
 // ListenAndServe : Convenience function to start exporter
-func (exporter *Exporter) ListenAndServe() {
+func (exporter *Exporter) ListenAndServe() error {
 	exporter.DiscoverCertificates()
-	exporter.Listen()
-	exporter.Serve()
+
+	if err := exporter.Listen(); err != nil {
+		return err
+	}
+
+	return exporter.Serve()
 }
 
 // Listen : Listen for requests
@@ -110,8 +114,6 @@ func (exporter *Exporter) Listen() error {
 		if registered, ok := err.(prometheus.AlreadyRegisteredError); ok {
 			prometheus.Unregister(registered.ExistingCollector)
 			prometheus.MustRegister(&collector{exporter: exporter})
-		} else {
-			panic(err)
 		}
 	}
 
@@ -274,11 +276,11 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 			return nil, err
 		}
 
-		rawUserIDs, err := exec.Command("yq", "r", filePath, exprs.IDMatchExpr).Output()
-		if err != nil {
-			return nil, err
-		}
+		rawUserIDs, _ := exec.Command("yq", "r", filePath, exprs.IDMatchExpr).Output()
 		userIDs := strings.Split(string(rawUserIDs), "\n")
+		if len(userIDs) != len(certs) {
+			log.Warnf("failed to parse some labels in %s (yq returned nothing for \"%s\")", filePath, exprs.IDMatchExpr)
+		}
 
 		for index, cert := range certs {
 			output = append(output, &parsedCertificate{
@@ -303,6 +305,7 @@ func parsePEM(data []byte) ([]*x509.Certificate, error) {
 
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
+			log.Warnf("tried to parse malformed x509 data, %s", err.Error())
 			return nil, err
 		}
 

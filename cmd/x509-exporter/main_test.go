@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -29,6 +30,26 @@ import (
 )
 
 const port = 9090
+
+func TestRegularStartup(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+
+	e := &exporter.Exporter{
+		Port:  port,
+		Files: []string{path.Join(filepath.Dir(filename), "../../test/basic.pem")},
+	}
+
+	go e.ListenAndServe()
+	time.Sleep(3 * time.Second)
+
+	res, err := http.Get(fmt.Sprintf("http://localhost:%d/metrics", port))
+	if err != nil || res.StatusCode != 200 {
+		t.Errorf("exporter did not start within 3 seconds")
+		return
+	}
+
+	e.Shutdown()
+}
 
 func TestNoInput(t *testing.T) {
 	testRequest(t, &exporter.Exporter{
@@ -214,12 +235,98 @@ func TestNonExistentDir(t *testing.T) {
 func TestNonExistentYAMLPath(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 
-	fmt.Println(filepath.Dir(filename))
-	fmt.Println(path.Join(filepath.Dir(filename), "../../test/yaml-paths-error.conf"))
 	testRequest(t, &exporter.Exporter{
 		Port:      port,
 		YAMLs:     []string{path.Join(filepath.Dir(filename), "../../test/yaml-paths-error.conf")},
 		YAMLPaths: exporter.DefaultYamlPaths,
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 1, "missing x509_cert_expired metric(s)")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 1, "missing x509_cert_not_before metric(s)")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 1, "missing x509_cert_not_after metric(s)")
+	})
+}
+
+func TestCorruptedCertInYAML(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+
+	testRequest(t, &exporter.Exporter{
+		Port:      port,
+		YAMLs:     []string{path.Join(filepath.Dir(filename), "../../test/yaml-embedded-error.conf")},
+		YAMLPaths: exporter.DefaultYamlPaths,
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0, "missing x509_cert_expired metric(s)")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0, "missing x509_cert_not_before metric(s)")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0, "missing x509_cert_not_after metric(s)")
+	})
+}
+
+func TestBindAddrAlreadyInUse(t *testing.T) {
+	listener, _ := net.Listen("tcp", ":9090")
+	e := &exporter.Exporter{Port: 9090}
+	err := e.ListenAndServe()
+	listener.Close()
+	assert.NotNil(t, err, "not error was returned for bind failure")
+}
+
+func TestLoadFileAsDir(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+
+	testRequest(t, &exporter.Exporter{
+		Port:        port,
+		Directories: []string{path.Join(filepath.Dir(filename), "../../test/basic.pem")},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0, "missing x509_cert_expired metric(s)")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0, "missing x509_cert_not_before metric(s)")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0, "missing x509_cert_not_after metric(s)")
+	})
+}
+
+func TestLoadDirAsFile(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+
+	testRequest(t, &exporter.Exporter{
+		Port:  port,
+		Files: []string{path.Join(filepath.Dir(filename), "../../test")},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0, "missing x509_cert_expired metric(s)")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0, "missing x509_cert_not_before metric(s)")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0, "missing x509_cert_not_after metric(s)")
+	})
+}
+
+func TestInvalidYAMLMatchExpr(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+
+	testRequest(t, &exporter.Exporter{
+		Port:  port,
+		YAMLs: []string{path.Join(filepath.Dir(filename), "../../test/yaml-embedded.conf")},
+		YAMLPaths: []exporter.YAMLCertRef{
+			{
+				CertMatchExpr: "clusters.[*].cluster.certificate-authority-data",
+				IDMatchExpr:   "clusters.[.name",
+				Format:        exporter.YAMLCertFormatBase64,
+			},
+		},
 	}, func(metrics []model.MetricFamily) {
 		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
 		assert.Len(t, foundMetrics, 1, "missing x509_cert_expired metric(s)")
@@ -290,13 +397,9 @@ func testRequest(t *testing.T, e *exporter.Exporter, cb func(metrics []model.Met
 		var metric model.MetricFamily
 		metrics := []model.MetricFamily{}
 
-		// a, _ := ioutil.ReadAll(res.Body)
-		// fmt.Println(string(a))
-
 		decoder := expfmt.NewDecoder(res.Body, expfmt.FmtText)
 		for {
 			if err := decoder.Decode(&metric); err != nil {
-				fmt.Println(err)
 				break
 			}
 

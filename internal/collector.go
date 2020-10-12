@@ -14,7 +14,29 @@ type collector struct {
 	exporter *Exporter
 }
 
-func (collector *collector) Describe(ch chan<- *prometheus.Desc) {}
+var (
+	certExpiredDesc = prometheus.NewDesc(
+		"x509_cert_expired",
+		"Indicates if the certificate is expired.",
+		[]string{"filename", "filepath", "serial_number"}, nil,
+	)
+	certNotBeforeDesc = prometheus.NewDesc(
+		"x509_cert_not_before",
+		"Indicates the certificate's not before timestamp.",
+		[]string{"filename", "filepath", "serial_number"}, nil,
+	)
+	certNotAfterDesc = prometheus.NewDesc(
+		"x509_cert_not_after",
+		"Indicates the certificate's not after timestamp.",
+		[]string{"filename", "filepath", "serial_number"}, nil,
+	)
+)
+
+func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- certExpiredDesc
+	ch <- certNotBeforeDesc
+	ch <- certNotAfterDesc
+}
 
 func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 	certRefs := collector.exporter.parseAllCertificates()
@@ -70,7 +92,7 @@ func getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) 
 				labels,
 				nil,
 			),
-			prometheus.CounterValue,
+			prometheus.GaugeValue,
 			expired,
 			labelsValue...,
 		),
@@ -81,7 +103,7 @@ func getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) 
 				labels,
 				nil,
 			),
-			prometheus.CounterValue,
+			prometheus.GaugeValue,
 			float64(certData.cert.NotBefore.Unix()),
 			labelsValue...,
 		),
@@ -92,7 +114,7 @@ func getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) 
 				labels,
 				nil,
 			),
-			prometheus.CounterValue,
+			prometheus.GaugeValue,
 			float64(certData.cert.NotAfter.Unix()),
 			labelsValue...,
 		),

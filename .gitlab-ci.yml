@@ -1,10 +1,20 @@
 stages:
+  - test
   - build
   - release
   - publish
 
 variables:
   IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+
+test:
+  stage: test
+  image: golang:1.15-alpine
+  script:
+    - apk add --update gcc libc-dev
+    - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"
+    - chmod +x /usr/local/bin/yq
+    - go test -v ./cmd/x509-exporter
 
 build:
   stage: build

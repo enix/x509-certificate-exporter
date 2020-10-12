@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	exporter "enix.io/x509-exporter/internal"
 	getopt "github.com/pborman/getopt/v2"
 	log "github.com/sirupsen/logrus"
@@ -42,7 +40,6 @@ func main() {
 
 	if len(files)+len(directories)+len(kubeconfigs) == 0 {
 		log.Warn("no watch path(s) were specified")
-		fmt.Println()
 		getopt.Usage()
 		return
 	}
@@ -56,29 +53,8 @@ func main() {
 		Files:       files,
 		Directories: directories,
 		YAMLs:       kubeconfigs,
-		YAMLPaths: []exporter.YAMLCertRef{
-			{
-				CertMatchExpr: "clusters.[*].cluster.certificate-authority-data",
-				IDMatchExpr:   "clusters.[*].name",
-				Format:        exporter.YAMLCertFormatBase64,
-			},
-			{
-				CertMatchExpr: "clusters.[*].cluster.certificate-authority",
-				IDMatchExpr:   "clusters.[*].name",
-				Format:        exporter.YAMLCertFormatFile,
-			},
-			{
-				CertMatchExpr: "users.[*].user.client-certificate-data",
-				IDMatchExpr:   "users.[*].name",
-				Format:        exporter.YAMLCertFormatBase64,
-			},
-			{
-				CertMatchExpr: "users.[*].user.client-certificate",
-				IDMatchExpr:   "users.[*].name",
-				Format:        exporter.YAMLCertFormatFile,
-			},
-		},
+		YAMLPaths:   exporter.DefaultYamlPaths,
 	}
 
-	exporter.Run()
+	exporter.ListenAndServe()
 }

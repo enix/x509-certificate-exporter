@@ -1,4 +1,4 @@
-package exporter
+package internal
 
 func unique(data []*certificateRef) []*certificateRef {
 	output := []*certificateRef{}

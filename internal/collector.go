@@ -1,4 +1,4 @@
-package exporter
+package internal
 
 import (
 	"crypto/x509/pkix"
@@ -15,31 +15,34 @@ type collector struct {
 }
 
 var (
-	certExpiredDesc = prometheus.NewDesc(
-		"x509_cert_expired",
-		"Indicates if the certificate is expired.",
-		[]string{"filename", "filepath", "serial_number"}, nil,
-	)
-	certNotBeforeDesc = prometheus.NewDesc(
-		"x509_cert_not_before",
-		"Indicates the certificate's not before timestamp.",
-		[]string{"filename", "filepath", "serial_number"}, nil,
-	)
-	certNotAfterDesc = prometheus.NewDesc(
-		"x509_cert_not_after",
-		"Indicates the certificate's not after timestamp.",
-		[]string{"filename", "filepath", "serial_number"}, nil,
-	)
+	baseLabels = []string{"filename", "filepath", "serial_number"}
+
+	certExpiredMetric = "x509_cert_expired"
+	certExpiredHelp   = "Indicates if the certificate is expired"
+	certExpiredDesc   = prometheus.NewDesc(certExpiredMetric, certExpiredHelp, baseLabels, nil)
+
+	certNotBeforeMetric = "x509_cert_not_before"
+	certNotBeforeHelp   = "Indicates the certificate's not before timestamp"
+	certNotBeforeDesc   = prometheus.NewDesc(certNotBeforeMetric, certNotBeforeHelp, baseLabels, nil)
+
+	certNotAfterMetric = "x509_cert_not_after"
+	certNotAfterHelp   = "Indicates the certificate's not after timestamp"
+	certNotAfterDesc   = prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, baseLabels, nil)
+
+	certErrorsMetric = "x509_read_errors"
+	certErrorsHelp   = "Indicates the number of read failure(s)"
+	certErrorsDesc   = prometheus.NewDesc(certErrorsMetric, certErrorsHelp, nil, nil)
 )
 
 func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- certExpiredDesc
 	ch <- certNotBeforeDesc
 	ch <- certNotAfterDesc
+	ch <- certErrorsDesc
 }
 
 func (collector *collector) Collect(ch chan<- prometheus.Metric) {
-	certRefs := collector.exporter.parseAllCertificates()
+	certRefs, certErrors := collector.exporter.parseAllCertificates()
 
 	for _, certRef := range certRefs {
 		for _, cert := range certRef.certificates {
@@ -49,6 +52,12 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 			}
 		}
 	}
+
+	ch <- prometheus.MustNewConstMetric(
+		certErrorsDesc,
+		prometheus.GaugeValue,
+		float64(len(certErrors)),
+	)
 }
 
 func getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
@@ -86,34 +95,19 @@ func getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) 
 
 	return []prometheus.Metric{
 		prometheus.MustNewConstMetric(
-			prometheus.NewDesc(
-				"x509_cert_expired",
-				"x509 certificate expiration boolean",
-				labels,
-				nil,
-			),
+			prometheus.NewDesc(certExpiredMetric, certExpiredHelp, labels, nil),
 			prometheus.GaugeValue,
 			expired,
 			labelsValue...,
 		),
 		prometheus.MustNewConstMetric(
-			prometheus.NewDesc(
-				"x509_cert_not_before",
-				"x509 certificate not before timestamp",
-				labels,
-				nil,
-			),
+			prometheus.NewDesc(certNotBeforeMetric, certNotBeforeHelp, labels, nil),
 			prometheus.GaugeValue,
 			float64(certData.cert.NotBefore.Unix()),
 			labelsValue...,
 		),
 		prometheus.MustNewConstMetric(
-			prometheus.NewDesc(
-				"x509_cert_not_after",
-				"x509 certificate not after timestamp",
-				labels,
-				nil,
-			),
+			prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, labels, nil),
 			prometheus.GaugeValue,
 			float64(certData.cert.NotAfter.Unix()),
 			labelsValue...,

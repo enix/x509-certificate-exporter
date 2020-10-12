@@ -10,6 +10,8 @@ variables:
 test:
   stage: test
   image: golang:1.15-alpine
+  except:
+    - tags
   script:
     - apk add --update gcc libc-dev
     - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"

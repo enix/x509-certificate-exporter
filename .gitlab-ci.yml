@@ -16,7 +16,11 @@ test:
     - apk add --update gcc libc-dev
     - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"
     - chmod +x /usr/local/bin/yq
-    - go test -v ./cmd/x509-exporter
+    - go test -v -timeout 10s -coverpkg=./internal -coverprofile=coverage.cov ./cmd/x509-exporter
+    - go tool cover -html=coverage.cov -o coverage.html
+  artifacts:
+    paths:
+      - coverage.html
 
 build:
   stage: build

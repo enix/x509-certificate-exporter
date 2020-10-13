@@ -143,9 +143,14 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 		}
 
 		rawUserIDs, _ := exec.Command("yq", "r", filePath, exprs.IDMatchExpr).Output()
-		userIDs := strings.Split(string(rawUserIDs), "\n")
+		userIDs := []string{}
+		for _, userID := range strings.Split(string(rawUserIDs), "\n") {
+			if userID != "" {
+				userIDs = append(userIDs, userID)
+			}
+		}
 		if len(userIDs) != len(certs) {
-			log.Warnf("failed to parse some labels in %s (yq returned nothing for \"%s\")", filePath, exprs.IDMatchExpr)
+			log.Warnf("failed to parse some labels in %s (got %d IDs but %d certs for \"%s\")", filePath, len(userIDs), len(certs), exprs.IDMatchExpr)
 		}
 
 		for index, cert := range certs {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 type collector struct {
@@ -43,6 +44,10 @@ func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
 
 func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 	certRefs, certErrors := collector.exporter.parseAllCertificates()
+
+	for _, err := range certErrors {
+		log.Debugf("error in \"%s\": %s", err.ref.path, err.err.Error())
+	}
 
 	for _, certRef := range certRefs {
 		for _, cert := range certRef.certificates {

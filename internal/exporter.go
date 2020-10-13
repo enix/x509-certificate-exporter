@@ -80,7 +80,14 @@ func (exporter *Exporter) Shutdown() error {
 // DiscoverCertificates : Parse all certs in a dry run with verbose logging
 func (exporter *Exporter) DiscoverCertificates() {
 	exporter.isDiscovery = true
-	exporter.parseAllCertificates()
+	certs, errs := exporter.parseAllCertificates()
+
+	certCount := 0
+	for _, cert := range certs {
+		certCount += len(cert.certificates)
+	}
+	log.Infof("parsed %d certificates (%d read failures)", certCount, len(errs))
+
 	exporter.isDiscovery = false
 }
 
@@ -132,20 +139,23 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	output = unique(output)
 	for _, cert := range output {
 		err := cert.parse()
-		outputErrors = append(outputErrors, &certificateError{
-			err: err,
-			ref: cert,
-		})
 
-		if !exporter.isDiscovery {
-			continue
-		}
+		if err != nil || len(cert.certificates) == 0 {
+			if err != nil {
+				err = fmt.Errorf("failed to parse \"%s\", %s", cert.path, err.Error())
+			} else {
+				err = fmt.Errorf("no certificate(s) found in \"%s\"", cert.path)
+			}
 
-		if err != nil {
-			log.Warnf("failed to load \"%s\", %s", cert.path, err.Error())
-		} else if len(cert.certificates) == 0 {
-			log.Warnf("no certificate(s) found in \"%s\"", cert.path)
-		} else {
+			outputErrors = append(outputErrors, &certificateError{
+				err: err,
+				ref: cert,
+			})
+
+			if exporter.isDiscovery {
+				log.Warn(err)
+			}
+		} else if exporter.isDiscovery {
 			log.Infof("%d valid certificate(s) found in \"%s\"", len(cert.certificates), cert.path)
 		}
 	}

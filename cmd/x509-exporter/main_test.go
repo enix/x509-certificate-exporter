@@ -154,13 +154,13 @@ func TestYAMLPath(t *testing.T) {
 		YAMLPaths: exporter.DefaultYamlPaths,
 	}, func(metrics []model.MetricFamily) {
 		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
-		assert.Len(t, foundMetrics, 3, "missing x509_cert_expired metric(s)")
+		assert.Len(t, foundMetrics, 2, "missing x509_cert_expired metric(s)")
 
 		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
-		assert.Len(t, foundNbMetrics, 3, "missing x509_cert_not_before metric(s)")
+		assert.Len(t, foundNbMetrics, 2, "missing x509_cert_not_before metric(s)")
 
 		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
-		assert.Len(t, foundNaMetrics, 3, "missing x509_cert_not_after metric(s)")
+		assert.Len(t, foundNaMetrics, 2, "missing x509_cert_not_after metric(s)")
 	})
 }
 
@@ -357,13 +357,13 @@ func TestInvalidYAMLMatchExpr(t *testing.T) {
 		},
 	}, func(metrics []model.MetricFamily) {
 		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
-		assert.Len(t, foundMetrics, 1, "missing x509_cert_expired metric(s)")
+		assert.Len(t, foundMetrics, 0, "extra x509_cert_expired metric(s)")
 
 		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
-		assert.Len(t, foundNbMetrics, 1, "missing x509_cert_not_before metric(s)")
+		assert.Len(t, foundNbMetrics, 0, "extra x509_cert_not_before metric(s)")
 
 		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
-		assert.Len(t, foundNaMetrics, 1, "missing x509_cert_not_after metric(s)")
+		assert.Len(t, foundNaMetrics, 0, "extra x509_cert_not_after metric(s)")
 
 		errorMetric := getMetricsForName(metrics, "x509_read_errors")
 		assert.Len(t, errorMetric, 1, "missing x509_read_errors metric")

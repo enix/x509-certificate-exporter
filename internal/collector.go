@@ -46,7 +46,7 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 	certRefs, certErrors := collector.exporter.parseAllCertificates()
 
 	for _, err := range certErrors {
-		log.Debugf("error in \"%s\": %s", err.ref.path, err.err.Error())
+		log.Debugf("error in \"%s\": %+v", err)
 	}
 
 	for _, certRef := range certRefs {

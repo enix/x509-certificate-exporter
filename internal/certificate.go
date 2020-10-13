@@ -11,8 +11,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // YAMLCertRef : Contains information to access certificates in yaml files
@@ -150,7 +148,7 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 			}
 		}
 		if len(userIDs) != len(certs) {
-			log.Warnf("failed to parse some labels in %s (got %d IDs but %d certs for \"%s\")", filePath, len(userIDs), len(certs), exprs.IDMatchExpr)
+			return nil, fmt.Errorf("failed to parse some labels in %s (got %d IDs but %d certs for \"%s\")", filePath, len(userIDs), len(certs), exprs.IDMatchExpr)
 		}
 
 		for index, cert := range certs {

@@ -51,7 +51,7 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 
 	for _, certRef := range certRefs {
 		for _, cert := range certRef.certificates {
-			metrics := getMetricsForCertificate(cert, certRef)
+			metrics := collector.getMetricsForCertificate(cert, certRef)
 			for _, metric := range metrics {
 				ch <- metric
 			}
@@ -65,7 +65,12 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 	)
 }
 
-func getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
+func (collector *collector) getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
+	trimmedFilePath := ref.path
+	if ref.path[:len(collector.exporter.TrimPath)] == collector.exporter.TrimPath {
+		trimmedFilePath = trimmedFilePath[len(collector.exporter.TrimPath):]
+	}
+
 	baseLabels := []string{
 		"filename",
 		"filepath",
@@ -73,7 +78,7 @@ func getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) 
 	}
 	baseLabelsValue := []string{
 		filepath.Base(ref.path),
-		ref.path,
+		trimmedFilePath,
 		certData.cert.SerialNumber.String(),
 	}
 

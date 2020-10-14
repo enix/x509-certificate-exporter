@@ -384,43 +384,69 @@ func TestMultipleErrors(t *testing.T) {
 	})
 }
 
+func TestTrimPath(t *testing.T) {
+	certPath := "/tmp/test.pem"
+	generateCertificate(certPath, time.Now())
+
+	testRequest(t, &exporter.Exporter{
+		Port:     port,
+		Files:    []string{certPath},
+		TrimPath: "/tmp/",
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 1, "missing x509_cert_expired metric(s)")
+		checkLabels(t, foundMetrics[0].GetLabel(), "test.pem")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 1, "missing x509_cert_not_before metric(s)")
+		checkLabels(t, foundNbMetrics[0].GetLabel(), "test.pem")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 1, "missing x509_cert_not_after metric(s)")
+		checkLabels(t, foundNaMetrics[0].GetLabel(), "test.pem")
+
+		os.Remove(certPath)
+	})
+}
+
 func testSinglePEM(t *testing.T, expired float64, notBefore time.Time) {
-	generateCertificate("/tmp/test.pem", notBefore)
+	certPath := "/tmp/test.pem"
+	generateCertificate(certPath, notBefore)
 
 	testRequest(t, &exporter.Exporter{
 		Port:  port,
-		Files: []string{"/tmp/test.pem"},
+		Files: []string{certPath},
 	}, func(metrics []model.MetricFamily) {
 		metric := getMetricsForName(metrics, "x509_cert_expired")
 		assert.NotEmpty(t, metric, "missing x509_cert_expired metric")
 		value := metric[0].GetGauge().GetValue()
 		assert.Equal(t, expired, value, fmt.Sprintf("x509_cert_expired should be %f", expired))
-		checkLabels(t, metric[0].GetLabel())
+		checkLabels(t, metric[0].GetLabel(), certPath)
 
 		nbMetric := getMetricsForName(metrics, "x509_cert_not_before")
 		assert.NotEmpty(t, nbMetric, "missing x509_cert_not_before metric")
 		nbValue := nbMetric[0].GetGauge().GetValue()
 		assert.Equal(t, float64(notBefore.Unix()), nbValue, "x509_cert_not_before has invalid value")
-		checkLabels(t, nbMetric[0].GetLabel())
+		checkLabels(t, nbMetric[0].GetLabel(), certPath)
 
 		naMetric := getMetricsForName(metrics, "x509_cert_not_after")
 		assert.NotEmpty(t, naMetric, "missing x509_cert_not_after metric")
 		naValue := naMetric[0].GetGauge().GetValue()
 		assert.Equal(t, float64(notBefore.Add(time.Hour).Unix()), naValue, "x509_cert_not_after has invalid value")
-		checkLabels(t, naMetric[0].GetLabel())
+		checkLabels(t, naMetric[0].GetLabel(), certPath)
 
-		os.Remove("/tmp/test.pem")
+		os.Remove(certPath)
 	})
 }
 
-func checkLabels(t *testing.T, labels []*model.LabelPair) {
+func checkLabels(t *testing.T, labels []*model.LabelPair, path string) {
 	assert.Len(t, labels, 15, "Missing labels")
 
 	for _, label := range labels {
 		if label.GetName() == "filename" {
-			assert.Equal(t, "test.pem", label.GetValue(), "Invalid label value for %s", label.GetName())
+			assert.Equal(t, filepath.Base(path), label.GetValue(), "Invalid label value for %s", label.GetName())
 		} else if label.GetName() == "filepath" {
-			assert.Equal(t, "/tmp/test.pem", label.GetValue(), "Invalid label value for %s", label.GetName())
+			assert.Equal(t, path, label.GetValue(), "Invalid label value for %s", label.GetName())
 		} else if label.GetName() == "serial_number" {
 			assert.Equal(t, "1", label.GetValue(), "Invalid label value for %s", label.GetName())
 		} else {

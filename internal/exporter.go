@@ -20,6 +20,7 @@ type Exporter struct {
 	Directories []string
 	YAMLs       []string
 	YAMLPaths   []YAMLCertRef
+	TrimPath    string
 
 	listener    net.Listener
 	handler     *http.Handler
@@ -97,14 +98,14 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 
 	for _, file := range exporter.Files {
 		output = append(output, &certificateRef{
-			path:   file,
+			path:   path.Clean(file),
 			format: certificateFormatPEM,
 		})
 	}
 
 	for _, file := range exporter.YAMLs {
 		output = append(output, &certificateRef{
-			path:      file,
+			path:      path.Clean(file),
 			format:    certificateFormatYAML,
 			yamlPaths: exporter.YAMLPaths,
 		})
@@ -130,7 +131,7 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 			}
 
 			output = append(output, &certificateRef{
-				path:   path.Join(dir, file.Name()),
+				path:   path.Clean(path.Join(dir, file.Name())),
 				format: certificateFormatPEM,
 			})
 		}

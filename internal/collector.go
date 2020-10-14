@@ -3,6 +3,7 @@ package internal
 import (
 	"crypto/x509/pkix"
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -66,10 +67,14 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (collector *collector) getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
-	trimmedFilePath := ref.path
-	if ref.path[:len(collector.exporter.TrimPath)] == collector.exporter.TrimPath {
-		trimmedFilePath = trimmedFilePath[len(collector.exporter.TrimPath):]
+	trimComponentsCount := collector.exporter.TrimPathComponents
+	pathComponents := strings.Split(ref.path, "/")
+	prefix := ""
+	if pathComponents[0] == "" {
+		trimComponentsCount++
+		prefix = "/"
 	}
+	trimmedFilePath := path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
 
 	baseLabels := []string{
 		"filename",

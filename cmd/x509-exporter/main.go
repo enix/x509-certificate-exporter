@@ -21,7 +21,7 @@ func main() {
 	help := getopt.BoolLong("help", 'h', "show this help message and exit")
 	port := getopt.IntLong("port", 'p', 9090, "prometheus exporter listening port")
 	debug := getopt.BoolLong("debug", 0, "enable debug mode")
-	trimPath := getopt.StringLong("trim-path", 0, "", "remove leading elements from path(s) in label(s)")
+	trimPathComponents := getopt.IntLong("trim-path-components", 0, 0, "remove <n> leading component(s) from path(s) in label(s)")
 
 	files := stringArrayFlag{}
 	getopt.FlagLong(&files, "watch-file", 'f', "watch one or more x509 certificate file")
@@ -55,12 +55,12 @@ func main() {
 	}
 
 	exporter := exporter.Exporter{
-		Port:        *port,
-		Files:       files,
-		Directories: directories,
-		YAMLs:       kubeconfigs,
-		YAMLPaths:   exporter.DefaultYamlPaths,
-		TrimPath:    *trimPath,
+		Port:               *port,
+		Files:              files,
+		Directories:        directories,
+		YAMLs:              kubeconfigs,
+		YAMLPaths:          exporter.DefaultYamlPaths,
+		TrimPathComponents: *trimPathComponents,
 	}
 
 	exporter.ListenAndServe()

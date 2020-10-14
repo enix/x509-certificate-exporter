@@ -15,12 +15,12 @@ import (
 
 // Exporter : Configuration (from command-line)
 type Exporter struct {
-	Port        int
-	Files       []string
-	Directories []string
-	YAMLs       []string
-	YAMLPaths   []YAMLCertRef
-	TrimPath    string
+	Port               int
+	Files              []string
+	Directories        []string
+	YAMLs              []string
+	YAMLPaths          []YAMLCertRef
+	TrimPathComponents int
 
 	listener    net.Listener
 	handler     *http.Handler

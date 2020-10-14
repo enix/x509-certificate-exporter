@@ -389,21 +389,21 @@ func TestTrimPath(t *testing.T) {
 	generateCertificate(certPath, time.Now())
 
 	testRequest(t, &exporter.Exporter{
-		Port:     port,
-		Files:    []string{certPath},
-		TrimPath: "/tmp/",
+		Port:               port,
+		Files:              []string{certPath},
+		TrimPathComponents: 1,
 	}, func(metrics []model.MetricFamily) {
 		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
 		assert.Len(t, foundMetrics, 1, "missing x509_cert_expired metric(s)")
-		checkLabels(t, foundMetrics[0].GetLabel(), "test.pem")
+		checkLabels(t, foundMetrics[0].GetLabel(), "/test.pem")
 
 		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
 		assert.Len(t, foundNbMetrics, 1, "missing x509_cert_not_before metric(s)")
-		checkLabels(t, foundNbMetrics[0].GetLabel(), "test.pem")
+		checkLabels(t, foundNbMetrics[0].GetLabel(), "/test.pem")
 
 		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
 		assert.Len(t, foundNaMetrics, 1, "missing x509_cert_not_after metric(s)")
-		checkLabels(t, foundNaMetrics[0].GetLabel(), "test.pem")
+		checkLabels(t, foundNaMetrics[0].GetLabel(), "/test.pem")
 
 		os.Remove(certPath)
 	})

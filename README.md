@@ -24,8 +24,7 @@ go build ./cmd/x509-exporter
 ## Usage
 
 ```
-Usage: x509-exporter [-h] [--debug] [-d value] [-f value] [-k value] [-p value] [parameters ...]
-
+Usage: x509-exporter [-h] [--debug] [-d value] [-f value] [-k value] [-p value] [--trim-path value] [parameters ...]
      --debug       enable debug mode
  -d, --watch-dir=value
                    watch one or more directory which contains x509 certificate
@@ -38,6 +37,8 @@ Usage: x509-exporter [-h] [--debug] [-d value] [-f value] [-k value] [-p value] 
                    Config) which contains embedded x509 certificates or PEM
                    file paths
  -p, --port=value  prometheus exporter listening port [9090]
+     --trim-path=value
+                   remove leading elements from path(s) in label(s)
 ```
 
 ## FAQ

@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/kubernetes"
 )
 
 // Exporter : Configuration (from command-line)
@@ -22,6 +23,12 @@ type Exporter struct {
 	YAMLPaths          []YAMLCertRef
 	TrimPathComponents int
 
+	KubeIncludeNamespaces []string
+	KubeExcludeNamespaces []string
+	KubeIncludeLabels     []string
+	KubeExcludeLabels     []string
+
+	kubeClient  *kubernetes.Clientset
 	listener    net.Listener
 	handler     *http.Handler
 	server      *http.Server
@@ -95,6 +102,15 @@ func (exporter *Exporter) DiscoverCertificates() {
 func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certificateError) {
 	output := []*certificateRef{}
 	outputErrors := []*certificateError{}
+	raiseError := func(err error) {
+		outputErrors = append(outputErrors, &certificateError{
+			err: err,
+		})
+
+		if exporter.isDiscovery {
+			log.Warn(err)
+		}
+	}
 
 	for _, file := range exporter.Files {
 		output = append(output, &certificateRef{
@@ -114,14 +130,7 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	for _, dir := range exporter.Directories {
 		files, err := ioutil.ReadDir(dir)
 		if err != nil {
-			err = fmt.Errorf("failed to open directory \"%s\", %s", dir, err.Error())
-			outputErrors = append(outputErrors, &certificateError{
-				err: err,
-			})
-
-			if exporter.isDiscovery {
-				log.Warn(err)
-			}
+			raiseError(fmt.Errorf("failed to open directory \"%s\", %s", dir, err.Error()))
 			continue
 		}
 
@@ -137,6 +146,14 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 		}
 	}
 
+	if exporter.kubeClient != nil {
+		certs, errs := exporter.parseAllKubeSecrets()
+		output = append(output, certs...)
+		for _, err := range errs {
+			raiseError(err)
+		}
+	}
+
 	output = unique(output)
 	for _, cert := range output {
 		err := cert.parse()
@@ -148,14 +165,7 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 				err = fmt.Errorf("no certificate(s) found in \"%s\"", cert.path)
 			}
 
-			outputErrors = append(outputErrors, &certificateError{
-				err: err,
-				ref: cert,
-			})
-
-			if exporter.isDiscovery {
-				log.Warn(err)
-			}
+			raiseError(err)
 		} else if exporter.isDiscovery {
 			log.Infof("%d valid certificate(s) found in \"%s\"", len(cert.certificates), cert.path)
 		}

@@ -27,10 +27,24 @@ func main() {
 	getopt.FlagLong(&files, "watch-file", 'f', "watch one or more x509 certificate file")
 
 	directories := stringArrayFlag{}
-	getopt.FlagLong(&directories, "watch-dir", 'd', "watch one or more directory which contains x509 certificate files")
+	getopt.FlagLong(&directories, "watch-dir", 'd', "watch one or more directory which contains x509 certificate files (not recursive)")
 
-	kubeconfigs := stringArrayFlag{}
-	getopt.FlagLong(&kubeconfigs, "watch-kubeconf", 'k', "watch one or more Kubernetes client configuration (kind Config) which contains embedded x509 certificates or PEM file paths")
+	yamls := stringArrayFlag{}
+	getopt.FlagLong(&yamls, "watch-kubeconf", 'k', "watch one or more Kubernetes client configuration (kind Config) which contains embedded x509 certificates or PEM file paths")
+
+	kubeEnabled := getopt.BoolLong("watch-kube-secrets", 0, "scrape kubernetes.io/tls secrets and monitor them")
+
+	kubeIncludeNamespaces := stringArrayFlag{}
+	getopt.FlagLong(&kubeIncludeNamespaces, "include-namespace", 0, "add the given kube namespace to the watch list (when used, all namespaces are excluded by default)")
+
+	kubeExcludeNamespaces := stringArrayFlag{}
+	getopt.FlagLong(&kubeExcludeNamespaces, "exclude-namespace", 0, "removes the given kube namespace from the watch list (applied after --include-namespace)")
+
+	kubeIncludeLabels := stringArrayFlag{}
+	getopt.FlagLong(&kubeIncludeLabels, "include-label", 0, "add the kube secrets with the given label (or label value if specified) to the watch list (when used, all secrets are excluded by default)")
+
+	kubeExcludeLabels := stringArrayFlag{}
+	getopt.FlagLong(&kubeExcludeLabels, "exclude-label", 0, "removes the kube secrets with the given label (or label value if specified) from the watch list (applied after --include-label)")
 
 	getopt.Parse()
 
@@ -38,17 +52,6 @@ func main() {
 		getopt.Usage()
 		return
 	}
-
-	if len(files)+len(directories)+len(kubeconfigs) == 0 {
-		log.Warn("no watch path(s) were specified")
-		getopt.Usage()
-		return
-	}
-
-	log.SetFormatter(&log.TextFormatter{
-		DisableColors: false,
-		FullTimestamp: true,
-	})
 
 	if *debug {
 		log.SetLevel(log.DebugLevel)
@@ -58,9 +61,18 @@ func main() {
 		Port:               *port,
 		Files:              files,
 		Directories:        directories,
-		YAMLs:              kubeconfigs,
+		YAMLs:              yamls,
 		YAMLPaths:          exporter.DefaultYamlPaths,
 		TrimPathComponents: *trimPathComponents,
+
+		KubeIncludeNamespaces: kubeIncludeNamespaces,
+		KubeExcludeNamespaces: kubeExcludeNamespaces,
+		KubeIncludeLabels:     kubeIncludeLabels,
+		KubeExcludeLabels:     kubeExcludeLabels,
+	}
+
+	if *kubeEnabled {
+		exporter.ConnectToKubernetesCluster()
 	}
 
 	exporter.ListenAndServe()

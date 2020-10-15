@@ -46,8 +46,8 @@ func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
 func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 	certRefs, certErrors := collector.exporter.parseAllCertificates()
 
-	for _, err := range certErrors {
-		log.Debugf("error in \"%s\": %+v", err)
+	for index, err := range certErrors {
+		log.Debugf("read error %d: %+v", index+1, err)
 	}
 
 	for _, certRef := range certRefs {
@@ -67,14 +67,20 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (collector *collector) getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
-	trimComponentsCount := collector.exporter.TrimPathComponents
-	pathComponents := strings.Split(ref.path, "/")
-	prefix := ""
-	if pathComponents[0] == "" {
-		trimComponentsCount++
-		prefix = "/"
+	var trimmedFilePath string
+
+	if ref.format != certificateFormatKubeSecret {
+		trimComponentsCount := collector.exporter.TrimPathComponents
+		pathComponents := strings.Split(ref.path, "/")
+		prefix := ""
+		if pathComponents[0] == "" {
+			trimComponentsCount++
+			prefix = "/"
+		}
+		trimmedFilePath = path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
+	} else {
+		trimmedFilePath = ref.path
 	}
-	trimmedFilePath := path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
 
 	baseLabels := []string{
 		"filename",

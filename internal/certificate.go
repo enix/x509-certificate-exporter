@@ -11,6 +11,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 // YAMLCertRef : Contains information to access certificates in yaml files
@@ -56,9 +58,11 @@ var DefaultYamlPaths = []YAMLCertRef{
 type certificateRef struct {
 	path         string
 	format       certificateFormat
-	yamlPaths    []YAMLCertRef
 	certificates []*parsedCertificate
 	userIDs      []string
+
+	yamlPaths  []YAMLCertRef
+	kubeSecret *v1.Secret
 }
 
 type parsedCertificate struct {
@@ -75,8 +79,9 @@ type certificateError struct {
 type certificateFormat int
 
 const (
-	certificateFormatPEM  certificateFormat = iota
-	certificateFormatYAML                   = iota
+	certificateFormatPEM        certificateFormat = iota
+	certificateFormatYAML                         = iota
+	certificateFormatKubeSecret                   = iota
 )
 
 func (cert *certificateRef) parse() error {
@@ -87,6 +92,8 @@ func (cert *certificateRef) parse() error {
 		cert.certificates, err = readAndParsePEMFile(cert.path)
 	case certificateFormatYAML:
 		cert.certificates, err = readAndParseYAMLFile(cert.path, cert.yamlPaths)
+	case certificateFormatKubeSecret:
+		cert.certificates, err = readAndParseKubeSecret(cert.path, cert.kubeSecret)
 	}
 
 	return err
@@ -158,6 +165,27 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 				yqMatchExpr: exprs.CertMatchExpr,
 			})
 		}
+	}
+
+	return output, nil
+}
+
+func readAndParseKubeSecret(path string, secret *v1.Secret) ([]*parsedCertificate, error) {
+	key := "tls.crt"
+	if _, ok := secret.Data[key]; !ok {
+		return nil, fmt.Errorf("secret \"%s\" has no key \"%s\"", secret.GetName(), key)
+	}
+
+	certs, err := parsePEM(secret.Data[key])
+	if err != nil {
+		return nil, err
+	}
+
+	output := []*parsedCertificate{}
+	for _, cert := range certs {
+		output = append(output, &parsedCertificate{
+			cert: cert,
+		})
 	}
 
 	return output, nil

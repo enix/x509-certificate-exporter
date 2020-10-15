@@ -12,12 +12,24 @@ test:
   image: golang:1.15-alpine
   except:
     - tags
-  script:
-    - apk add --update gcc libc-dev
+  before_script:
+    - apk add --update gcc libc-dev curl docker-cli bash
     - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"
     - chmod +x /usr/local/bin/yq
-    - go test -v -timeout 10s -coverpkg=./internal -coverprofile=coverage.cov ./cmd/x509-exporter
+    - GO111MODULE="on" go get sigs.k8s.io/kind@v0.9.0
+    - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+    - chmod +x kubectl
+    - mv kubectl /usr/local/bin
+    - docker info
+    - kind create cluster --name $CI_PIPELINE_ID --config=test/kind-config.yml
+    - export IP=$(docker inspect $CI_PIPELINE_ID-control-plane --format '{{ .NetworkSettings.Networks.kind.Gateway }}')
+    - sed -i -E -e "s/localhost|0\.0\.0\.0/$IP/g" "$HOME/.kube/config"
+    - kubectl --insecure-skip-tls-verify cluster-info
+  script:
+    - go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal
     - go tool cover -html=coverage.cov -o coverage.html
+  after_script:
+    - kind delete cluster --name $CI_PIPELINE_ID
   artifacts:
     paths:
       - coverage.html
@@ -56,3 +68,34 @@ publish-docker-hub:
     - docker login -u "$DOCKER_HUB_USER" -p "$DOCKER_HUB_PASSWORD"
     - echo "Push release $CI_COMMIT_REF_NAME ..."
     - docker push $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
+
+# image: docker:stable
+# variables:
+#   KUBECTL: v1.17.0
+#   KIND: v0.8.1
+# stages:
+#   - test
+# test:
+#   stage: test
+#   before_script:
+#     - echo ok
+#   script:
+#     - apk add -U wget
+#     - wget -O /usr/local/bin/kind https://github.com/kubernetes-sigs/kind/releases/download/${KIND}/kind-linux-amd64
+#     - chmod +x /usr/local/bin/kind
+#     - wget -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL}/bin/linux/amd64/kubectl
+#     - chmod +x /usr/local/bin/kubectl
+#     - docker info
+#     - kind create cluster --config=./test/kind-config.yml --name $CI_PIPELINE_ID
+#     - export IP=$(docker inspect $CI_PIPELINE_ID-control-plane --format '{{ .NetworkSettings.Networks.kind.Gateway }}')
+#     - export CONTAINER_IP=$(docker inspect $CI_PIPELINE_ID-control-plane --format '{{ .NetworkSettings.Networks.kind.IPAddress }}')
+#     - echo $IP
+#     - echo $CONTAINER_IP
+#     - docker ps -a
+#     - sed -i -E -e "s/localhost|0\.0\.0\.0/$CONTAINER_IP/g" "$HOME/.kube/config"
+#     - "sed -i -E -e \"s/server: .*\$/https:\/\/$CONTAINER_IP:6443/g\" \"$HOME/.kube/config\""
+#     - kubectl --insecure-skip-tls-verify get nodes -o wide
+#     - kubectl get pods --all-namespaces -o wide
+#     - kubectl get services --all-namespaces -o wide
+#   after_script:
+#     - kind delete cluster --name $CI_PIPELINE_ID

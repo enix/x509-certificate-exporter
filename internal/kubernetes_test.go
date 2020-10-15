@@ -24,19 +24,19 @@ var sharedKubeClient *kubernetes.Clientset
 func TestMain(m *testing.M) {
 	log.SetLevel(log.DebugLevel)
 
-	output, err := exec.Command("bash", "-c", "kubectl config view --raw > kubeconfig").CombinedOutput()
+	output, err := exec.Command("bash", "-c", "kubectl --insecure-skip-tls-verify config view --raw > kubeconfig").CombinedOutput()
 	log.Debug(string(output))
 	if err != nil {
 		panic(err)
 	}
 
-	output, err = exec.Command("bash", "-c", "kubectl apply -f ../test/k8s-no-access-role.yml").CombinedOutput()
+	output, err = exec.Command("bash", "-c", "kubectl --insecure-skip-tls-verify apply -f ../test/k8s-no-access-role.yml").CombinedOutput()
 	log.Debug(string(output))
 	if err != nil {
 		panic(err)
 	}
 
-	output, err = exec.Command("bash", "-c", "kubectl apply -f ../test/k8s-list-only-role.yml").CombinedOutput()
+	output, err = exec.Command("bash", "-c", "kubectl --insecure-skip-tls-verify apply -f ../test/k8s-list-only-role.yml").CombinedOutput()
 	log.Debug(string(output))
 	if err != nil {
 		panic(err)
@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	sharedKubeClient, err = connectToKubernetesCluster("kubeconfig")
+	sharedKubeClient, err = connectToKubernetesCluster("kubeconfig", true)
 	if err != nil {
 		panic(err)
 	}
@@ -73,14 +73,6 @@ func TestMain(m *testing.M) {
 	os.Remove("kubeconfig.x509-exporter")
 	os.Remove("kubeconfig.x509-exporter-list")
 	os.Exit(status)
-}
-
-func TestKubeConnection(t *testing.T) {
-	e := &Exporter{}
-	err := e.ConnectToKubernetesCluster("kubeconfig")
-	assert.Nil(t, err)
-	err = e.ConnectToKubernetesCluster("")
-	assert.NotNil(t, err)
 }
 
 func TestKubeAllSecrets(t *testing.T) {
@@ -268,7 +260,7 @@ func TestKubeMetricLabels(t *testing.T) {
 }
 
 func TestKubeNamespaceListFailure(t *testing.T) {
-	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-exporter")
+	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-exporter", true)
 	if err != nil {
 		panic(err)
 	}
@@ -283,7 +275,7 @@ func TestKubeNamespaceListFailure(t *testing.T) {
 }
 
 func TestKubeSecretsListFailure(t *testing.T) {
-	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-exporter-list")
+	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-exporter-list", true)
 	if err != nil {
 		panic(err)
 	}
@@ -298,7 +290,7 @@ func TestKubeSecretsListFailure(t *testing.T) {
 }
 
 func TestKubeInvalidConfig(t *testing.T) {
-	_, err := connectToKubernetesCluster("../test/kubeconfig-corrupted.yml")
+	_, err := connectToKubernetesCluster("../test/kubeconfig-corrupted.yml", true)
 	assert.NotNil(t, err)
 }
 
@@ -328,6 +320,12 @@ func TestKubeInvalidConfig3(t *testing.T) {
 	kubeClient, err := getKubeClient(config)
 	assert.NotNil(t, err)
 	assert.Nil(t, kubeClient)
+}
+
+func TestKubeConnectionFromInsideFailure(t *testing.T) {
+	e := &Exporter{}
+	err := e.ConnectToKubernetesCluster("")
+	assert.NotNil(t, err)
 }
 
 func testRequestKube(t *testing.T, e *Exporter, f func(metrics []model.MetricFamily)) {

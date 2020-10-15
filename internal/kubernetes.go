@@ -19,7 +19,7 @@ import (
 // otherwise try loading the kubeconfig at path "path"
 func (exporter *Exporter) ConnectToKubernetesCluster(path string) error {
 	var err error
-	exporter.kubeClient, err = connectToKubernetesCluster(path)
+	exporter.kubeClient, err = connectToKubernetesCluster(path, false)
 	return err
 }
 
@@ -157,10 +157,15 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 	return filteredSecrets, nil
 }
 
-func connectToKubernetesCluster(kubeconfigPath string) (*kubernetes.Clientset, error) {
+func connectToKubernetesCluster(kubeconfigPath string, insecure bool) (*kubernetes.Clientset, error) {
 	config, err := parseKubeConfig(kubeconfigPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if insecure {
+		config.TLSClientConfig.Insecure = true
+		config.TLSClientConfig.CAData = nil
 	}
 
 	return getKubeClient(config)

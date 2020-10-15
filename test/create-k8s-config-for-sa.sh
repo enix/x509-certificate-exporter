@@ -1,10 +1,11 @@
 #! /bin/bash
 
-server=$(TERM=dumb kubectl cluster-info | awk '{ print $6 }' | head -n 1)
-name=$(kubectl describe sa $1 | grep 'Tokens:' | awk '{ print $2 }')
-ca=$(kubectl get secret/$name -o jsonpath='{.data.ca\.crt}')
-token=$(kubectl get secret/$name -o jsonpath='{.data.token}' | base64 --decode)
-namespace=$(kubectl get secret/$name -o jsonpath='{.data.namespace}' | base64 --decode)
+kubectl="kubectl --insecure-skip-tls-verify"
+server=$(TERM=dumb $kubectl cluster-info | awk '{ print $6 }' | head -n 1)
+name=$($kubectl describe sa $1 | grep 'Tokens:' | awk '{ print $2 }')
+ca=$($kubectl get secret/$name -o jsonpath='{.data.ca\.crt}')
+token=$($kubectl get secret/$name -o jsonpath='{.data.token}' | base64 -d)
+namespace=$($kubectl get secret/$name -o jsonpath='{.data.namespace}' | base64 -d)
 
 echo "
 apiVersion: v1

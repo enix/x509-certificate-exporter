@@ -1,6 +1,9 @@
 package main
 
 import (
+	"os"
+	"path"
+
 	exporter "enix.io/x509-exporter/internal"
 	getopt "github.com/pborman/getopt/v2"
 	log "github.com/sirupsen/logrus"
@@ -72,7 +75,15 @@ func main() {
 	}
 
 	if *kubeEnabled {
-		exporter.ConnectToKubernetesCluster()
+		err := exporter.ConnectToKubernetesCluster("")
+		if err != nil {
+			log.Warn(err)
+		}
+
+		err = exporter.ConnectToKubernetesCluster(path.Join(os.Getenv("HOME"), ".kube/config"))
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	exporter.ListenAndServe()

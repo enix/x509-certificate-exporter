@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -16,26 +15,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// ConnectToKubernetesCluster : Try connect to a cluster from inside, otherwise try loading ~/.kube/config
-func (exporter *Exporter) ConnectToKubernetesCluster() error {
-	var baseErr error
-	var secondaryErr error
-
-	exporter.kubeClient, baseErr = connectToKubernetesCluster("")
-	if baseErr != nil {
-		log.Warn(baseErr)
-		exporter.kubeClient, secondaryErr = connectToKubernetesCluster(os.Getenv("HOME") + "/.kube/config")
-	}
-
-	if exporter.kubeClient == nil {
-		if secondaryErr != nil {
-			log.Warn(secondaryErr)
-		}
-
-		return baseErr
-	}
-
-	return nil
+// ConnectToKubernetesCluster : Try connect to a cluster from inside if path is empty,
+// otherwise try loading the kubeconfig at path "path"
+func (exporter *Exporter) ConnectToKubernetesCluster(path string) error {
+	var err error
+	exporter.kubeClient, err = connectToKubernetesCluster(path)
+	return err
 }
 
 func (exporter *Exporter) parseAllKubeSecrets() ([]*certificateRef, []error) {
@@ -59,7 +44,7 @@ func (exporter *Exporter) parseAllKubeSecrets() ([]*certificateRef, []error) {
 			output = append(output, &certificateRef{
 				path:       fmt.Sprintf("k8s/%s/%s", namespace, secret.GetName()),
 				format:     certificateFormatKubeSecret,
-				kubeSecret: &secret,
+				kubeSecret: secret,
 			})
 		}
 	}
@@ -172,11 +157,16 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 	return filteredSecrets, nil
 }
 
-func (exporter *Exporter) listSecrets() ([]string, error) {
-	return []string{}, nil
+func connectToKubernetesCluster(kubeconfigPath string) (*kubernetes.Clientset, error) {
+	config, err := parseKubeConfig(kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return getKubeClient(config)
 }
 
-func connectToKubernetesCluster(kubeconfigPath string) (*kubernetes.Clientset, error) {
+func parseKubeConfig(kubeconfigPath string) (*rest.Config, error) {
 	var config *rest.Config
 	var err error
 
@@ -193,6 +183,10 @@ func connectToKubernetesCluster(kubeconfigPath string) (*kubernetes.Clientset, e
 	}
 	log.Infof("loaded configuration, API server is at %s", config.Host)
 
+	return config, nil
+}
+
+func getKubeClient(config *rest.Config) (*kubernetes.Clientset, error) {
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get k8s client")

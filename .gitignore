@@ -1,3 +1,4 @@
 *.cov
 *.debug
 coverage.html
+/kubeconfig*

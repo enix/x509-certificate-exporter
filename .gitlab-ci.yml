@@ -1,10 +1,38 @@
 stages:
+  - test
   - build
   - release
   - publish
 
 variables:
   IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+
+test:
+  stage: test
+  image: golang:1.15-alpine
+  except:
+    - tags
+  before_script:
+    - apk add --update gcc libc-dev curl docker-cli bash
+    - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"
+    - chmod +x /usr/local/bin/yq
+    - GO111MODULE="on" go get sigs.k8s.io/kind@v0.9.0
+    - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+    - chmod +x kubectl
+    - mv kubectl /usr/local/bin
+    - docker info
+    - kind create cluster --name $CI_PIPELINE_ID --config=test/kind-config.yml
+    - export IP=$(docker inspect $CI_PIPELINE_ID-control-plane --format '{{ .NetworkSettings.Networks.kind.Gateway }}')
+    - sed -i -E -e "s/localhost|0\.0\.0\.0/$IP/g" "$HOME/.kube/config"
+    - kubectl --insecure-skip-tls-verify cluster-info
+  script:
+    - go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal
+    - go tool cover -html=coverage.cov -o coverage.html
+  after_script:
+    - kind delete cluster --name $CI_PIPELINE_ID
+  artifacts:
+    paths:
+      - coverage.html
 
 build:
   stage: build

@@ -8,10 +8,10 @@ Get notified before they expire:
 * TLS Secrets from a Kubernetes cluster
 
 The following metrics are available:
-* x509_cert_not_before
-* x509_cert_not_after
-* x509_cert_expired
-* x509_read_errors
+* `x509_cert_not_before`
+* `x509_cert_not_after`
+* `x509_cert_expired`
+* `x509_read_errors`
 
 ## Installation
 

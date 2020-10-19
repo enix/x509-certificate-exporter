@@ -24,21 +24,37 @@ go build ./cmd/x509-exporter
 ## Usage
 
 ```
-Usage: x509-exporter [-h] [--debug] [-d value] [-f value] [-k value] [-p value] [--trim-path value] [parameters ...]
+Usage: x509-exporter [-h] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [-f value] [--include-label value] [--include-namespace value] [-k value] [-p value] [--trim-path-components value] [--watch-kube-secrets] [parameters ...]
      --debug       enable debug mode
  -d, --watch-dir=value
                    watch one or more directory which contains x509 certificate
-                   files
+                   files (not recursive)
+     --exclude-label=value
+                   removes the kube secrets with the given label (or label
+                   value if specified) from the watch list (applied after
+                   --include-label)
+     --exclude-namespace=value
+                   removes the given kube namespace from the watch list
+                   (applied after --include-namespace)
  -f, --watch-file=value
                    watch one or more x509 certificate file
  -h, --help        show this help message and exit
+     --include-label=value
+                   add the kube secrets with the given label (or label value if
+                   specified) to the watch list (when used, all secrets are
+                   excluded by default)
+     --include-namespace=value
+                   add the given kube namespace to the watch list (when used,
+                   all namespaces are excluded by default)
  -k, --watch-kubeconf=value
                    watch one or more Kubernetes client configuration (kind
                    Config) which contains embedded x509 certificates or PEM
                    file paths
  -p, --port=value  prometheus exporter listening port [9090]
-     --trim-path=value
-                   remove leading elements from path(s) in label(s)
+     --trim-path-components=value
+                   remove <n> leading component(s) from path in label(s)
+     --watch-kube-secrets
+                   scrape kubernetes.io/tls secrets and monitor them
 ```
 
 ## FAQ

@@ -18,9 +18,9 @@ The following metrics are available:
 ### Kubernetes
 
 We recommend you check out our [x509-exporter Helm Chart](https://github.com/enix/helm-charts/tree/master/charts/x509-exporter)
-to easily deploy monitoring of Kubernetes Secrets and/or Nodes certificates - control plane, workers.  
-Most use cases should be covered with Deployment and DaemonSet options. ServiceMonitor and PrometheusRule resources
-are available for prometheus-operator users.
+to easily deploy monitoring of Kubernetes Secrets and/or Nodes certificates - control plane, workers. Most use cases
+should be covered with Deployment and DaemonSet options. ServiceMonitor and PrometheusRule resources are available for
+prometheus-operator users.
 
 ### Docker image
 
@@ -96,5 +96,5 @@ paths could not be read. Kubernetes secrets are not accounted for, only files an
 
 A basic alert would be:
 ```
-x509_read_errors = 0
+x509_read_errors > 0
 ```

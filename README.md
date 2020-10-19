@@ -1,21 +1,34 @@
-# x509 Exporter
+# 🔏 X.509 Exporter
 
-A prometheus exporter which presents certificate file metrics enabling certificate expiration monitoring.
+A Prometheus exporter for certificates focusing on expiration monitoring, written in Go with cloud deployments in mind.
+
+Get notified before they expire:
+* PEM encoded files, by path or scanning directories
+* Kubeconfigs with embedded certificates or file references
+* TLS Secrets from a Kubernetes cluster
 
 The following metrics are available:
 * x509_cert_not_before
 * x509_cert_not_after
 * x509_cert_expired
+* x509_read_errors
 
 ## Installation
 
+### Kubernetes
+
+We recommend you check out our [x509-exporter Helm Chart](https://github.com/enix/helm-charts/tree/master/charts/x509-exporter)
+to easily deploy monitoring of Kubernetes Secrets and/or Nodes certificates - control plane, workers.  
+Most use cases should be covered with Deployment and DaemonSet options. ServiceMonitor and PrometheusRule resources
+are available for prometheus-operator users.
+
 ### Docker image
 
-A docker image is available at [enix/x509-exporter](https://hub.docker.com/r/enix/x509-exporter)
+A docker image is available at [enix/x509-exporter](https://hub.docker.com/r/enix/x509-exporter).
 
 ### From source
 
-You can build the executable by using :
+You can build the executable by using:
 
 ```
 go build ./cmd/x509-exporter
@@ -59,20 +72,29 @@ Usage: x509-exporter [-h] [--debug] [-d value] [--exclude-label value] [--exclud
 
 ## FAQ
 
-### Can I use it in my Kubernetes cluster ?
-
-This exporter has been built with a kubernetes usage in mind, so it should be pretty straighforward to setup.
-
-### Why are you using the `not after` timestamp rather than a remaining number of seconds ?
+### Why are you using the `not after` timestamp rather than a remaining number of seconds?
 
 For two reasons.
 
-First, prometheus tends to do better storage consumption when a value stays identical over checks.
+First, Prometheus tends to do better storage consumption when a value stays identical over checks.
 
-Then, it is better to compute the remaining time through a prometheus query as some latency (seconds) can exist between this exporter check and your alert or query being run.
+Then, it is better to compute the remaining time through a prometheus query as some latency (seconds) can exist
+between this exporter check and your alert or query being run.
 
 Here is an exemple:
 
 ```
 x509_cert_not_after - time()
+```
+
+### How to ensure it keeps working over time?
+
+Changes in paths or deleted files may silently break the ability to watch critical certificates.
+
+Because it's never convenient to alert on disapearing metrics, the exporter will publish on `x509_read_errors` how many
+paths could not be read. Kubernetes secrets are not accounted for, only files and directories.
+
+A basic alert would be:
+```
+x509_read_errors = 0
 ```

@@ -48,7 +48,10 @@ build:
     - docker buildx create --name builder --use
     - docker buildx inspect builder
   script:
-    - docker buildx build -t $IMAGE_TAG-arm64 --build-arg ARCH=arm64 --platform linux/arm64 --push .
+    - |
+      for arch in amd64 arm arm64 386; do
+        docker buildx build -t $IMAGE_TAG-$arch --build-arg ARCH=$arch --platform linux/$arch --push .
+      done
 
 semantic-release:
   stage: release

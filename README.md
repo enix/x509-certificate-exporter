@@ -92,7 +92,7 @@ x509_cert_not_after - time()
 Changes in paths or deleted files may silently break the ability to watch critical certificates.
 
 Because it's never convenient to alert on disapearing metrics, the exporter will publish on `x509_read_errors` how many
-paths could not be read. Kubernetes secrets are not accounted for, only files and directories.
+paths could not be read. It will also count Kubernetes API responses failures, but won't count deleted secrets.
 
 A basic alert would be:
 ```

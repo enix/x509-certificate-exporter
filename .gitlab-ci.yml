@@ -49,7 +49,7 @@ build:
     - docker buildx inspect builder
   script:
     - |
-      for arch in amd64 arm arm64 386; do
+      for arch in amd64; do
         docker buildx build -t $IMAGE_TAG-$arch --build-arg ARCH=$arch --platform linux/$arch --push .
       done
 

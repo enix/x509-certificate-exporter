@@ -44,6 +44,7 @@ build:
     - wget -O ~/.docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v0.4.2/buildx-v0.4.2.linux-amd64"
     - chmod +x ~/.docker/cli-plugins/docker-buildx
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker buildx create --name builder --use
   script:
     - docker buildx build -t $IMAGE_TAG-arm64 --build-arg ARCH=arm64 --platform linux/arm64 --push .
 

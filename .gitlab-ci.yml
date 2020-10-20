@@ -52,7 +52,7 @@ build:
       for arch in amd64 arm64; do
         docker buildx build -t $IMAGE_TAG-$arch --build-arg ARCH=$arch --platform linux/$arch --push .
       done
-    - docker manifest create $IMAGE_TAG --amend $IMAGE_TAG-arm64 --amend $IMAGE_TAG-arm64
+    - docker manifest create $IMAGE_TAG --amend $IMAGE_TAG-arm64 --amend $IMAGE_TAG-amd64
 
 semantic-release:
   stage: release

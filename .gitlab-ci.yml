@@ -62,11 +62,6 @@ semantic-release:
   except:
     - tags
   script:
-    - mkdir -p ~/.ssh
-    - cp $GITLAB_SSH_KEY ~/.ssh/id_rsa
-    - chmod 400 ~/.ssh/id_rsa
-    - ls -la ~/.ssh
-    - cat ~/.ssh/id_rsa
     - semantic-release --ci --debug
 
 publish-docker-hub:

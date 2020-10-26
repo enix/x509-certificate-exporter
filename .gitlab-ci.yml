@@ -62,6 +62,8 @@ semantic-release:
   except:
     - tags
   script:
+    - echo $GL_TOKEN
+    - echo $GITLAB_TOKEN
     - semantic-release --ci
 
 publish-docker-hub:

@@ -67,7 +67,7 @@ semantic-release:
     - chmod 400 ~/.ssh/id_rsa
     - ls -la ~/.ssh
     - cat ~/.ssh/id_rsa
-    - semantic-release --ci
+    - semantic-release --ci --debug
 
 publish-docker-hub:
   stage: publish

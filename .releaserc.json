@@ -5,10 +5,6 @@
     [
       "@semantic-release/gitlab",
       { "gitlabUrl": "https://gitlab.enix.io" }
-    ],
-    [
-      "@semantic-release/github",
-      { "repositoryUrl": "https://github.com/enix/x509-exporter.git" }
     ]
   ]
 }

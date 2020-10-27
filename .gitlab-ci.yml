@@ -64,6 +64,7 @@ semantic-release:
   script:
     - git ls-remote --heads "https://gitlab-ci-token:$GITLAB_TOKEN@gitlab.enix.io/docker/x509-exporter.git"
     - git push --dry-run "https://gitlab-ci-token:$GITLAB_TOKEN@gitlab.enix.io/docker/x509-exporter.git" HEAD:master
+    - env
     - semantic-release --ci --debug
 
 publish-docker-hub:

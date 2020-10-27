@@ -63,6 +63,7 @@ semantic-release:
     - tags
   script:
     - export GITLAB_TOKEN="$CI_JOB_TOKEN"
+    - echo $GITLAB_TOKEN
     - semantic-release --ci --debug
 
 publish-docker-hub:

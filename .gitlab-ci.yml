@@ -62,10 +62,8 @@ semantic-release:
   except:
     - tags
   script:
-    - echo $GH_TOKEN
-    - echo $GL_TOKEN
-    - echo $GITLAB_TOKEN
-    - npx semantic-release --ci --debug
+    - export GITLAB_TOKEN="$CI_JOB_TOKEN"
+    - semantic-release --ci --debug
 
 publish-docker-hub:
   stage: publish

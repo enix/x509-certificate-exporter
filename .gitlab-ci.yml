@@ -62,9 +62,6 @@ semantic-release:
   except:
     - tags
   script:
-    - git ls-remote --heads "https://gitlab-ci-token:$CI_JOB_TOKEN@gitlab.enix.io/docker/x509-exporter.git"
-    - git ls-remote --heads "https://gitlab-ci-token:$GITLAB_TOKEN@gitlab.enix.io/docker/x509-exporter.git"
-    - git ls-remote --heads "https://gitlab-ci-token:dummy@gitlab.enix.io/docker/x509-exporter.git"
     - semantic-release --ci --debug
 
 publish-docker-hub:

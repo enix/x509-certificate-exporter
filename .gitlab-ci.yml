@@ -65,7 +65,7 @@ semantic-release:
     - echo $GH_TOKEN
     - echo $GL_TOKEN
     - echo $GITLAB_TOKEN
-    - semantic-release --ci
+    - semantic-release --ci --debug
 
 publish-docker-hub:
   stage: publish

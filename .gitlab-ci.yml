@@ -62,8 +62,7 @@ semantic-release:
   except:
     - tags
   script:
-    - echo $GH_TOKEN
-    - semantic-release --ci --debug
+    - semantic-release --ci
 
 publish-docker-hub:
   stage: publish

@@ -62,6 +62,12 @@ semantic-release:
   except:
     - tags
   script:
+    - echo "Releasing on GitLab..."
+    - cp .releaserc-gitlab.json .releaserc.json
+    - semantic-release --ci
+    - echo "Releasing on GitHub..."
+    - cp .releaserc-gitub.json .releaserc.json
+    - "echo {\"repository\": \"https://github.com/enix/x509-exporter\"} > package.json"
     - semantic-release --ci
 
 publish-docker-hub:

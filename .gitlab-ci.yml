@@ -5,6 +5,7 @@ stages:
   - publish
 
 variables:
+  GITHUB_REPO: enix/x509-exporter
   IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
 
 test:
@@ -64,10 +65,11 @@ semantic-release:
   script:
     - echo "Releasing on GitLab..."
     - cp .releaserc-gitlab.json .releaserc.json
-    - semantic-release --ci
+    - export VERSION=$(semantic-release --ci | grep "Published release" | awk '{ print $8 }')
     - echo "Releasing on GitHub..."
+    - "curl -X DELETE -H 'Accept: application/vnd.github.v3+json' https://monkeynator:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPO}/git/refs/v${VERSION} || true"
     - cp .releaserc-github.json .releaserc.json
-    - "echo '{\"repository\": \"https://github.com/enix/x509-exporter\"}' > package.json"
+    - "echo '{\"repository\": \"https://github.com/${GITHUB_REPO}\"}' > package.json"
     - semantic-release --ci
 
 publish-docker-hub:

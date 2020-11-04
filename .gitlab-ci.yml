@@ -65,9 +65,10 @@ semantic-release:
   script:
     - echo "Releasing on GitLab..."
     - cp .releaserc-gitlab.json .releaserc.json
-    - export VERSION=$(semantic-release --ci | grep "Published release" | awk '{ print $8 }')
+    - export VERSION=v$(semantic-release --ci | grep "Published release" | awk '{ print $8 }')
     - echo "Releasing on GitHub..."
-    - "curl -X DELETE -H 'Accept: application/vnd.github.v3+json' https://monkeynator:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPO}/git/refs/v${VERSION} || true"
+    # - "curl -X DELETE -H 'Accept: application/vnd.github.v3+json' https://monkeynator:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPO}/git/refs/${VERSION} || true"
+    - git tag -d ${VERSION}
     - cp .releaserc-github.json .releaserc.json
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
     - semantic-release --ci

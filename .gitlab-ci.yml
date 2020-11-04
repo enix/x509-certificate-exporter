@@ -69,7 +69,7 @@ semantic-release:
     - echo "Releasing on GitHub..."
     - "curl -X DELETE -H 'Accept: application/vnd.github.v3+json' https://monkeynator:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPO}/git/refs/v${VERSION} || true"
     - cp .releaserc-github.json .releaserc.json
-    - "echo '{\"repository\": \"https://github.com/${GITHUB_REPO}\"}' > package.json"
+    - "echo \"{\"repository\": \"https://github.com/${GITHUB_REPO}\"}\" > package.json"
     - semantic-release --ci
 
 publish-docker-hub:

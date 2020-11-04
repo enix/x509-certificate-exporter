@@ -67,7 +67,7 @@ semantic-release:
     - semantic-release --ci --debug -d
     - echo "Releasing on GitHub..."
     - cp .releaserc-github.json .releaserc.json
-    - "echo {\"repository\": \"https://github.com/enix/x509-exporter\"} > package.json"
+    - "echo '{\"repository\": \"https://github.com/enix/x509-exporter\"}' > package.json"
     - semantic-release --ci --debug -d
 
 publish-docker-hub:

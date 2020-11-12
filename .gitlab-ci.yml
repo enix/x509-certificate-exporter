@@ -92,4 +92,5 @@ publish-docker-hub:
     - echo "Logging to Docker Hub Registry with Enix credentials..."
     - docker login -u "$DOCKER_HUB_USER" -p "$DOCKER_HUB_PASSWORD"
     - echo "Push release $CI_COMMIT_REF_NAME ..."
-    - docker manifest create $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1} --amend $IMAGE_TAG-arm64 --amend $IMAGE_TAG-amd64
+    - docker manifest create $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1} $IMAGE_TAG-arm64 $IMAGE_TAG-amd64
+    - docker manifest push --purge $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}

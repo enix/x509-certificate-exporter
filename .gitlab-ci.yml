@@ -9,6 +9,15 @@ variables:
   IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
   ARCHS: amd64 arm64
 
+.init-docker-features: &init-docker-features
+  - mkdir -p ~/.docker/cli-plugins
+  - wget -O ~/.docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v0.4.2/buildx-v0.4.2.linux-amd64"
+  - chmod +x ~/.docker/cli-plugins/docker-buildx
+  - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+  - docker buildx create --name builder --use
+  - docker buildx inspect builder
+
 test:
   stage: test
   image: golang:1.15-alpine
@@ -42,13 +51,7 @@ build:
   variables:
     DOCKER_CLI_EXPERIMENTAL: enabled
   before_script:
-    - mkdir -p ~/.docker/cli-plugins
-    - wget -O ~/.docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v0.4.2/buildx-v0.4.2.linux-amd64"
-    - chmod +x ~/.docker/cli-plugins/docker-buildx
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-    - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-    - docker buildx create --name builder --use
-    - docker buildx inspect builder
+    <<: *init-docker-features
   script:
     - |
       for arch in $ARCHS; do
@@ -80,9 +83,9 @@ publish-docker-hub:
     refs:
       - /^v([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
   image: docker:stable
+  before_script:
+    <<: *init-docker-features
   script:
-    - echo "Logging to GitLab Container Registry with CI credentials..."
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - |
       for arch in $ARCHS; do
         docker pull $IMAGE_TAG-$arch

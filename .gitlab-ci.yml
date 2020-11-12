@@ -10,6 +10,8 @@ variables:
   ARCHS: amd64 arm64
 
 .init-docker-features: &init-docker-features
+  variables:
+    DOCKER_CLI_EXPERIMENTAL: enabled
   before_script:
     - mkdir -p ~/.docker/cli-plugins
     - wget -O ~/.docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v0.4.2/buildx-v0.4.2.linux-amd64"
@@ -49,10 +51,7 @@ variables:
 # build:
 #   stage: build
 #   image: docker:stable-dind
-#   variables:
-#     DOCKER_CLI_EXPERIMENTAL: enabled
-#   before_script:
-#     <<: *init-docker-features
+#   <<: *init-docker-features
 #   script:
 #     - |
 #       for arch in $ARCHS; do

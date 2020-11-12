@@ -7,6 +7,7 @@ stages:
 variables:
   GITHUB_REPO: enix/x509-exporter
   IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+  ARCHS: amd64 arm64
 
 test:
   stage: test
@@ -50,10 +51,9 @@ build:
     - docker buildx inspect builder
   script:
     - |
-      for arch in amd64 arm64; do
+      for arch in $ARCHS; do
         docker buildx build -t $IMAGE_TAG-$arch --build-arg ARCH=$arch --platform linux/$arch --push .
       done
-    - docker manifest create $IMAGE_TAG --amend $IMAGE_TAG-arm64 --amend $IMAGE_TAG-amd64
 
 semantic-release:
   stage: release
@@ -82,9 +82,11 @@ publish-docker-hub:
   script:
     - echo "Logging to GitLab Container Registry with CI credentials..."
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-    - docker pull $IMAGE_TAG
-    - docker tag $IMAGE_TAG $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
+    - |
+      for arch in $ARCHS; do
+        docker pull $IMAGE_TAG-$arch
+      done
     - echo "Logging to Docker Hub Registry with Enix credentials..."
     - docker login -u "$DOCKER_HUB_USER" -p "$DOCKER_HUB_PASSWORD"
     - echo "Push release $CI_COMMIT_REF_NAME ..."
-    - docker push $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
+    - docker manifest create $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1} --amend $IMAGE_TAG-arm64 --amend $IMAGE_TAG-amd64

@@ -85,12 +85,14 @@ publish-docker-hub:
     refs:
       - /^v([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
   script:
+    - export PUBLIC_IMAGE_TAG=$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
+    - echo "Logging to Docker Hub Registry with Enix credentials..."
+    - docker login -u "$DOCKER_HUB_USER" -p "$DOCKER_HUB_PASSWORD"
     - |
       for arch in $ARCHS; do
         docker pull $IMAGE_TAG-$arch
+        docker tag $IMAGE_TAG-$arch $PUBLIC_IMAGE_TAG-$arch
+        docker push $PUBLIC_IMAGE_TAG-$arch
       done
-    - echo "Logging to Docker Hub Registry with Enix credentials..."
-    - docker login -u "$DOCKER_HUB_USER" -p "$DOCKER_HUB_PASSWORD"
-    - echo "Push release $CI_COMMIT_REF_NAME ..."
-    - docker manifest create $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1} $IMAGE_TAG-arm64 $IMAGE_TAG-amd64
-    - docker manifest push --purge $DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
+    - docker manifest create $PUBLIC_IMAGE_TAG $PUBLIC_IMAGE_TAG-amd64 $PUBLIC_IMAGE_TAG-arm64
+    - docker manifest push --purge $PUBLIC_IMAGE_TAG

@@ -58,6 +58,7 @@ build:
 semantic-release:
   stage: release
   image: enix/semantic-release:gitlab
+  when: manual
   only:
     - master
   except:

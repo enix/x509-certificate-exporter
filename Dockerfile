@@ -2,9 +2,11 @@ ARG OS="linux"
 
 ARG ARCH="amd64"
 
-ARG YQ="3.4.0"
-
 FROM --platform=${OS}/${ARCH} golang:1.15-alpine as build
+
+ARG OS
+
+ARG ARCH
 
 WORKDIR $GOPATH/src/enix.io/x509-exporter
 
@@ -26,7 +28,7 @@ RUN go build ./cmd/x509-exporter
 
 ###############
 
-FROM --platform=${OS}/${ARCH} harbor.enix.io/yq/yq:master
+FROM --platform=${OS}/${ARCH} enix/yq:3
 
 COPY --from=build /go/src/enix.io/x509-exporter/x509-exporter /x509-exporter
 

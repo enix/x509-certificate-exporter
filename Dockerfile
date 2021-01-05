@@ -28,7 +28,7 @@ RUN go build ./cmd/x509-exporter
 
 ###############
 
-FROM --platform=${OS}/${ARCH} enix/yq:3
+FROM --platform=${OS}/${ARCH} enix/yq:master
 
 COPY --from=build /go/src/enix.io/x509-exporter/x509-exporter /x509-exporter
 

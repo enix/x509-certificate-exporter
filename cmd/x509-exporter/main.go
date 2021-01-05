@@ -78,11 +78,11 @@ func main() {
 		err := exporter.ConnectToKubernetesCluster("")
 		if err != nil {
 			log.Warn(err)
-		}
 
-		err = exporter.ConnectToKubernetesCluster(path.Join(os.Getenv("HOME"), ".kube/config"))
-		if err != nil {
-			log.Fatal(err)
+			err = exporter.ConnectToKubernetesCluster(path.Join(os.Getenv("HOME"), ".kube/config"))
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 

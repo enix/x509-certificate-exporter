@@ -26,17 +26,7 @@ RUN go build ./cmd/x509-exporter
 
 ###############
 
-FROM --platform=${OS}/${ARCH} alpine:3.12
-
-ARG OS
-
-ARG ARCH
-
-ARG YQ
-
-RUN wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ}/yq_${OS}_${ARCH}"
-
-RUN chmod +x /usr/local/bin/yq
+FROM --platform=${OS}/${ARCH} harbor.enix.io/yq/yq:master
 
 COPY --from=build /go/src/enix.io/x509-exporter/x509-exporter /x509-exporter
 

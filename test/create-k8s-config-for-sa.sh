@@ -1,7 +1,7 @@
 #! /bin/bash
 
 kubectl="kubectl --insecure-skip-tls-verify"
-server=$(TERM=dumb $kubectl cluster-info | awk '{ print $6 }' | head -n 1)
+server=$(TERM=dumb $kubectl config view --minify | grep server | cut -f 2- -d ":" | tr -d " ")
 name=$($kubectl describe sa $1 | grep 'Tokens:' | awk '{ print $2 }')
 ca=$($kubectl get secret/$name -o jsonpath='{.data.ca\.crt}')
 token=$($kubectl get secret/$name -o jsonpath='{.data.token}' | base64 -d)

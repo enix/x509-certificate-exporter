@@ -1,13 +1,14 @@
 stages:
-  - test
+  #- test
   - build
-  - release
-  - publish
+  #- release
+  #- publish
 
 variables:
   GITHUB_REPO: enix/x509-exporter
   IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
-  ARCHS: amd64 arm64
+  #ARCHS: amd64 arm64
+  ARCHS: amd64
 
 .init-docker-features: &init-docker-features
   variables:

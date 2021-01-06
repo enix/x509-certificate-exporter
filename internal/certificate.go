@@ -93,7 +93,7 @@ func (cert *certificateRef) parse() error {
 	case certificateFormatYAML:
 		cert.certificates, err = readAndParseYAMLFile(cert.path, cert.yamlPaths)
 	case certificateFormatKubeSecret:
-		cert.certificates, err = readAndParseKubeSecret(cert.path, &cert.kubeSecret)
+		cert.certificates, err = readAndParseKubeSecret(&cert.kubeSecret)
 	}
 
 	return err
@@ -170,7 +170,7 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 	return output, nil
 }
 
-func readAndParseKubeSecret(path string, secret *v1.Secret) ([]*parsedCertificate, error) {
+func readAndParseKubeSecret(secret *v1.Secret) ([]*parsedCertificate, error) {
 	certs, err := parsePEM(secret.Data["tls.crt"])
 	if err != nil {
 		return nil, err

@@ -11,7 +11,7 @@ import (
 
 type stringArrayFlag []string
 
-func (s *stringArrayFlag) Set(value string, option getopt.Option) error {
+func (s *stringArrayFlag) Set(value string, _ getopt.Option) error {
 	*s = append(*s, value)
 	return nil
 }

@@ -74,6 +74,7 @@ semantic-release:
     - export VERSION=v$(semantic-release --ci | grep "Published release" | awk '{ print $8 }')
     - echo "Releasing on GitHub..."
     - git tag -d ${VERSION}
+    - "curl -X DELETE -H 'Accept: application/vnd.github.v3+json' https://monkeynator:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPO}/git/refs/v${VERSION} || true"
     - cp .releaserc-github.json .releaserc.json
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
     - semantic-release --ci

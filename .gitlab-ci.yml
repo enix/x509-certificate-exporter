@@ -1,6 +1,6 @@
 stages:
-  # - test
-  # - build
+  - test
+  - build
   - release
 
 variables:
@@ -20,42 +20,42 @@ variables:
     - docker buildx create --name builder --use
     - docker buildx inspect builder
 
-# test:
-#  stage: test
-#  image: golang:1.15-alpine
-#  except:
-#    - tags
-#  before_script:
-#    - apk add --update gcc libc-dev curl docker-cli bash
-#    - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"
-#    - chmod +x /usr/local/bin/yq
-#    - GO111MODULE="on" go get sigs.k8s.io/kind@v0.9.0
-#    - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
-#    - chmod +x kubectl
-#    - mv kubectl /usr/local/bin
-#    - docker info
-#    - kind create cluster --name $CI_PIPELINE_ID --config=test/kind-config.yml
-#    - export IP=$(docker inspect $CI_PIPELINE_ID-control-plane --format '{{ .NetworkSettings.Networks.kind.Gateway }}')
-#    - sed -i -E -e "s/localhost|0\.0\.0\.0/$IP/g" "$HOME/.kube/config"
-#    - kubectl --insecure-skip-tls-verify cluster-info
-#  script:
-#    - go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal
-#    - go tool cover -html=coverage.cov -o coverage.html
-#  after_script:
-#    - kind delete cluster --name $CI_PIPELINE_ID
-#  artifacts:
-#    paths:
-#      - coverage.html
+test:
+ stage: test
+ image: golang:1.15-alpine
+ except:
+   - tags
+ before_script:
+   - apk add --update gcc libc-dev curl docker-cli bash
+   - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"
+   - chmod +x /usr/local/bin/yq
+   - GO111MODULE="on" go get sigs.k8s.io/kind@v0.9.0
+   - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+   - chmod +x kubectl
+   - mv kubectl /usr/local/bin
+   - docker info
+   - kind create cluster --name $CI_PIPELINE_ID --config=test/kind-config.yml
+   - export IP=$(docker inspect $CI_PIPELINE_ID-control-plane --format '{{ .NetworkSettings.Networks.kind.Gateway }}')
+   - sed -i -E -e "s/localhost|0\.0\.0\.0/$IP/g" "$HOME/.kube/config"
+   - kubectl --insecure-skip-tls-verify cluster-info
+ script:
+   - go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal
+   - go tool cover -html=coverage.cov -o coverage.html
+ after_script:
+   - kind delete cluster --name $CI_PIPELINE_ID
+ artifacts:
+   paths:
+     - coverage.html
 
-# build:
-#   stage: build
-#   image: docker:stable-dind
-#   <<: *init-docker-features
-#   script:
-#     - |
-#       for arch in $ARCHS; do
-#         docker buildx build -t $IMAGE_TAG-$arch --build-arg ARCH=$arch --platform linux/$arch --push .
-#       done
+build:
+  stage: build
+  image: docker:stable-dind
+  <<: *init-docker-features
+  script:
+    - |
+      for arch in $ARCHS; do
+        docker buildx build -t $IMAGE_TAG-$arch --build-arg ARCH=$arch --platform linux/$arch --push .
+      done
 
 semantic-release:
  stage: release
@@ -78,22 +78,22 @@ semantic-release:
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
     - semantic-release --ci
 
-# publish-docker-hub:
-#  <<: *init-docker-features
-#  stage: release
-#  image: docker:stable
-#  only:
-#     refs:
-#       - /^v([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
-#  script:
-#    - export PUBLIC_IMAGE_TAG=$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
-#    - echo "Logging to Docker Hub Registry with Enix credentials..."
-#    - docker login -u "$DOCKER_HUB_USER" -p "$DOCKER_HUB_PASSWORD"
-#    - |
-#      for arch in $ARCHS; do
-#        docker pull $IMAGE_TAG-$arch
-#        docker tag $IMAGE_TAG-$arch $PUBLIC_IMAGE_TAG-$arch
-#        docker push $PUBLIC_IMAGE_TAG-$arch
-#      done
-#    - docker manifest create $PUBLIC_IMAGE_TAG $PUBLIC_IMAGE_TAG-amd64 $PUBLIC_IMAGE_TAG-arm64
-#    - docker manifest push --purge $PUBLIC_IMAGE_TAG
+publish-docker-hub:
+ <<: *init-docker-features
+ stage: release
+ image: docker:stable
+ only:
+    refs:
+      - /^v([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
+ script:
+   - export PUBLIC_IMAGE_TAG=$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
+   - echo "Logging to Docker Hub Registry with Enix credentials..."
+   - docker login -u "$DOCKER_HUB_USER" -p "$DOCKER_HUB_PASSWORD"
+   - |
+     for arch in $ARCHS; do
+       docker pull $IMAGE_TAG-$arch
+       docker tag $IMAGE_TAG-$arch $PUBLIC_IMAGE_TAG-$arch
+       docker push $PUBLIC_IMAGE_TAG-$arch
+     done
+   - docker manifest create $PUBLIC_IMAGE_TAG $PUBLIC_IMAGE_TAG-amd64 $PUBLIC_IMAGE_TAG-arm64
+   - docker manifest push --purge $PUBLIC_IMAGE_TAG

@@ -157,6 +157,34 @@ func TestYAMLPath(t *testing.T) {
 	})
 }
 
+func TestYAMLAbsolutePath(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+
+	template, err := ioutil.ReadFile(path.Join(filepath.Dir(filename), "../test/yaml-abs-paths.conf"))
+	assert.Nil(t, err)
+
+	cwd, err := os.Getwd()
+	assert.Nil(t, err)
+
+	data := strings.ReplaceAll(string(template), "{{PWD}}", path.Join(cwd, ".."))
+	err = ioutil.WriteFile("/tmp/test-abs.yaml", []byte(data), 0644)
+	assert.Nil(t, err)
+
+	testRequest(t, &Exporter{
+		YAMLs:     []string{"/tmp/test-abs.yaml"},
+		YAMLPaths: DefaultYamlPaths,
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 2, "missing x509_cert_expired metric(s)")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 2, "missing x509_cert_not_before metric(s)")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 2, "missing x509_cert_not_after metric(s)")
+	})
+}
+
 func TestYAMLMixed(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 
@@ -459,7 +487,6 @@ func testRequest(t *testing.T, e *Exporter, cb func(metrics []model.MetricFamily
 			metrics = append(metrics, metric)
 		}
 
-		fmt.Printf("%d", len(metrics))
 		cb(metrics)
 		e.Shutdown()
 	}()

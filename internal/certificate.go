@@ -135,10 +135,19 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 			decodedCerts = make([]byte, base64.StdEncoding.DecodedLen(len(rawCerts)))
 			base64.StdEncoding.Decode(decodedCerts, []byte(rawCerts))
 		} else if exprs.Format == YAMLCertFormatFile {
-			certPath := path.Join(filepath.Dir(filePath), string(rawCerts))
-			decodedCerts, err = ioutil.ReadFile(strings.TrimRight(certPath, "\n"))
-			if err != nil {
-				return nil, err
+			rawCertPaths := strings.TrimRight(string(rawCerts), "\n")
+
+			for _, certPath := range strings.Split(rawCertPaths, "\n") {
+				if !path.IsAbs(certPath) {
+					certPath = path.Join(filepath.Dir(filePath), rawCertPaths)
+				}
+
+				data, err := ioutil.ReadFile(certPath)
+				if err != nil {
+					return nil, err
+				}
+
+				decodedCerts = append(decodedCerts, data...)
 			}
 		}
 

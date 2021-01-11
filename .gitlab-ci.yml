@@ -5,67 +5,89 @@ stages:
 
 variables:
   GITHUB_REPO: enix/x509-exporter
-  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
-  ARCHS: amd64 arm64
+  PLATFORMS: linux/amd64,linux/arm64
+  #IMAGE_TAG: $CI_REGISTRY_IMAGE:${CI_COMMIT_REF_NAME:1}
+  IMAGE_TAG_LATEST: $CI_REGISTRY_IMAGE:latest
+  #PUBLIC_IMAGE_TAG: docker.io/$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
+  PUBLIC_IMAGE_TAG_LATEST: docker.io/$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:latest
 
-.init-docker-features: &init-docker-features
+.only-master:
+  only:
+    - master
+  except:
+    - tags
+
+.only-semver:
+  only:
+    refs:
+      - /^v([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
+
+.init-docker-buildx:
   variables:
     DOCKER_CLI_EXPERIMENTAL: enabled
   before_script:
     - mkdir -p ~/.docker/cli-plugins
-    - wget -O ~/.docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v0.4.2/buildx-v0.4.2.linux-amd64"
+    - wget -O ~/.docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v0.5.1/buildx-v0.5.1.linux-amd64"
     - chmod +x ~/.docker/cli-plugins/docker-buildx
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
     - docker buildx create --name builder --use
     - docker buildx inspect builder
+    - echo -n "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
 
 test:
- stage: test
- image: golang:1.15-alpine
- except:
-   - tags
- before_script:
-   - apk add --update gcc libc-dev curl docker-cli bash
-   - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"
-   - chmod +x /usr/local/bin/yq
-   - GO111MODULE="on" go get sigs.k8s.io/kind@v0.9.0
-   - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
-   - chmod +x kubectl
-   - mv kubectl /usr/local/bin
-   - docker info
-   - kind create cluster --name $CI_PIPELINE_ID --config=test/kind-config.yml
-   - export IP=$(docker inspect $CI_PIPELINE_ID-control-plane --format '{{ .NetworkSettings.Networks.kind.Gateway }}')
-   - sed -i -E -e "s/localhost|0\.0\.0\.0/$IP/g" "$HOME/.kube/config"
-   - kubectl --insecure-skip-tls-verify cluster-info
- script:
-   - go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal
-   - go tool cover -html=coverage.cov -o coverage.html
- after_script:
-   - kind delete cluster --name $CI_PIPELINE_ID
- artifacts:
-   paths:
-     - coverage.html
+  stage: test
+  image: golang:1.15-alpine
+  except:
+    - tags
+  before_script:
+    - apk add --update gcc libc-dev curl docker-cli bash
+    - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"
+    - chmod +x /usr/local/bin/yq
+    - GO111MODULE="on" go get sigs.k8s.io/kind@v0.9.0
+    - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+    - chmod +x kubectl
+    - mv kubectl /usr/local/bin
+    - docker info
+    - kind create cluster --name $CI_PIPELINE_ID --config=test/kind-config.yml
+    - export IP=$(docker inspect $CI_PIPELINE_ID-control-plane --format '{{ .NetworkSettings.Networks.kind.Gateway }}')
+    - sed -i -E -e "s/localhost|0\.0\.0\.0/$IP/g" "$HOME/.kube/config"
+    - kubectl --insecure-skip-tls-verify cluster-info
+  script:
+    - go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal
+    - go tool cover -html=coverage.cov -o coverage.html
+  after_script:
+    - kind delete cluster --name $CI_PIPELINE_ID
+  artifacts:
+    paths:
+      - coverage.html
 
 build:
+  extends:
+    - .init-docker-buildx
+    - .only-master
   stage: build
   image: docker:stable-dind
-  <<: *init-docker-features
   script:
-    - |
-      for arch in $ARCHS; do
-        docker buildx build -t $IMAGE_TAG-$arch --build-arg ARCH=$arch --platform linux/$arch --push .
-      done
+    - export IMAGE_TAG="$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME"
+    - docker buildx build -t "$IMAGE_TAG" --platform "$PLATFORMS" --push .
+
+build-latest:
+  extends:
+    - .init-docker-buildx
+    - .only-semver
+  stage: build
+  image: docker:stable-dind
+  script:
+    - export IMAGE_TAG="$CI_REGISTRY_IMAGE:${CI_COMMIT_REF_NAME:1}"
+    - docker buildx build -t "$IMAGE_TAG" -t "$IMAGE_TAG_LATEST" --platform "$PLATFORMS" --push .
 
 semantic-release:
- stage: release
- image: enix/semantic-release:gitlab
- when: manual
- only:
-    - master
- except:
-    - tags
- script:
+  extends:
+    - .only-master
+  stage: release
+  image: enix/semantic-release:gitlab
+  when: manual
+  script:
     - echo "Releasing on GitHub..."
     - cp .releaserc-github.json .releaserc.json
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
@@ -77,22 +99,16 @@ semantic-release:
     - cp .releaserc-gitlab.json .releaserc.json
     - semantic-release --ci
 
-publish-docker-hub:
- <<: *init-docker-features
- stage: release
- image: docker:stable
- only:
-    refs:
-      - /^v([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)\.([0-9]|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
- script:
-   - export PUBLIC_IMAGE_TAG=$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
-   - echo "Logging to Docker Hub Registry with Enix credentials..."
-   - docker login -u "$DOCKER_HUB_USER" -p "$DOCKER_HUB_PASSWORD"
-   - |
-     for arch in $ARCHS; do
-       docker pull $IMAGE_TAG-$arch
-       docker tag $IMAGE_TAG-$arch $PUBLIC_IMAGE_TAG-$arch
-       docker push $PUBLIC_IMAGE_TAG-$arch
-     done
-   - docker manifest create $PUBLIC_IMAGE_TAG $PUBLIC_IMAGE_TAG-amd64 $PUBLIC_IMAGE_TAG-arm64
-   - docker manifest push --purge $PUBLIC_IMAGE_TAG
+docker-hub:
+  extends:
+    - .only-semver
+  stage: release
+  image:
+    name: ananace/skopeo:latest
+    entrypoint: [""]
+  before_script:
+  script:
+    - export IMAGE_TAG="$CI_REGISTRY_IMAGE:${CI_COMMIT_REF_NAME:1}"
+    - export PUBLIC_IMAGE_TAG="docker.io/$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}"
+    - skopeo --insecure-policy copy --all --src-creds "$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD" --dest-creds "$DOCKER_HUB_USER:$DOCKER_HUB_PASSWORD" "docker://${IMAGE_TAG}" "docker://${PUBLIC_IMAGE_TAG}"
+    - skopeo --insecure-policy copy --all --src-creds "$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD" --dest-creds "$DOCKER_HUB_USER:$DOCKER_HUB_PASSWORD" "docker://${IMAGE_TAG_LATEST}" "docker://${PUBLIC_IMAGE_TAG_LATEST}"

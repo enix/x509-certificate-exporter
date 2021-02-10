@@ -1,5 +1,8 @@
 # 🔏 X.509 Exporter
 
+[![Build status](https://gitlab.com/enix.io/x509-exporter/badges/master/pipeline.svg)](https://gitlab.com/enix.io/x509-exporter/-/pipelines)
+[![Code coverage](https://gitlab.com/enix.io/x509-exporter/badges/master/coverage.svg)](https://gitlab.com/enix.io/x509-exporter/-/pipelines)
+
 A Prometheus exporter for certificates focusing on expiration monitoring, written in Go with cloud deployments in mind.
 
 Get notified before they expire:

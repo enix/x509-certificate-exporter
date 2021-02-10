@@ -53,8 +53,9 @@ test:
     - mv kubectl /usr/local/bin
     - docker info
     - kind create cluster --name $CI_PIPELINE_ID --config=test/kind-config.yml
+    - getent hosts docker
     - export IP=$(docker inspect $CI_PIPELINE_ID-control-plane --format '{{ .NetworkSettings.Networks.kind.Gateway }}')
-    - sed -i -E -e "s/localhost|0\.0\.0\.0/$IP/g" "$HOME/.kube/config"
+    - sed -i -E -e "s/localhost|0\.0\.0\.0/docker/g" "$HOME/.kube/config"
     - kubectl --insecure-skip-tls-verify cluster-info
   script:
     - go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal

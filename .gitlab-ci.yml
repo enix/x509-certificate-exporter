@@ -6,9 +6,7 @@ stages:
 variables:
   GITHUB_REPO: enix/x509-exporter
   PLATFORMS: linux/amd64,linux/arm64
-  #IMAGE_TAG: $CI_REGISTRY_IMAGE:${CI_COMMIT_REF_NAME:1}
   IMAGE_TAG_LATEST: $CI_REGISTRY_IMAGE:latest
-  #PUBLIC_IMAGE_TAG: docker.io/$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}
   PUBLIC_IMAGE_TAG_LATEST: docker.io/$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:latest
 
 .only-master:
@@ -25,6 +23,8 @@ variables:
 .init-docker-buildx:
   variables:
     DOCKER_CLI_EXPERIMENTAL: enabled
+  services:
+    - docker:20-dind
   before_script:
     - mkdir -p ~/.docker/cli-plugins
     - wget -O ~/.docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v0.5.1/buildx-v0.5.1.linux-amd64"
@@ -39,6 +39,8 @@ test:
   image: golang:1.15-alpine
   except:
     - tags
+  services:
+    - docker:20-dind
   before_script:
     - apk add --update gcc libc-dev curl docker-cli bash
     - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"
@@ -97,7 +99,6 @@ docker-hub:
   image:
     name: ananace/skopeo:latest
     entrypoint: [""]
-  before_script:
   script:
     - export IMAGE_TAG="$CI_REGISTRY_IMAGE:${CI_COMMIT_REF_NAME:1}"
     - export PUBLIC_IMAGE_TAG="docker.io/$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}"

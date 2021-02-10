@@ -88,15 +88,6 @@ semantic-release:
   image: enix/semantic-release:gitlab
   when: manual
   script:
-    - echo "Releasing on GitHub..."
-    - cp .releaserc-github.json .releaserc.json
-    - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
-    - export VERSION=v$(semantic-release --ci | grep "Published release" | awk '{ print $8 }')
-    - rm package.json
-    - git tag -d ${VERSION}
-    # - "curl -X DELETE -H 'Accept: application/vnd.github.v3+json' https://monkeynator:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPO}/git/refs/v${VERSION} || true"
-    - echo "Releasing on GitLab..."
-    - cp .releaserc-gitlab.json .releaserc.json
     - semantic-release --ci
 
 docker-hub:

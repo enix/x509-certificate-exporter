@@ -405,15 +405,15 @@ func TestTrimPath(t *testing.T) {
 	}, func(metrics []model.MetricFamily) {
 		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
 		assert.Len(t, foundMetrics, 1, "missing x509_cert_expired metric(s)")
-		checkLabels(t, foundMetrics[0].GetLabel(), "/test.pem")
+		checkLabels(t, foundMetrics[0].GetLabel(), "/test.pem", false)
 
 		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
 		assert.Len(t, foundNbMetrics, 1, "missing x509_cert_not_before metric(s)")
-		checkLabels(t, foundNbMetrics[0].GetLabel(), "/test.pem")
+		checkLabels(t, foundNbMetrics[0].GetLabel(), "/test.pem", false)
 
 		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
 		assert.Len(t, foundNaMetrics, 1, "missing x509_cert_not_after metric(s)")
-		checkLabels(t, foundNaMetrics[0].GetLabel(), "/test.pem")
+		checkLabels(t, foundNaMetrics[0].GetLabel(), "/test.pem", false)
 
 		removeGeneratedCertificate(certPath)
 	})
@@ -430,33 +430,38 @@ func testSinglePEM(t *testing.T, expired float64, notBefore time.Time) {
 		assert.NotEmpty(t, metric, "missing x509_cert_expired metric")
 		value := metric[0].GetGauge().GetValue()
 		assert.Equal(t, expired, value, fmt.Sprintf("x509_cert_expired should be %f", expired))
-		checkLabels(t, metric[0].GetLabel(), certPath)
+		checkLabels(t, metric[0].GetLabel(), certPath, false)
 
 		nbMetric := getMetricsForName(metrics, "x509_cert_not_before")
 		assert.NotEmpty(t, nbMetric, "missing x509_cert_not_before metric")
 		nbValue := nbMetric[0].GetGauge().GetValue()
 		assert.Equal(t, float64(notBefore.Unix()), nbValue, "x509_cert_not_before has invalid value")
-		checkLabels(t, nbMetric[0].GetLabel(), certPath)
+		checkLabels(t, nbMetric[0].GetLabel(), certPath, false)
 
 		naMetric := getMetricsForName(metrics, "x509_cert_not_after")
 		assert.NotEmpty(t, naMetric, "missing x509_cert_not_after metric")
 		naValue := naMetric[0].GetGauge().GetValue()
 		assert.Equal(t, float64(notBefore.Add(time.Hour).Unix()), naValue, "x509_cert_not_after has invalid value")
-		checkLabels(t, naMetric[0].GetLabel(), certPath)
+		checkLabels(t, naMetric[0].GetLabel(), certPath, false)
 
 		removeGeneratedCertificate(certPath)
 	})
 }
 
-func checkLabels(t *testing.T, labels []*model.LabelPair, path string) {
+func checkLabels(t *testing.T, labels []*model.LabelPair, path string, isKube bool) {
 	assert.Len(t, labels, 15, "Missing labels")
 
+	baseLabels := []string{"serial_number", "filepath", "filename"}
+	if isKube {
+		baseLabels = []string{"serial_number", "secret_namespace", "secret_name"}
+	}
+
 	for _, label := range labels {
-		if label.GetName() == "filename" {
+		if label.GetName() == baseLabels[2] {
 			assert.Equal(t, filepath.Base(path), label.GetValue(), "Invalid label value for %s", label.GetName())
-		} else if label.GetName() == "filepath" {
+		} else if label.GetName() == baseLabels[1] {
 			assert.Equal(t, path, label.GetValue(), "Invalid label value for %s", label.GetName())
-		} else if label.GetName() == "serial_number" {
+		} else if label.GetName() == baseLabels[0] {
 			assert.Equal(t, "1", label.GetValue(), "Invalid label value for %s", label.GetName())
 		} else {
 			assert.Equal(t, strings.Split(label.GetName(), "_")[1], label.GetValue(), "Invalid label value for %s", label.GetName())

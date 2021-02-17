@@ -17,19 +17,17 @@ type collector struct {
 }
 
 var (
-	baseLabels = []string{"filename", "filepath", "serial_number"}
-
 	certExpiredMetric = "x509_cert_expired"
 	certExpiredHelp   = "Indicates if the certificate is expired"
-	certExpiredDesc   = prometheus.NewDesc(certExpiredMetric, certExpiredHelp, baseLabels, nil)
+	certExpiredDesc   = prometheus.NewDesc(certExpiredMetric, certExpiredHelp, nil, nil)
 
 	certNotBeforeMetric = "x509_cert_not_before"
 	certNotBeforeHelp   = "Indicates the certificate's not before timestamp"
-	certNotBeforeDesc   = prometheus.NewDesc(certNotBeforeMetric, certNotBeforeHelp, baseLabels, nil)
+	certNotBeforeDesc   = prometheus.NewDesc(certNotBeforeMetric, certNotBeforeHelp, nil, nil)
 
 	certNotAfterMetric = "x509_cert_not_after"
 	certNotAfterHelp   = "Indicates the certificate's not after timestamp"
-	certNotAfterDesc   = prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, baseLabels, nil)
+	certNotAfterDesc   = prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, nil, nil)
 
 	certErrorsMetric = "x509_read_errors"
 	certErrorsHelp   = "Indicates the number of read failure(s)"
@@ -68,6 +66,7 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 
 func (collector *collector) getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
 	var trimmedFilePath string
+	baseLabels := []string{"serial_number"}
 
 	if ref.format != certificateFormatKubeSecret {
 		trimComponentsCount := collector.exporter.TrimPathComponents
@@ -78,19 +77,16 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 			prefix = "/"
 		}
 		trimmedFilePath = path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
+		baseLabels = append(baseLabels, "filename", "filepath")
 	} else {
 		trimmedFilePath = ref.path
+		baseLabels = append(baseLabels, "secret_name", "secret_namespace")
 	}
 
-	baseLabels := []string{
-		"filename",
-		"filepath",
-		"serial_number",
-	}
 	baseLabelsValue := []string{
+		certData.cert.SerialNumber.String(),
 		filepath.Base(ref.path),
 		trimmedFilePath,
-		certData.cert.SerialNumber.String(),
 	}
 
 	issuerLabels, issuerLabelsValue := getLabelsFromName(&certData.cert.Issuer, "issuer")

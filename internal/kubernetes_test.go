@@ -255,7 +255,7 @@ func TestKubeMetricLabels(t *testing.T) {
 		KubeIncludeLabels:     []string{"index=0"},
 	}, func(m []model.MetricFamily) {
 		metric := getMetricsForName(m, "x509_cert_expired")[0]
-		checkLabels(t, metric.GetLabel(), "k8s/default/test-default-0.crt")
+		checkLabels(t, metric.GetLabel(), "k8s/default/test-default-0.crt", true)
 	})
 }
 

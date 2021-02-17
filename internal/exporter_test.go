@@ -451,16 +451,18 @@ func testSinglePEM(t *testing.T, expired float64, notBefore time.Time) {
 func checkLabels(t *testing.T, labels []*model.LabelPair, path string, isKube bool) {
 	assert.Len(t, labels, 15, "Missing labels")
 
+	pathOrNamespace := path
 	baseLabels := []string{"serial_number", "filepath", "filename"}
 	if isKube {
 		baseLabels = []string{"serial_number", "secret_namespace", "secret_name"}
+		pathOrNamespace = strings.Split(path, "/")[1]
 	}
 
 	for _, label := range labels {
 		if label.GetName() == baseLabels[2] {
 			assert.Equal(t, filepath.Base(path), label.GetValue(), "Invalid label value for %s", label.GetName())
 		} else if label.GetName() == baseLabels[1] {
-			assert.Equal(t, path, label.GetValue(), "Invalid label value for %s", label.GetName())
+			assert.Equal(t, pathOrNamespace, label.GetValue(), "Invalid label value for %s", label.GetName())
 		} else if label.GetName() == baseLabels[0] {
 			assert.Equal(t, "1", label.GetValue(), "Invalid label value for %s", label.GetName())
 		} else {

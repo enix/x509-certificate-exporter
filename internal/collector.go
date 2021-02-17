@@ -79,7 +79,7 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 		trimmedFilePath = path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
 		baseLabels = append(baseLabels, "filename", "filepath")
 	} else {
-		trimmedFilePath = ref.path
+		trimmedFilePath = strings.Split(ref.path, "/")[1]
 		baseLabels = append(baseLabels, "secret_name", "secret_namespace")
 	}
 

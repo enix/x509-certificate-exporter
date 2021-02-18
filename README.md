@@ -16,6 +16,10 @@ The following metrics are available:
 * `x509_cert_expired`
 * `x509_read_errors`
 
+Best when installed with the [Helm Chart](https://github.com/enix/helm-charts/tree/master/charts/x509-exporter) and using the [Grafana Dashboard](./docs/grafana-dashboard.json):
+
+![Grafana Dashboard](./docs/grafana-dashboard.jpg)
+
 ## Installation
 
 ### Kubernetes

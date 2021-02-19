@@ -4,16 +4,16 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ printf "%s-%s" (include "x509-exporter.fullname" $) $dsName }}
+  name: {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $dsName }}
   labels:
-    {{- include "x509-exporter.labels" $ | nindent 4 }}
+    {{- include "x509-certificate-exporter.labels" $ | nindent 4 }}
   {{- with $.Values.extraLabels }}
     {{- . | toYaml | trim | nindent 4 }}
   {{- end }}
 spec:
   selector:
     matchLabels:
-      {{- include "x509-exporter.selectorLabels" $ | nindent 6 }}
+      {{- include "x509-certificate-exporter.selectorLabels" $ | nindent 6 }}
 {{- with default $.Values.hostPathsExporter.updateStrategy $dsDef.updateStrategy }}
   updateStrategy:
     {{- . | toYaml | trim | nindent 4 }}
@@ -21,7 +21,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "x509-exporter.selectorLabels" $ | nindent 8 }}
+        {{- include "x509-certificate-exporter.selectorLabels" $ | nindent 8 }}
       {{- with $.Values.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
       {{- end }}
@@ -33,7 +33,7 @@ spec:
         {{- . | toYaml | trim | nindent 8 }}
     {{- end }}
     spec:
-      serviceAccountName: {{ include "x509-exporter.hostPathsExporterServiceAccountName" $ }}
+      serviceAccountName: {{ include "x509-certificate-exporter.hostPathsExporterServiceAccountName" $ }}
     {{- with $.Values.imagePullSecrets }}
       imagePullSecrets:
         {{- . | toYaml | trim | nindent 8 }}
@@ -61,7 +61,7 @@ spec:
         securityContext:
           {{- . | toYaml | trim | nindent 10 }}
       {{- end }}
-        image: {{ include "x509-exporter.image" $ }}
+        image: {{ include "x509-certificate-exporter.image" $ }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
         args:
       {{- with default $.Values.hostPathsExporter.debugMode $dsDef.debugMode }}
@@ -110,7 +110,7 @@ spec:
         securityContext:
           {{- toYaml . | trim | nindent 10 }}
       {{- end }}
-        image: {{ include "x509-exporter.rbacProxy.image" $ }}
+        image: {{ include "x509-certificate-exporter.rbacProxy.image" $ }}
         imagePullPolicy: {{ $.Values.rbacProxy.imagePullPolicy }}
         args:
         - --logtostderr

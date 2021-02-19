@@ -2,9 +2,9 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: {{ include "x509-exporter.fullname" . }}
+  name: {{ include "x509-certificate-exporter.fullname" . }}
   labels:
-    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
     {{- with .Values.extraLabels }}
     {{ . | toYaml | trim | nindent 4 }}
     {{- end }}
@@ -13,7 +13,7 @@ metadata:
     {{- end }}
 spec:
   groups:
-  - name: x509-exporter.rules
+  - name: x509-certificate-exporter.rules
     rules:
   {{- if .Values.prometheusRules.alertOnReadErrors }}
     - alert: X509ExporterReadErrors
@@ -22,8 +22,8 @@ spec:
       labels:
         severity: {{ .Values.prometheusRules.readErrorsSeverity }}
       annotations:
-        summary: Increasing read errors for x509-exporter
-        description: Over the last 15 minutes, this x509-exporter instance has experienced errors reading certificate files or querying the Kubernetes API. This could be caused by a misconfiguration if triggered when the exporter starts.
+        summary: Increasing read errors for x509-certificate-exporter
+        description: Over the last 15 minutes, this x509-certificate-exporter instance has experienced errors reading certificate files or querying the Kubernetes API. This could be caused by a misconfiguration if triggered when the exporter starts.
   {{- end }}
     - alert: CertificateRenewal
       expr: ((x509_cert_not_after - time()) / 86400) < {{ .Values.prometheusRules.warningDaysLeft }}

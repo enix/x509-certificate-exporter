@@ -1,26 +1,26 @@
 ---
-# Default values for x509-exporter.
+# Default values for x509-certificate-exporter.
 
 # -- Extra labels to add on chart resources
 extraLabels: {}
 
-# -- String to partially override x509-exporter.fullname template with a string (will prepend the release name)
+# -- String to partially override x509-certificate-exporter.fullname template with a string (will prepend the release name)
 nameOverride: ""
 
-# -- String to fully override x509-exporter.fullname template with a string
+# -- String to fully override x509-certificate-exporter.fullname template with a string
 fullnameOverride: ""
 
 # -- Specify docker-registry secret names as an array
 imagePullSecrets: []
 
 image:
-  # -- x509-exporter image registry
+  # -- x509-certificate-exporter image registry
   registry: docker.io
-  # -- x509-exporter image repository
-  repository: enix/x509-exporter
-  # -- x509-exporter image tag (defaults to Chart appVersion)
+  # -- x509-certificate-exporter image repository
+  repository: enix/x509-certificate-exporter
+  # -- x509-certificate-exporter image tag (defaults to Chart appVersion)
   tag:
-  # -- x509-exporter image pull policy
+  # -- x509-certificate-exporter image pull policy
   pullPolicy: IfNotPresent
 
 rbac:

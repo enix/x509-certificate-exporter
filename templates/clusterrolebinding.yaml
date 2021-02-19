@@ -4,9 +4,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "x509-exporter.secretsExporterClusterRoleBindingName" . }}
+  name: {{ include "x509-certificate-exporter.secretsExporterClusterRoleBindingName" . }}
   labels:
-    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
     {{- with .Values.extraLabels }}
     {{ . | toYaml | trim | nindent 4 }}
     {{- end }}
@@ -17,10 +17,10 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "x509-exporter.secretsExporterClusterRoleName" . }}
+  name: {{ include "x509-certificate-exporter.secretsExporterClusterRoleName" . }}
 subjects:
 - kind: ServiceAccount
-  name: {{ include "x509-exporter.secretsExporterServiceAccountName" . }}
+  name: {{ include "x509-certificate-exporter.secretsExporterServiceAccountName" . }}
   namespace: {{ .Release.Namespace }}
 {{- end }}
 {{- if .Values.hostPathsExporter.daemonSets }}
@@ -28,9 +28,9 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "x509-exporter.hostPathsExporterClusterRoleBindingName" . }}
+  name: {{ include "x509-certificate-exporter.hostPathsExporterClusterRoleBindingName" . }}
   labels:
-    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
     {{- with .Values.extraLabels }}
     {{ . | toYaml | trim | nindent 4 }}
     {{- end }}
@@ -41,10 +41,10 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "x509-exporter.hostPathsExporterClusterRoleName" . }}
+  name: {{ include "x509-certificate-exporter.hostPathsExporterClusterRoleName" . }}
 subjects:
 - kind: ServiceAccount
-  name: {{ include "x509-exporter.hostPathsExporterServiceAccountName" . }}
+  name: {{ include "x509-certificate-exporter.hostPathsExporterServiceAccountName" . }}
   namespace: {{ .Release.Namespace }}
 {{- end }}
 {{- end }}

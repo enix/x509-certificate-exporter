@@ -2,9 +2,9 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ include "x509-exporter.fullname" . }}
+  name: {{ include "x509-certificate-exporter.fullname" . }}
   labels:
-    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
     {{- with .Values.extraLabels }}
     {{ . | toYaml | trim | nindent 4 }}
     {{- end }}
@@ -14,7 +14,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      {{- include "x509-exporter.selectorLabels" . | nindent 6 }}
+      {{- include "x509-certificate-exporter.selectorLabels" . | nindent 6 }}
   jobLabel: app.kubernetes.io/name
   endpoints:
   - port: metrics

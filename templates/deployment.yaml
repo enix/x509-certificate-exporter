@@ -2,16 +2,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "x509-exporter.secretsExporterName" . }}
+  name: {{ include "x509-certificate-exporter.secretsExporterName" . }}
   labels:
-    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
   {{- with .Values.extraLabels }}
     {{- . | toYaml | trim | nindent 4 }}
   {{- end }}
 spec:
   selector:
     matchLabels:
-      {{- include "x509-exporter.selectorLabels" . | nindent 6 }}
+      {{- include "x509-certificate-exporter.selectorLabels" . | nindent 6 }}
 {{- with .Values.secretsExporter.replicas }}
   replicas: {{ . }}
 {{- end }}
@@ -22,7 +22,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "x509-exporter.selectorLabels" . | nindent 8 }}
+        {{- include "x509-certificate-exporter.selectorLabels" . | nindent 8 }}
       {{- with .Values.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
       {{- end }}
@@ -60,7 +60,7 @@ spec:
         {{- toYaml . | trim | nindent 8 }}
     {{- end }}
       restartPolicy: {{ .Values.secretsExporter.restartPolicy }}
-      serviceAccountName: {{ include "x509-exporter.secretsExporterServiceAccountName" . }}
+      serviceAccountName: {{ include "x509-certificate-exporter.secretsExporterServiceAccountName" . }}
       containers:
       - name: {{ .Chart.Name }}
       {{- with .Values.secretsExporter.securityContext }}
@@ -71,7 +71,7 @@ spec:
         resources:
         {{- . | toYaml | trim | nindent 10 }}
       {{- end }}
-        image: {{ include "x509-exporter.image" . }}
+        image: {{ include "x509-certificate-exporter.image" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
       {{- if .Values.secretsExporter.debugMode }}
@@ -102,7 +102,7 @@ spec:
         securityContext:
           {{- toYaml . | trim | nindent 10 }}
       {{- end }}
-        image: {{ include "x509-exporter.rbacProxy.image" . }}
+        image: {{ include "x509-certificate-exporter.rbacProxy.image" . }}
         imagePullPolicy: {{ .Values.rbacProxy.imagePullPolicy }}
         args:
         - --logtostderr

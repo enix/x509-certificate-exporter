@@ -14,6 +14,115 @@ Get notified before they expire:
 - Kubeconfigs with embedded certificates or file references
 - TLS Secrets from a Kubernetes cluster
 
+The following metrics are available:
+
+- `x509_cert_not_before`
+- `x509_cert_not_after`
+- `x509_cert_expired`
+- `x509_read_errors`
+
+Best when used with the [Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/docs/grafana-dashboard.json):
+
+![Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/docs/grafana-dashboard.jpg)
+
+## 🏃 TL;DR
+
+It only takes two commands to install x509-certificate-exporter, however you should read the instructions in the next section to
+take advantage of all the features!
+
+Add our Charts repository :
+
+```
+$ helm repo add enix https://charts.enix.io
+```
+
+Install x509-certificate-exporter for TLS Secrets monitoring with prometheus-operator support :
+
+```
+$ helm install x509-certificate-exporter enix/x509-certificate-exporter
+```
+
+To remove built-in Prometheus alerts if you'd rather craft your own :
+
+```
+$ helm upgrade x509-certificate-exporter enix/x509-certificate-exporter --reuse-values --set prometheusRules.create=false
+```
+
+If you don't use the Prometheus operator at all, and don't have the CRD, disable resource creation and perhaps add Pod
+annotations for scrapping :
+
+```
+secretsExporter:
+  podAnnotations:
+    prometheus.io/port: "9090"
+    prometheus.io/scrape: "true"
+service:
+  create: false
+prometheusServiceMonitor:
+  create: false
+prometheusRules:
+  create: false
+```
+
+## 📜 Using the Chart
+
+This will guide you through writing the initial set of values.
+
+### Metrics for TLS Secrets
+
+By default we only run a Deployment to provide metrics on TLS Secrets stored in the Kubernetes cluster. It helps
+detect expiring certificates whether you manage them on your own or rely on controllers such as
+[cert-manager](https://cert-manager.io).
+
+> 🙂 If you're only interested in this feature, you could probably install the Chart not specifying any value.
+
+Disable this exporter when Secrets metrics are not wanted – if you're looking for hostPath DaemonSets only :
+
+```
+secretsExporter:
+  enabled: false
+```
+
+### Metrics for node certificates (hostPath)
+
+Kubernetes components use many certificates to authenticate and secure communications between each others. This PKI is
+critical to the operation of a cluster and its health should be monitored carefully. Expiring Kubernetes certificates
+are a common source of outages, and depending on your distribution could happen a few months after installation if left
+unattended.
+
+This Chart provides a facility to deploy `DaemonSets` so that each node of a cluster can run its own x509-certificate-exporter
+and export metrics for host files :
+
+- `etcd` server and client certificates
+- Kubernetes CA
+- `kube-apiserver` certificates
+- `kubelet` certificates
+- kubeconfig files with embedded certificates
+- etc.
+  Obviously it also works with any other application deployed on cluster nodes as long as it uses PEM encoded certicates
+  (deployment agents, security tools, etc.).
+
+> ⚙️ You'll have to compile a list of files and directories of interest. There is no "one size fits all" configuration
+> that we could recommend, or even a decent boilerplate. Examples below should give an idea of what to look after.
+
+> 🏙️ While having a single DaemonSet sounds like a fair option, it is not uncommon for nodes to assume different roles,
+> and as a result hold different sets of certificate files requiring targeted x509-certificate-exporter configurations.
+> For example, with the help of node selectors and tolerations, we can have nodes of the control plane run their own
+> exporter targeting API and etcd certificates, while regular nodes would have a simpler configuration for Kubelet alone.
+
+Deployment of hostPath exporters is controlled under the `hostPathsExporter` key of [Chart Values](#values).
+All values are defaults that would apply to any number of DaemonSet you wish to run, unless overridden individually.
+Then you'll need to create at least one DaemonSet in `hostPathsExporter.daemonSets`.
+
+This is the most basic configuration. It will create one DaemonSet named `nodes` with an empty configuration. Exporters
+won't export no certificate metric.
+
+```
+hostPathsExporter:
+  daemonSets:
+    nodes: {}
+```
+
 ![Grafana Dashboard](./docs/grafana-dashboard.jpg)
 
 ## Installation
@@ -32,6 +141,8 @@ A docker image is available at [enix/x509-certificate-exporter](https://hub.dock
 ### Using the pre-built binaries
 
 Every [release](https://github.com/enix/x509-certificate-exporter/releases) comes with pre-built binaries for many supported platforms.
+Create a file named `x509-certificate-exporter.values.yaml` with your values, as discussed previously and with the help of
+[Chart Values](#values).
 
 ### Using the source
 

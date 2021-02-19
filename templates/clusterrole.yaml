@@ -4,9 +4,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "x509-exporter.secretsExporterClusterRoleName" . }}
+  name: {{ include "x509-certificate-exporter.secretsExporterClusterRoleName" . }}
   labels:
-    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
     {{- with .Values.extraLabels }}
     {{ . | toYaml | trim | nindent 4 }}
     {{- end }}
@@ -51,9 +51,9 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "x509-exporter.hostPathsExporterClusterRoleName" . }}
+  name: {{ include "x509-certificate-exporter.hostPathsExporterClusterRoleName" . }}
   labels:
-    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
     {{- with .Values.extraLabels }}
     {{ . | toYaml | trim | nindent 4 }}
     {{- end }}

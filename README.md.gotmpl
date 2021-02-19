@@ -20,7 +20,7 @@ The following metrics are available:
 * `x509_cert_expired`
 * `x509_read_errors`
 
-Best when used with the [Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/docs/grafana-dashboard.json):
+Best when used with the [Grafana Dashboard](https://grafana.com/grafana/dashboards/13922) ID `13922`:
 
 ![Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/docs/grafana-dashboard.jpg)
 

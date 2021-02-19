@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # 🔏 X.509 Certificate Exporter
 
 [![Build status](https://gitlab.com/enix.io/x509-certificate-exporter/badges/master/pipeline.svg)](https://gitlab.com/enix.io/x509-certificate-exporter/-/pipelines)
@@ -10,6 +11,9 @@
 A Prometheus exporter for certificates focusing on expiration monitoring, written in Go. Designed to monitor Kubernetes clusters from inside, it can also be used as a standalone exporter.
 =======
 # 🔏 X.509 Exporter
+=======
+# 🔏 X.509 Certificates Exporter
+>>>>>>> f516475 (doc(x509-certificate-exporter): fix project name in README header 2/2)
 
 <p align="center">
     <a href="https://opensource.org/licenses/Apache-2.0" alt="Apache 2.0 License">

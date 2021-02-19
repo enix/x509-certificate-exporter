@@ -1,4 +1,4 @@
-module enix.io/x509-exporter
+module enix.io/x509-certificate-exporter
 
 go 1.15
 

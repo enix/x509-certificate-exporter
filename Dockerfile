@@ -8,7 +8,7 @@ ARG OS
 
 ARG ARCH
 
-WORKDIR $GOPATH/src/enix.io/x509-exporter
+WORKDIR $GOPATH/src/enix.io/x509-certificate-exporter
 
 COPY go.mod go.mod
 
@@ -24,12 +24,12 @@ ENV GOOS=${OS}
 
 ENV GOARCH=${ARCH}
 
-RUN go build ./cmd/x509-exporter
+RUN go build ./cmd/x509-certificate-exporter
 
 ###############
 
 FROM --platform=${OS}/${ARCH} harbor.enix.io/yq/yq:master
 
-COPY --from=build /go/src/enix.io/x509-exporter/x509-exporter /x509-exporter
+COPY --from=build /go/src/enix.io/x509-certificate-exporter/x509-certificate-exporter /x509-certificate-exporter
 
-ENTRYPOINT [ "/x509-exporter" ]
+ENTRYPOINT [ "/x509-certificate-exporter" ]

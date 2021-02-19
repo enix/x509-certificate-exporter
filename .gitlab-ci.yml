@@ -4,7 +4,7 @@ stages:
   - release
 
 variables:
-  GITHUB_REPO: enix/x509-exporter
+  GITHUB_REPO: enix/x509-certificate-exporter
   PLATFORMS: linux/amd64,linux/arm64
   IMAGE_TAG_LATEST: $CI_REGISTRY_IMAGE:latest
   PUBLIC_IMAGE_TAG_LATEST: docker.io/$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:latest

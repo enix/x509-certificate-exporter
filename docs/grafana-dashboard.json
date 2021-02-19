@@ -2405,7 +2405,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Certificates (x509-exporter)",
+  "title": "Certificates Expiration (x509-certificate-exporter)",
   "uid": "lHnsYlPGk",
   "version": 76
 }

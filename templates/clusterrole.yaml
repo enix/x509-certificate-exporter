@@ -1,0 +1,80 @@
+{{- if .Values.rbac.create }}
+{{- if .Values.secretsExporter.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "x509-exporter.secretsExporterClusterRoleName" . }}
+  labels:
+    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- with .Values.extraLabels }}
+    {{ . | toYaml | trim | nindent 4 }}
+    {{- end }}
+{{- with .Values.rbac.secretsExporter.clusterRoleAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - watch
+  - list
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - watch
+  - list
+{{- if .Values.rbacProxy.enable }}
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+{{- end }}
+{{- end }}
+{{- if .Values.hostPathsExporter.daemonSets }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "x509-exporter.hostPathsExporterClusterRoleName" . }}
+  labels:
+    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- with .Values.extraLabels }}
+    {{ . | toYaml | trim | nindent 4 }}
+    {{- end }}
+{{- with .Values.rbac.hostPathsExporter.clusterRoleAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+rules:
+{{- if .Values.rbacProxy.enable }}
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+{{- end }}
+{{- end }}
+{{- end }}

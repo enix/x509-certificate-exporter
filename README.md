@@ -9,9 +9,10 @@
 A Prometheus exporter for certificates focusing on expiration monitoring, written in Go. Designed to monitor Kubernetes clusters from inside, it can also be used as a standalone exporter.
 
 Get notified before they expire:
-* PEM encoded files, by path or scanning directories
-* Kubeconfigs with embedded certificates or file references
-* TLS Secrets from a Kubernetes cluster
+
+- PEM encoded files, by path or scanning directories
+- Kubeconfigs with embedded certificates or file references
+- TLS Secrets from a Kubernetes cluster
 
 ![Grafana Dashboard](./docs/grafana-dashboard.jpg)
 
@@ -44,10 +45,11 @@ go build ./cmd/x509-certificate-exporter
 ## Usage
 
 The following metrics are available:
-* `x509_cert_not_before`
-* `x509_cert_not_after`
-* `x509_cert_expired`
-* `x509_read_errors`
+
+- `x509_cert_not_before`
+- `x509_cert_not_after`
+- `x509_cert_expired`
+- `x509_read_errors`
 
 ### Prometheus Alerts
 
@@ -162,8 +164,8 @@ x509_cert_not_after - time()
 When collecting metrics from tools like Datadog that does not have timestamp functions,
 the exporter can be run with the `--expose-relative-metrics` flag in order to add the following optional metrics:
 
-* `x509_cert_valid_since_seconds`
-* `x509_cert_expires_in_seconds`
+- `x509_cert_valid_since_seconds`
+- `x509_cert_expires_in_seconds`
 
 ### How to ensure it keeps working over time?
 
@@ -173,6 +175,7 @@ Because it's never convenient to alert on disapearing metrics, the exporter will
 paths could not be read. It will also count Kubernetes API responses failures, but won't count deleted secrets.
 
 A basic alert would be:
+
 ```
 x509_read_errors > 0
 ```

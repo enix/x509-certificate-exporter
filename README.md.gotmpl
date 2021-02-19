@@ -1,0 +1,279 @@
+# Deprecated Package
+
+➡️ **Upstream project was renamed, please install or upgrade to [enix/x509-certificate-exporter](https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter)**
+
+# 🔏 X.509 Exporter
+
+<p align="center">
+    <a href="https://opensource.org/licenses/Apache-2.0" alt="Apache 2.0 License">
+        <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" /></a>
+    <a href="https://enix.io/fr/blog/" alt="Brought to you by ENIX">
+        <img src="https://img.shields.io/badge/Brought%20to%20you%20by-ENIX-%23377dff?labelColor=888&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAQAAAC1QeVaAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAHdElNRQfkBAkQIg/iouK/AAABZ0lEQVQY0yXBPU8TYQDA8f/zcu1RSDltKliD0BKNECYZmpjgIAOLiYtubn4EJxI/AImzg3E1+AGcYDIMJA7lxQQQQRAiSSFG2l457+655x4Gfz8B45zwipWJ8rPCQ0g3+p9Pj+AlHxHjnLHAbvPW2+GmLoBN+9/+vNlfGeU2Auokd8Y+VeYk/zk6O2fP9fcO8hGpN/TUbxpiUhJiEorTgy+6hUlU5N1flK+9oIJHiKNCkb5wMyOFw3V9o+zN69o0Exg6ePh4/GKr6s0H72Tc67YsdXbZ5gENNjmigaXbMj0tzEWrZNtqigva5NxjhFP6Wfw1N1pjqpFaZQ7FAY6An6zxTzHs0BGqY/NQSnxSBD6WkDRTf3O0wG2Ztl/7jaQEnGNxZMdy2yET/B2xfGlDagQE1OgRRvL93UOHqhLnesPKqJ4NxLLn2unJgVka/HBpbiIARlHFq1n/cWlMZMne1ZfyD5M/Aa4BiyGSwP4Jl3UAAAAldEVYdGRhdGU6Y3JlYXRlADIwMjAtMDQtMDlUMTQ6MzQ6MTUrMDI6MDDBq8/nAAAAJXRFWHRkYXRlOm1vZGlmeQAyMDIwLTA0LTA5VDE0OjM0OjE1KzAyOjAwsPZ3WwAAAABJRU5ErkJggg==" /></a>
+</p>
+
+A Prometheus exporter for certificates focusing on expiration monitoring, written in Go with cloud deployments in mind.
+
+Get notified before they expire:
+* PEM encoded files, by path or scanning directories
+* Kubeconfigs with embedded certificates or file references
+* TLS Secrets from a Kubernetes cluster
+
+The following metrics are available:
+* `x509_cert_not_before`
+* `x509_cert_not_after`
+* `x509_cert_expired`
+* `x509_read_errors`
+
+Best when used with the [Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-exporter/master/docs/grafana-dashboard.json):
+
+![Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-exporter/master/docs/grafana-dashboard.jpg)
+
+## 🏃 TL;DR
+
+It only takes two commands to install x509-exporter, however you should read the instructions in the next section to
+take advantage of all the features!
+
+Add our Charts repository :
+```
+$ helm repo add enix https://charts.enix.io
+```
+Install x509-exporter for TLS Secrets monitoring with prometheus-operator support :
+```
+$ helm install x509-exporter enix/x509-exporter
+```
+
+To remove built-in Prometheus alerts if you'd rather craft your own :
+```
+$ helm upgrade x509-exporter enix/x509-exporter --reuse-values --set prometheusRules.create=false
+```
+
+If you don't use the Prometheus operator at all, and don't have the CRD, disable resource creation and perhaps add Pod
+annotations for scrapping :
+```
+secretsExporter:
+  podAnnotations:
+    prometheus.io/port: "9090"
+    prometheus.io/scrape: "true"
+service:
+  create: false
+prometheusServiceMonitor:
+  create: false
+prometheusRules:
+  create: false
+```
+
+## 📜 Using the Chart
+
+This will guide you through writing the initial set of values.
+
+### Metrics for TLS Secrets
+
+By default we only run a Deployment to provide metrics on TLS Secrets stored in the Kubernetes cluster. It helps
+detect expiring certificates whether you manage them on your own or rely on controllers such as
+[cert-manager](https://cert-manager.io). 
+> 🙂 If you're only interested in this feature, you could probably install the Chart not specifying any value.
+
+Disable this exporter when Secrets metrics are not wanted – if you're looking for hostPath DaemonSets only :
+```
+secretsExporter:
+  enabled: false
+```
+
+### Metrics for node certificates (hostPath)
+
+Kubernetes components use many certificates to authenticate and secure communications between each others. This PKI is
+critical to the operation of a cluster and its health should be monitored carefully. Expiring Kubernetes certificates
+are a common source of outages, and depending on your distribution could happen a few months after installation if left
+unattended.
+
+This Chart provides a facility to deploy `DaemonSets` so that each node of a cluster can run its own x509-exporter
+and export metrics for host files :
+* `etcd` server and client certificates
+* Kubernetes CA
+* `kube-apiserver` certificates
+* `kubelet` certificates
+* kubeconfig files with embedded certificates
+* etc.
+Obviously it also works with any other application deployed on cluster nodes as long as it uses PEM encoded certicates
+(deployment agents, security tools, etc.).
+
+> ⚙️ You'll have to compile a list of files and directories of interest. There is no "one size fits all" configuration
+that we could recommend, or even a decent boilerplate. Examples below should give an idea of what to look after.
+
+> 🏙️ While having a single DaemonSet sounds like a fair option, it is not uncommon for nodes to assume different roles,
+and as a result hold different sets of certificate files requiring targeted x509-exporter configurations.
+For example, with the help of node selectors and tolerations, we can have nodes of the control plane run their own
+exporter targeting API and etcd certificates, while regular nodes would have a simpler configuration for Kubelet alone.
+
+Deployment of hostPath exporters is controlled under the `hostPathsExporter` key of [Chart Values](#values).
+All values are defaults that would apply to any number of DaemonSet you wish to run, unless overridden individually.
+Then you'll need to create at least one DaemonSet in `hostPathsExporter.daemonSets`.
+
+This is the most basic configuration. It will create one DaemonSet named `nodes` with an empty configuration. Exporters
+won't export no certificate metric.
+```
+hostPathsExporter:
+  daemonSets:
+    nodes: {}
+```
+
+Moving on, we can add all flavors of "watch" settings :
+* `watchDirectories` : to monitor all PEM files found in a host directory (no recursion in subdirectories)
+* `watchFiles` : to target known file paths, this is highly recommended over the directory option when file paths are
+predictable
+* `watchKubeconfFiles` : look for base64 encoded embedded certificates in Kubeconfig files
+
+This will create a DaemonSet able to monitor the same files on all nodes. It could fit a typical kubeadm cluster with no
+control plane dedicated nodes : 
+```
+hostPathsExporter:
+  daemonSets:
+    nodes:
+      watchDirectories:
+      - /etc/kubernetes/pki/
+      - /etc/kubernetes/pki/etcd/
+      watchFiles:
+      - /var/lib/kubelet/pki/kubelet-client-current.pem
+      - /var/lib/kubelet/pki/kubelet.crt
+      watchKubeconfFiles:
+      - /etc/kubernetes/kubelet.conf
+      - /etc/kubernetes/admin.conf
+```
+
+Dedicated nodes will require other DaemonSets. Based on our kubeadm example, it could be extended like this :
+```
+hostPathsExporter:
+  podAnnotations:
+    prometheus.io/port: "9090"
+    prometheus.io/scrape: "true"
+
+  daemonSets:
+    cp:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+      watchDirectories:
+      - /etc/kubernetes/pki/
+      - /etc/kubernetes/pki/etcd/
+      watchFiles:
+      - /var/lib/kubelet/pki/kubelet-client-current.pem
+      - /var/lib/kubelet/pki/kubelet.crt
+      watchKubeconfFiles:
+      - /etc/kubernetes/kubelet.conf
+      - /etc/kubernetes/admin.conf
+
+    nodes:
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/ingress
+        operator: Exists
+      watchDirectories:
+      - /etc/kubernetes/pki/
+      watchFiles:
+      - /var/lib/kubelet/pki/kubelet-client-current.pem
+      - /var/lib/kubelet/pki/kubelet.crt
+      watchKubeconfFiles:
+      - /etc/kubernetes/kubelet.conf
+```
+
+With this last configuration we demonstrated :
+* using `podAnnotations` right under `hostPathsExporter`, it will apply to all `hostPathsExporter.daemonSets` because
+they don't override that setting
+* two DaemonSets, `cp` for control plane nodes, and `nodes` for regular ones
+* `nodeSelector` on the control plane DaemonSet to schedule Pods on "masters" only
+* `tolerations` for both. On `cp` it's required to be scheduled on those tainted nodes. Because this cluster would also
+have nodes dedicated to ingress controllers, DaemonSet `nodes` also get a toleration for this role.
+
+### Custom Resources for the Prometheus operator
+
+Users of the prometheus-operator will immediately scrape exporters thanks to the creation of a `ServiceMonitor`
+resource, and get basic alerting rules from the new `PrometheusRule`.
+The operator is usually installed with [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) or by
+the Kubernetes distribution.
+
+When it's missing and you don't have the CRD, helm will raise one of this error :
+```
+Error: unable to build kubernetes objects from release manifest: [unable to recognize "": no matches for kind "PrometheusRule" in version "monitoring.coreos.com/v1", unable to recognize "": no matches for kind "ServiceMonitor" in version "monitoring.coreos.com/v1"]
+```
+Add the following values to disable creation of `ServiceMonitors` and `PrometheusRules` :
+```
+prometheusServiceMonitor:
+  create: false
+prometheusRules:
+  create: false
+```
+Then perhaps you would need Pod annotations to work with the Kubernetes service discovery in Prometheus :
+```
+secretsExporter:
+  podAnnotations:
+    prometheus.io/port: "9090"
+    prometheus.io/scrape: "true"
+```
+Also in such case the headless service may not serve any purpose and can be removed :
+```
+service:
+  create: false
+```
+
+> ℹ️ [Chart Values](#values) provide a few knobs to control Prometheus rules, such as numbers of days before
+certificate expiration for warning and critical alerts are triggered.
+
+> ⚠️ Special alert `X509ExporterReadErrors` is meant to report anomalies with the exporter, such as API authorization
+issues or unreadable files. If the Kubernetes API is unstable it could be disabled with
+`prometheusRules.alertOnReadErrors`.\
+When using hostPath exporters, and some nodes don't have all the files, it's better to add other DaemonSet profiles
+to target each situation and preserve this alert. Detecting configuration regressions is especially important when
+working with files that can change path over time and on cluster upgrades.
+
+### Installing the Chart
+
+Create a file named `x509-exporter.values.yaml` with your values, as discussed previously and with the help of
+[Chart Values](#values).
+
+Add our Charts repository :
+```
+$ helm repo add enix https://charts.enix.io
+```
+
+Install the x509-exporter with release name `x509-exporter` :
+```
+$ helm install x509-exporter enix/x509-exporter --values x509-exporter.values.yaml
+```
+
+The `upgrade` command is used to change configuration when values are modified :
+```
+$ helm upgrade x509-exporter enix/x509-exporter --values x509-exporter.values.yaml
+```
+
+### Upgrading the Chart
+
+Update Helm repositories :
+```
+$ helm repo update
+``` 
+
+Upgrade release names `x509-exporter` to the latest version :
+```
+$ helm upgrade x509-exporter enix/x509-exporter
+```
+
+{{ template "chart.valuesSection" . }}
+
+## ⚖️ License
+
+Copyright (c) 2020, 2021 ENIX
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

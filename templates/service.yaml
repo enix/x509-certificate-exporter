@@ -1,0 +1,25 @@
+{{- if .Values.service.create }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "x509-exporter.fullname" . }}
+  labels:
+    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- with .Values.extraLabels }}
+    {{ . | toYaml | trim | nindent 4 }}
+    {{- end }}
+    {{- with .Values.service.extraLabels }}
+    {{- . | toYaml | trim | nindent 4 }}
+    {{- end }}
+{{- with .Values.service.annotations }}
+  annotations:
+    {{- . | toYaml | trim | nindent 4 }}
+{{- end }}
+spec:
+  ports:
+  - name: metrics
+    port: {{ .Values.service.port }}
+    targetPort: metrics
+  selector:
+    {{- include "x509-exporter.selectorLabels" . | nindent 4 }}
+{{- end }}

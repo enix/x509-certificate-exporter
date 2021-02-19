@@ -1,0 +1,125 @@
+{{- if .Values.secretsExporter.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "x509-exporter.secretsExporterName" . }}
+  labels:
+    {{- include "x509-exporter.labels" . | nindent 4 }}
+  {{- with .Values.extraLabels }}
+    {{- . | toYaml | trim | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "x509-exporter.selectorLabels" . | nindent 6 }}
+{{- with .Values.secretsExporter.replicas }}
+  replicas: {{ . }}
+{{- end }}
+{{- with .Values.secretsExporter.strategy }}
+  strategy:
+    {{- toYaml . | trim | nindent 4 }}
+{{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "x509-exporter.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podExtraLabels }}
+        {{- . | toYaml | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.secretsExporter.podExtraLabels }}
+        {{- . | toYaml | trim | nindent 8 }}
+      {{- end }}
+    {{- if or .Values.podAnnotations .Values.secretsExporter.podAnnotations }}
+      annotations:
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.secretsExporter.podAnnotations }}
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+    {{- end }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | trim | nindent 8 }}
+    {{- end }}
+    {{- with .Values.secretsExporter.affinity }}
+      affinity:
+        {{- toYaml . | trim | nindent 8 }}
+    {{- end }}
+    {{- with .Values.secretsExporter.tolerations }}
+      tolerations:
+      {{- toYaml . | trim | nindent 6 }}
+    {{- end }}
+    {{- with .Values.secretsExporter.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | trim | nindent 8 }}
+    {{- end }}
+    {{- with .Values.secretsExporter.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+    {{- end }}
+      restartPolicy: {{ .Values.secretsExporter.restartPolicy }}
+      serviceAccountName: {{ include "x509-exporter.secretsExporterServiceAccountName" . }}
+      containers:
+      - name: {{ .Chart.Name }}
+      {{- with .Values.secretsExporter.securityContext }}
+        securityContext:
+          {{- toYaml . | trim | nindent 10 }}
+      {{- end }}
+      {{- with .Values.secretsExporter.resources }}
+        resources:
+        {{- . | toYaml | trim | nindent 10 }}
+      {{- end }}
+        image: {{ include "x509-exporter.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+      {{- if .Values.secretsExporter.debugMode }}
+        - --debug
+      {{- end }}
+        - --watch-kube-secrets
+      {{- range .Values.secretsExporter.includeNamespaces }}
+        - --include-namespace={{ . | trim }}
+      {{- end }}
+      {{- range .Values.secretsExporter.excludeNamespaces }}
+        - --exclude-namespace={{ . | trim }}
+      {{- end }}
+      {{- range .Values.secretsExporter.includeLabels }}
+        - --include-label={{ . | trim }}
+      {{- end }}
+      {{- range .Values.secretsExporter.excludeLabels }}
+        - --exclude-label={{ . | trim }}
+      {{- end }}
+      {{- if not .Values.rbacProxy.enabled }}
+        - --port={{ .Values.podListenPort }}
+        ports:
+        - name: metrics
+          containerPort: {{ .Values.podListenPort }}
+      {{- else }}
+        - --port={{ .Values.rbacProxy.upstreamListenPort }}
+      - name: kube-rbac-proxy
+      {{- with .Values.rbacProxy.securityContext }}
+        securityContext:
+          {{- toYaml . | trim | nindent 10 }}
+      {{- end }}
+        image: {{ include "x509-exporter.rbacProxy.image" . }}
+        imagePullPolicy: {{ .Values.rbacProxy.imagePullPolicy }}
+        args:
+        - --logtostderr
+        - -v=99
+        - --upstream=http://[127.0.0.1]:{{ .Values.rbacProxy.upstreamListenPort }}
+        - --secure-listen-address=[$(IP)]:{{ .Values.podListenPort }}
+        env:
+        - name: IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        ports:
+        - name: metrics
+          containerPort: {{ .Values.podListenPort }}
+      {{- with .Values.rbacProxy.resources }}
+        resources:
+        {{- . | toYaml | trim | nindent 10 }}
+      {{- end }}
+    {{- end }}
+{{- end }}

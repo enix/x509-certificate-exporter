@@ -1,0 +1,44 @@
+{{- if .Values.prometheusRules.create }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "x509-exporter.fullname" . }}
+  labels:
+    {{- include "x509-exporter.labels" . | nindent 4 }}
+    {{- with .Values.extraLabels }}
+    {{ . | toYaml | trim | nindent 4 }}
+    {{- end }}
+    {{- with .Values.prometheusRules.extraLabels }}
+    {{- . | toYaml | trim | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+  - name: x509-exporter.rules
+    rules:
+  {{- if .Values.prometheusRules.alertOnReadErrors }}
+    - alert: X509ExporterReadErrors
+      expr: delta(x509_read_errors[15m]) > 0
+      for: 5m
+      labels:
+        severity: {{ .Values.prometheusRules.readErrorsSeverity }}
+      annotations:
+        summary: Increasing read errors for x509-exporter
+        description: Over the last 15 minutes, this x509-exporter instance has experienced errors reading certificate files or querying the Kubernetes API. This could be caused by a misconfiguration if triggered when the exporter starts.
+  {{- end }}
+    - alert: CertificateRenewal
+      expr: ((x509_cert_not_after - time()) / 86400) < {{ .Values.prometheusRules.warningDaysLeft }}
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: Certificate should be renewed
+        description: Certificate for "{{ "{{" }} $labels.subject_CN {{ "}}" }}" should be renewed {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernets secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+    - alert: CertificateExpiration
+      expr: ((x509_cert_not_after - time()) / 86400) < {{ .Values.prometheusRules.criticalDaysLeft }}
+      for: 15m
+      labels:
+        severity: critical
+      annotations:
+        summary: Certificate is about to expire
+        description: Certificate for "{{ "{{" }} $labels.subject_CN {{ "}}" }}" is about to expire {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernets secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+{{- end }}

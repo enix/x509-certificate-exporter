@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: x509-exporter
+  name: x509-certificate-exporter
 rules: []
 
 ---
@@ -9,14 +9,14 @@ rules: []
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: x509-exporter
+  name: x509-certificate-exporter
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: x509-exporter
+  name: x509-certificate-exporter
 subjects:
 - kind: ServiceAccount
-  name: x509-exporter
+  name: x509-certificate-exporter
   namespace: default
 
 ---
@@ -24,4 +24,4 @@ subjects:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: x509-exporter
+  name: x509-certificate-exporter

@@ -42,13 +42,13 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	output, err = exec.Command("bash", "-c", "../test/create-k8s-config-for-sa.sh x509-exporter").CombinedOutput()
+	output, err = exec.Command("bash", "-c", "../test/create-k8s-config-for-sa.sh x509-certificate-exporter").CombinedOutput()
 	log.Debug(string(output))
 	if err != nil {
 		panic(err)
 	}
 
-	output, err = exec.Command("bash", "-c", "../test/create-k8s-config-for-sa.sh x509-exporter-list").CombinedOutput()
+	output, err = exec.Command("bash", "-c", "../test/create-k8s-config-for-sa.sh x509-certificate-exporter-list").CombinedOutput()
 	log.Debug(string(output))
 	if err != nil {
 		panic(err)
@@ -70,8 +70,8 @@ func TestMain(m *testing.M) {
 	removeBrokenKubeSecret()
 
 	os.Remove("kubeconfig")
-	os.Remove("kubeconfig.x509-exporter")
-	os.Remove("kubeconfig.x509-exporter-list")
+	os.Remove("kubeconfig.x509-certificate-exporter")
+	os.Remove("kubeconfig.x509-certificate-exporter-list")
 	os.Exit(status)
 }
 
@@ -260,7 +260,7 @@ func TestKubeMetricLabels(t *testing.T) {
 }
 
 func TestKubeNamespaceListFailure(t *testing.T) {
-	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-exporter", true)
+	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-certificate-exporter", true)
 	if err != nil {
 		panic(err)
 	}
@@ -275,7 +275,7 @@ func TestKubeNamespaceListFailure(t *testing.T) {
 }
 
 func TestKubeSecretsListFailure(t *testing.T) {
-	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-exporter-list", true)
+	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-certificate-exporter-list", true)
 	if err != nil {
 		panic(err)
 	}

@@ -4,7 +4,7 @@ import (
 	"os"
 	"path"
 
-	exporter "enix.io/x509-exporter/internal"
+	exporter "enix.io/x509-certificate-exporter/internal"
 	getopt "github.com/pborman/getopt/v2"
 	log "github.com/sirupsen/logrus"
 )

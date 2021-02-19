@@ -1,4 +1,4 @@
-# 🔏 X.509 Exporter
+# 🔏 X.509 Certificates Exporter
 
 <p align="center">
     <a href="https://opensource.org/licenses/Apache-2.0" alt="Apache 2.0 License">

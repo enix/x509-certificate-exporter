@@ -16,7 +16,7 @@ The following metrics are available:
 * `x509_cert_expired`
 * `x509_read_errors`
 
-Best when installed with the [Helm Chart](https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter) and using the [Grafana Dashboard](./docs/grafana-dashboard.json):
+Best when installed with the [Helm Chart](https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter) and using the [Grafana Dashboard](https://grafana.com/grafana/dashboards/13922) ID `13922`:
 
 ![Grafana Dashboard](./docs/grafana-dashboard.jpg)
 

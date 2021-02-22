@@ -359,7 +359,8 @@ func TestInvalidYAML(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 
 	testRequest(t, &Exporter{
-		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/not-yaml.yaml")},
+		YAMLs:     []string{path.Join(filepath.Dir(filename), "../test/not-yaml.conf")},
+		YAMLPaths: DefaultYamlPaths,
 	}, func(metrics []model.MetricFamily) {
 		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
 		assert.Len(t, foundMetrics, 0, "extra x509_cert_expired metric(s)")
@@ -455,8 +456,8 @@ func TestInvalidYAMLMatchExpr(t *testing.T) {
 		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-embedded.conf")},
 		YAMLPaths: []YAMLCertRef{
 			{
-				CertMatchExpr: "$.clusters[].cluster[\"certificate-authority-data\"]",
-				IDMatchExpr:   "invalid",
+				CertMatchExpr: "$.clusters[:].cluster[\"certificate-authority-data\"]",
+				IDMatchExpr:   "$.invalid",
 				Format:        YAMLCertFormatBase64,
 			},
 		},
@@ -476,11 +477,11 @@ func TestInvalidYAMLMatchExpr(t *testing.T) {
 	})
 
 	testRequest(t, &Exporter{
-		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-embedded.conf")},
+		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-inconsistent.conf")},
 		YAMLPaths: []YAMLCertRef{
 			{
-				CertMatchExpr: "$.clusters[].cluster[\"certificate-authority-data\"]",
-				IDMatchExpr:   "$.invalid",
+				CertMatchExpr: "$.clusters[:].cluster[\"certificate-authority-data\"]",
+				IDMatchExpr:   "$.clusters[:].name",
 				Format:        YAMLCertFormatBase64,
 			},
 		},

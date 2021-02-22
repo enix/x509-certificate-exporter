@@ -95,7 +95,7 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 	labelsValue := append(baseLabelsValue, append(issuerLabelsValue, subjectLabelsValue...)...)
 
 	if ref.format == certificateFormatYAML {
-		kind := strings.Split(certData.yqMatchExpr, ".")[0]
+		kind := strings.Split(certData.yqMatchExpr, ".")[1]
 		labels = append(labels, "embedded_kind")
 		labelsValue = append(labelsValue, strings.TrimRight(kind, "s"))
 	}

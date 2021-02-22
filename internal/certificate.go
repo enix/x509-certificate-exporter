@@ -208,6 +208,7 @@ func searchYAMLFile(filename, expr string) (string, error) {
 		for _, line := range texts {
 			if text, ok := line.(string); ok {
 				output.WriteString(text)
+				output.WriteRune('\n')
 			} else {
 				return "", fmt.Errorf("failed to convert yaml element to string: %T", results)
 			}

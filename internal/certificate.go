@@ -202,10 +202,6 @@ func searchYAMLFile(filename, expr string) (string, error) {
 		return "", err
 	}
 
-	if text, ok := results.(string); ok {
-		return text, nil
-	}
-
 	if texts, ok := results.([]interface{}); ok {
 		var output strings.Builder
 

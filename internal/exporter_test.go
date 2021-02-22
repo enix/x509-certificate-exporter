@@ -355,6 +355,75 @@ func TestLoadDirAsFile(t *testing.T) {
 	})
 }
 
+func TestInvalidYAML(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+
+	testRequest(t, &Exporter{
+		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/not-yaml.yaml")},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0, "extra x509_cert_expired metric(s)")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0, "extra x509_cert_not_before metric(s)")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0, "extra x509_cert_not_after metric(s)")
+
+		errorMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Len(t, errorMetric, 1, "missing x509_read_errors metric")
+		assert.Equal(t, errorMetric[0].GetGauge().GetValue(), 1., "invalid x509_read_errors value")
+	})
+
+	testRequest(t, &Exporter{
+		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/invalid-yaml.conf")},
+		YAMLPaths: []YAMLCertRef{
+			{
+				CertMatchExpr: "$.badstring",
+				IDMatchExpr:   "$.clusters[].name",
+				Format:        YAMLCertFormatBase64,
+			},
+		},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0, "extra x509_cert_expired metric(s)")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0, "extra x509_cert_not_before metric(s)")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0, "extra x509_cert_not_after metric(s)")
+
+		errorMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Len(t, errorMetric, 1, "missing x509_read_errors metric")
+		assert.Equal(t, errorMetric[0].GetGauge().GetValue(), 1., "invalid x509_read_errors value")
+	})
+
+	testRequest(t, &Exporter{
+		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/invalid-yaml.conf")},
+		YAMLPaths: []YAMLCertRef{
+			{
+				CertMatchExpr: "$.badarrayelem",
+				IDMatchExpr:   "$.clusters[].name",
+				Format:        YAMLCertFormatBase64,
+			},
+		},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0, "extra x509_cert_expired metric(s)")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0, "extra x509_cert_not_before metric(s)")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0, "extra x509_cert_not_after metric(s)")
+
+		errorMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Len(t, errorMetric, 1, "missing x509_read_errors metric")
+		assert.Equal(t, errorMetric[0].GetGauge().GetValue(), 1., "invalid x509_read_errors value")
+	})
+}
+
 func TestInvalidYAMLMatchExpr(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 
@@ -362,8 +431,56 @@ func TestInvalidYAMLMatchExpr(t *testing.T) {
 		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-embedded.conf")},
 		YAMLPaths: []YAMLCertRef{
 			{
-				CertMatchExpr: "clusters.[*].cluster.certificate-authority-data",
-				IDMatchExpr:   "clusters.[.name",
+				CertMatchExpr: "invalid",
+				IDMatchExpr:   "$.clusters[].name",
+				Format:        YAMLCertFormatBase64,
+			},
+		},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0, "extra x509_cert_expired metric(s)")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0, "extra x509_cert_not_before metric(s)")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0, "extra x509_cert_not_after metric(s)")
+
+		errorMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Len(t, errorMetric, 1, "missing x509_read_errors metric")
+		assert.Equal(t, errorMetric[0].GetGauge().GetValue(), 1., "invalid x509_read_errors value")
+	})
+
+	testRequest(t, &Exporter{
+		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-embedded.conf")},
+		YAMLPaths: []YAMLCertRef{
+			{
+				CertMatchExpr: "$.clusters[].cluster[\"certificate-authority-data\"]",
+				IDMatchExpr:   "invalid",
+				Format:        YAMLCertFormatBase64,
+			},
+		},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0, "extra x509_cert_expired metric(s)")
+
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0, "extra x509_cert_not_before metric(s)")
+
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0, "extra x509_cert_not_after metric(s)")
+
+		errorMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Len(t, errorMetric, 1, "missing x509_read_errors metric")
+		assert.Equal(t, errorMetric[0].GetGauge().GetValue(), 1., "invalid x509_read_errors value")
+	})
+
+	testRequest(t, &Exporter{
+		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-embedded.conf")},
+		YAMLPaths: []YAMLCertRef{
+			{
+				CertMatchExpr: "$.clusters[].cluster[\"certificate-authority-data\"]",
+				IDMatchExpr:   "$.invalid",
 				Format:        YAMLCertFormatBase64,
 			},
 		},

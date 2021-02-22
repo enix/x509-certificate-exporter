@@ -4,14 +4,15 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io/ioutil"
-	"os/exec"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
+	"github.com/yalp/jsonpath"
+	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -34,23 +35,23 @@ const (
 // DefaultYamlPaths : Pre-written paths for some k8s config files
 var DefaultYamlPaths = []YAMLCertRef{
 	{
-		CertMatchExpr: "clusters.[*].cluster.certificate-authority-data",
-		IDMatchExpr:   "clusters.[*].name",
+		CertMatchExpr: "$.clusters[:].cluster[\"certificate-authority-data\"]",
+		IDMatchExpr:   "$.clusters[:].name",
 		Format:        YAMLCertFormatBase64,
 	},
 	{
-		CertMatchExpr: "clusters.[*].cluster.certificate-authority",
-		IDMatchExpr:   "clusters.[*].name",
+		CertMatchExpr: "$.clusters[:].cluster[\"certificate-authority\"]",
+		IDMatchExpr:   "$.clusters[:].name",
 		Format:        YAMLCertFormatFile,
 	},
 	{
-		CertMatchExpr: "users.[*].user.client-certificate-data",
-		IDMatchExpr:   "users.[*].name",
+		CertMatchExpr: "$.users[:].user[\"client-certificate-data\"]",
+		IDMatchExpr:   "$.users[:].name",
 		Format:        YAMLCertFormatBase64,
 	},
 	{
-		CertMatchExpr: "users.[*].user.client-certificate",
-		IDMatchExpr:   "users.[*].name",
+		CertMatchExpr: "$.users[:].user[\"client-certificate\"]",
+		IDMatchExpr:   "$.users[:].name",
 		Format:        YAMLCertFormatFile,
 	},
 }
@@ -122,9 +123,9 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 	output := []*parsedCertificate{}
 
 	for _, exprs := range yamlPaths {
-		rawCerts, err := exec.Command("yq", "r", filePath, exprs.CertMatchExpr).CombinedOutput()
+		rawCerts, err := searchYAMLFile(filePath, exprs.CertMatchExpr)
 		if err != nil {
-			return nil, errors.New(err.Error() + " | stderr: " + string(rawCerts))
+			return nil, err
 		}
 		if len(rawCerts) == 0 {
 			continue
@@ -156,7 +157,11 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 			return nil, err
 		}
 
-		rawUserIDs, _ := exec.Command("yq", "r", filePath, exprs.IDMatchExpr).Output()
+		rawUserIDs, err := searchYAMLFile(filePath, exprs.IDMatchExpr)
+		if err != nil {
+			return nil, err
+		}
+
 		userIDs := []string{}
 		for _, userID := range strings.Split(string(rawUserIDs), "\n") {
 			if userID != "" {
@@ -177,6 +182,45 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 	}
 
 	return output, nil
+}
+
+func searchYAMLFile(filename, expr string) (string, error) {
+	var raw interface{}
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return "", err
+	}
+
+	err = yaml.NewDecoder(file).Decode(&raw)
+	if err != nil {
+		return "", err
+	}
+
+	results, err := jsonpath.Read(raw, expr)
+	if err != nil {
+		return "", err
+	}
+
+	if text, ok := results.(string); ok {
+		return text, nil
+	}
+
+	if texts, ok := results.([]interface{}); ok {
+		var output strings.Builder
+
+		for _, line := range texts {
+			if text, ok := line.(string); ok {
+				output.WriteString(text)
+			} else {
+				return "", fmt.Errorf("failed to convert yaml element to string: %T", results)
+			}
+		}
+
+		return output.String(), nil
+	}
+
+	return "", fmt.Errorf("failed to convert yaml element to string: %T", results)
 }
 
 func readAndParseKubeSecret(secret *v1.Secret) ([]*parsedCertificate, error) {

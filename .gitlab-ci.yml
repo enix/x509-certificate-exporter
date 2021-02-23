@@ -4,7 +4,7 @@ stages:
   - release
 
 variables:
-  GITHUB_REPO: enix/x509-certificate-exporter
+  GITHUB_REPO: enix/$CI_PROJECT_NAME
   PLATFORMS: linux/amd64,linux/arm64
   CACHE_TAG: $CI_REGISTRY_IMAGE:cache
   IMAGE_TAG_LATEST: $CI_REGISTRY_IMAGE:latest
@@ -45,8 +45,6 @@ test:
     - docker:20-dind
   before_script:
     - apk add --update gcc libc-dev curl docker-cli bash
-    - wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64"
-    - chmod +x /usr/local/bin/yq
     - GO111MODULE="on" go get sigs.k8s.io/kind@v0.9.0
     - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
     - chmod +x kubectl
@@ -95,6 +93,29 @@ semantic-release:
   script:
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
     - semantic-release --ci
+
+release-assets:
+  stage: release
+  image: golang:1.15-alpine
+  # extends:
+  #   - .only-semver
+  before_script:
+    - apk add --update curl bash
+  script:
+    - export IFS=","
+    - >
+      for platform in $PLATFORMS; do
+        GOOS=$(cut -d'/' -f1 <<<"$platform")
+        GOARCH=$(cut -d'/' -f2 <<<"$platform")
+        BIN=$CI_PROJECT_NAME-$GOOS-$GOARCH
+        go build -o $BIN -ldflags "-X \"enix.io/$CI_PROJECT_NAME/internal.Version=${CI_COMMIT_REF_SLUG:1}\"" ./cmd/$CI_PROJECT_NAME
+        ./test/upload-release.sh "github_api_token=$GITHUB_TOKEN" "owner=enix" "repo=$CI_PROJECT_NAME" "tag=v2.3.0" "filename=$BIN"
+      done
+  after_script:
+    - kind delete cluster --name $CI_PIPELINE_ID
+  artifacts:
+    paths:
+      - coverage.html
 
 docker-hub:
   extends:

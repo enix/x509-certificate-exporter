@@ -374,9 +374,9 @@ func addKubeSecrets(count int, ns string) {
 			},
 		}, metav1.CreateOptions{})
 
-		// if err != nil {
-		// 	panic(err)
-		// }
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -396,9 +396,10 @@ func addBrokenKubeSecret() {
 			Name: "corrupted-pem-data",
 		},
 	}, metav1.CreateOptions{})
-	// if err != nil {
-	// 	panic(err)
-	// }
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 func removeBrokenKubeSecret() {

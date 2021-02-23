@@ -6,6 +6,7 @@ stages:
 variables:
   GITHUB_REPO: enix/x509-certificate-exporter
   PLATFORMS: linux/amd64,linux/arm64
+  CACHE_TAG: $CI_REGISTRY_IMAGE:cache
   IMAGE_TAG_LATEST: $CI_REGISTRY_IMAGE:latest
   PUBLIC_IMAGE_TAG_LATEST: docker.io/$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:latest
 
@@ -73,7 +74,7 @@ build:
   image: docker:stable-dind
   script:
     - export IMAGE_TAG="$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME"
-    - docker buildx build -t "$IMAGE_TAG" --platform "$PLATFORMS" --push .
+    - docker buildx build --platform "$PLATFORMS" -t "$IMAGE_TAG" --build-arg "VERSION=devel ($CI_COMMIT_SHORT_SHA)" --cache-from $CACHE_TAG --cache-to $CACHE_TAG --push .
 
 build-latest:
   extends:
@@ -83,7 +84,7 @@ build-latest:
   image: docker:stable-dind
   script:
     - export IMAGE_TAG="$CI_REGISTRY_IMAGE:${CI_COMMIT_REF_NAME:1}"
-    - docker buildx build -t "$IMAGE_TAG" -t "$IMAGE_TAG_LATEST" --platform "$PLATFORMS" --push .
+    - docker buildx build --platform "$PLATFORMS" -t "$IMAGE_TAG" -t "$IMAGE_TAG_LATEST" --build-arg "VERSION=${CI_COMMIT_REF_SLUG:1}" --cache-from $CACHE_TAG --cache-to $CACHE_TAG --push .
 
 semantic-release:
   extends:

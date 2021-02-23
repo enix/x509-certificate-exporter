@@ -24,7 +24,9 @@ ENV GOOS=${OS}
 
 ENV GOARCH=${ARCH}
 
-RUN go build ./cmd/x509-certificate-exporter
+ARG VERSION="0.0.0"
+
+RUN go build -ldflags "-X \"enix.io/x509-certificate-exporter/internal.Version=${VERSION}\"" ./cmd/x509-certificate-exporter
 
 ###############
 

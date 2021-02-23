@@ -111,11 +111,6 @@ release-assets:
         go build -o $BIN -ldflags "-X \"enix.io/$CI_PROJECT_NAME/internal.Version=${CI_COMMIT_REF_SLUG:1}\"" ./cmd/$CI_PROJECT_NAME
         ./test/upload-release.sh "github_api_token=$GITHUB_TOKEN" "owner=enix" "repo=$CI_PROJECT_NAME" "tag=v2.3.0" "filename=$BIN"
       done
-  after_script:
-    - kind delete cluster --name $CI_PIPELINE_ID
-  artifacts:
-    paths:
-      - coverage.html
 
 docker-hub:
   extends:

@@ -117,11 +117,16 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 		return nil, err
 	}
 
+	return filterSecrets(secrets.Items, includedLabelsWithoutValue, excludedLabelsWithoutValue, excludedLabelsWithValue), nil
+}
+
+func filterSecrets(secrets []v1.Secret, includedLabels, excludedLabels []string, excludedLabelsWithValue map[string]string) []v1.Secret {
 	filteredSecrets := []v1.Secret{}
-	for _, secret := range secrets.Items {
+
+	for _, secret := range secrets {
 		validKeyCount := 0
 
-		for _, expectedKey := range includedLabelsWithoutValue {
+		for _, expectedKey := range includedLabels {
 			for key := range secret.GetLabels() {
 				if key == expectedKey {
 					validKeyCount++
@@ -131,7 +136,7 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 		}
 
 		forbiddenKeyCount := 0
-		for _, forbiddenKey := range excludedLabelsWithoutValue {
+		for _, forbiddenKey := range excludedLabels {
 			for key := range secret.GetLabels() {
 				if key == forbiddenKey {
 					forbiddenKeyCount++
@@ -149,12 +154,12 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 			}
 		}
 
-		if validKeyCount >= len(includedLabelsWithoutValue) && forbiddenKeyCount == 0 {
+		if validKeyCount >= len(includedLabels) && forbiddenKeyCount == 0 {
 			filteredSecrets = append(filteredSecrets, secret)
 		}
 	}
 
-	return filteredSecrets, nil
+	return filteredSecrets
 }
 
 func connectToKubernetesCluster(kubeconfigPath string, insecure bool) (*kubernetes.Clientset, error) {

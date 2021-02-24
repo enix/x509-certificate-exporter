@@ -1,4 +1,4 @@
-# 🔏 X.509 Certificates Exporter
+# 🔏 X.509 Certificate Exporter
 
 [![Build status](https://gitlab.com/enix.io/x509-certificate-exporter/badges/master/pipeline.svg)](https://gitlab.com/enix.io/x509-certificate-exporter/-/pipelines)
 [![Code coverage](https://gitlab.com/enix.io/x509-certificate-exporter/badges/master/coverage.svg)](https://gitlab.com/enix.io/x509-certificate-exporter/-/pipelines)
@@ -80,7 +80,7 @@ Usage: x509-certificate-exporter [-hv] [--debug] [-d value] [--exclude-label val
                    watch one or more Kubernetes client configuration (kind
                    Config) which contains embedded x509 certificates or PEM
                    file paths
- -p, --port=value  prometheus exporter listening port [9090]
+ -p, --port=value  prometheus exporter listening port [9793]
      --trim-path-components=value
                    remove <n> leading component(s) from path(s) in label(s)
  -v, --version     show version info and exit

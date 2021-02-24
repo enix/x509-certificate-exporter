@@ -25,7 +25,7 @@ func (s *stringArrayFlag) String() string {
 func main() {
 	help := getopt.BoolLong("help", 'h', "show this help message and exit")
 	version := getopt.BoolLong("version", 'v', "show version info and exit")
-	port := getopt.IntLong("port", 'p', 9090, "prometheus exporter listening port")
+	port := getopt.IntLong("port", 'p', 9793, "prometheus exporter listening port")
 	debug := getopt.BoolLong("debug", 0, "enable debug mode")
 	trimPathComponents := getopt.IntLong("trim-path-components", 0, 0, "remove <n> leading component(s) from path(s) in label(s)")
 

@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const port = 9090
+const port = 9793
 
 func TestRegularStartup(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
@@ -306,8 +306,8 @@ func TestCorruptedCertInYAML(t *testing.T) {
 }
 
 func TestBindAddrAlreadyInUse(t *testing.T) {
-	listener, _ := net.Listen("tcp", ":9090")
-	e := &Exporter{Port: 9090}
+	listener, _ := net.Listen("tcp", ":9793")
+	e := &Exporter{Port: 9793}
 	err := e.ListenAndServe()
 	listener.Close()
 	assert.NotNil(t, err, "no error was returned for bind failure")

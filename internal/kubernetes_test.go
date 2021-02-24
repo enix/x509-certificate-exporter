@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -348,12 +347,12 @@ func addKubeSecrets(count int, ns string) {
 	for index := 0; index < count; index++ {
 		certPath := fmt.Sprintf("/tmp/test-%s-%d.crt", ns, index)
 		generateCertificate(certPath, time.Now())
-		cert, err := ioutil.ReadFile(certPath)
+		cert, err := os.ReadFile(certPath)
 		if err != nil {
 			panic(err)
 		}
 
-		key, err := ioutil.ReadFile(certPath + ".key")
+		key, err := os.ReadFile(certPath + ".key")
 		if err != nil {
 			panic(err)
 		}
@@ -381,7 +380,7 @@ func addKubeSecrets(count int, ns string) {
 }
 
 func addBrokenKubeSecret() {
-	corruptedData, err := ioutil.ReadFile("../test/corrupted.pem")
+	corruptedData, err := os.ReadFile("../test/corrupted.pem")
 	if err != nil {
 		panic(err)
 	}

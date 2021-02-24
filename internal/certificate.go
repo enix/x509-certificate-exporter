@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -101,7 +100,7 @@ func (cert *certificateRef) parse() error {
 }
 
 func readAndParsePEMFile(path string) ([]*parsedCertificate, error) {
-	contents, err := ioutil.ReadFile(path)
+	contents, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +142,7 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 					certPath = path.Join(filepath.Dir(filePath), rawCertPaths)
 				}
 
-				data, err := ioutil.ReadFile(certPath)
+				data, err := os.ReadFile(certPath)
 				if err != nil {
 					return nil, err
 				}

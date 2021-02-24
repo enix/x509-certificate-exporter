@@ -2,7 +2,7 @@ ARG OS="linux"
 
 ARG ARCH="amd64"
 
-FROM --platform=${OS}/${ARCH} golang:1.15-alpine as build
+FROM --platform=${OS}/${ARCH} golang:1.16-alpine as build
 
 ARG OS
 

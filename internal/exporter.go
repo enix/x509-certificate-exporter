@@ -3,9 +3,9 @@ package internal
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"path"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -128,7 +128,7 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	}
 
 	for _, dir := range exporter.Directories {
-		files, err := ioutil.ReadDir(dir)
+		files, err := os.ReadDir(dir)
 		if err != nil {
 			raiseError(fmt.Errorf("failed to open directory \"%s\", %s", dir, err.Error()))
 			continue

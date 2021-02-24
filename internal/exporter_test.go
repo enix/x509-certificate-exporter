@@ -10,7 +10,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"net"
@@ -160,14 +159,14 @@ func TestYAMLPath(t *testing.T) {
 func TestYAMLAbsolutePath(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 
-	template, err := ioutil.ReadFile(path.Join(filepath.Dir(filename), "../test/yaml-abs-paths.conf"))
+	template, err := os.ReadFile(path.Join(filepath.Dir(filename), "../test/yaml-abs-paths.conf"))
 	assert.Nil(t, err)
 
 	cwd, err := os.Getwd()
 	assert.Nil(t, err)
 
 	data := strings.ReplaceAll(string(template), "{{PWD}}", path.Join(cwd, ".."))
-	err = ioutil.WriteFile("/tmp/test-abs.yaml", []byte(data), 0644)
+	err = os.WriteFile("/tmp/test-abs.yaml", []byte(data), 0644)
 	assert.Nil(t, err)
 
 	testRequest(t, &Exporter{
@@ -668,11 +667,11 @@ func generateCertificate(path string, notBefore time.Time) {
 	}
 	out := &bytes.Buffer{}
 	pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	ioutil.WriteFile(path, out.Bytes(), 00644)
+	os.WriteFile(path, out.Bytes(), 00644)
 	out.Reset()
 
 	pem.Encode(out, getPEMBlockForKey(priv))
-	ioutil.WriteFile(path+".key", out.Bytes(), 00644)
+	os.WriteFile(path+".key", out.Bytes(), 00644)
 }
 
 func removeGeneratedCertificate(path string) {

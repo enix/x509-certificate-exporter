@@ -96,11 +96,12 @@ semantic-release:
 
 release-assets:
   stage: release
-  image: golang:1.15-alpine
+  image: golang:1.15
   # extends:
   #   - .only-semver
-  before_script:
-    - apk add --update curl bash
+  # before_script:
+  #   - apt update
+  #   - apt install -y curl bash
   script:
     - export IFS=","
     - >

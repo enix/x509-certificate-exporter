@@ -99,8 +99,8 @@ semantic-release:
 release-assets:
   stage: release
   image: golang:1.16
-  # extends:
-  #   - .only-semver
+  extends:
+    - .only-semver
   script:
     - export IFS=","
     - >

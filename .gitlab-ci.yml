@@ -56,6 +56,7 @@ test:
     - export IP=$(docker inspect $CI_PIPELINE_ID-control-plane --format '{{ .NetworkSettings.Networks.kind.Gateway }}')
     - sed -i -E -e "s/localhost|0\.0\.0\.0/docker/g" "$HOME/.kube/config"
     - kubectl --insecure-skip-tls-verify cluster-info
+    - go mod tidy
   script:
     - go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal
     - go tool cover -html=coverage.cov -o coverage.html

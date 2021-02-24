@@ -17,7 +17,7 @@ Get notified before they expire:
 
 ## Installation
 
-### 🏃 TL;DR
+### 🏃 TL; DR
 
 The [Helm chart](https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter#-tldr) is the most straightforward way to get a fully-featured exporter running on your cluster.
 The chart is also highly-customizable if you wish to. See the [chart documentation](https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter) to learn more.

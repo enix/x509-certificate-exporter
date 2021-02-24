@@ -52,7 +52,7 @@ podExtraLabels: {}
 
 # -- Annotations added to all Pods
 podAnnotations: {}
-#  prometheus.io/port: "9090"
+#  prometheus.io/port: "9793"
 #  prometheus.io/scrape: "true"
 
 secretsExporter:
@@ -155,7 +155,7 @@ hostPathsExporter:
   daemonSets: {}
 
 # -- TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not)
-podListenPort: 9090
+podListenPort: 9793
 
 rbacProxy:
   # -- Should kube-rbac-proxy be used to expose exporters
@@ -194,7 +194,7 @@ service:
   # service.create -- Should a headless Service be installed (required for ServiceMonitor)
   create: true
   # service.port -- TCP port to expose the Service on
-  port: 9090
+  port: 9793
   # service.annotations -- Annotations to add to the Service
   annotations: {}
   # service.extraLabels -- Extra labels to add to the Service

@@ -48,7 +48,7 @@ annotations for scrapping :
 ```
 secretsExporter:
   podAnnotations:
-    prometheus.io/port: "9090"
+    prometheus.io/port: "9793"
     prometheus.io/scrape: "true"
 service:
   create: false
@@ -66,7 +66,7 @@ This will guide you through writing the initial set of values.
 
 By default we only run a Deployment to provide metrics on TLS Secrets stored in the Kubernetes cluster. It helps
 detect expiring certificates whether you manage them on your own or rely on controllers such as
-[cert-manager](https://cert-manager.io). 
+[cert-manager](https://cert-manager.io).
 > 🙂 If you're only interested in this feature, you could probably install the Chart not specifying any value.
 
 Disable this exporter when Secrets metrics are not wanted – if you're looking for hostPath DaemonSets only :
@@ -120,7 +120,7 @@ predictable
 * `watchKubeconfFiles` : look for base64 encoded embedded certificates in Kubeconfig files
 
 This will create a DaemonSet able to monitor the same files on all nodes. It could fit a typical kubeadm cluster with no
-control plane dedicated nodes : 
+control plane dedicated nodes :
 ```
 hostPathsExporter:
   daemonSets:
@@ -140,7 +140,7 @@ Dedicated nodes will require other DaemonSets. Based on our kubeadm example, it 
 ```
 hostPathsExporter:
   podAnnotations:
-    prometheus.io/port: "9090"
+    prometheus.io/port: "9793"
     prometheus.io/scrape: "true"
 
   daemonSets:
@@ -205,7 +205,7 @@ Then perhaps you would need Pod annotations to work with the Kubernetes service 
 ```
 secretsExporter:
   podAnnotations:
-    prometheus.io/port: "9090"
+    prometheus.io/port: "9793"
     prometheus.io/scrape: "true"
 ```
 Also in such case the headless service may not serve any purpose and can be removed :
@@ -249,7 +249,7 @@ $ helm upgrade x509-certificate-exporter enix/x509-certificate-exporter --values
 Update Helm repositories :
 ```
 $ helm repo update
-``` 
+```
 
 Upgrade release names `x509-certificate-exporter` to the latest version :
 ```

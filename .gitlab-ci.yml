@@ -6,6 +6,7 @@ stages:
 variables:
   GITHUB_REPO: enix/$CI_PROJECT_NAME
   PLATFORMS: linux/amd64,linux/arm64
+  STANDALONE_PLATFORMS: linux/386,linux/arm,linux/arm64,linux/amd64,windows/386,windows/amd64,darwin/amd64
   CACHE_TAG: $CI_REGISTRY_IMAGE:cache
   IMAGE_TAG_LATEST: $CI_REGISTRY_IMAGE:latest
   PUBLIC_IMAGE_TAG_LATEST: docker.io/$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:latest
@@ -99,13 +100,10 @@ release-assets:
   image: golang:1.15
   # extends:
   #   - .only-semver
-  # before_script:
-  #   - apt update
-  #   - apt install -y curl bash
   script:
     - export IFS=","
     - >
-      for platform in $PLATFORMS; do
+      for platform in $STANDALONE_PLATFORMS; do
         GOOS=$(echo "$platform" | cut -d'/' -f1)
         GOARCH=$(echo "$platform" | cut -d'/' -f2)
         BIN=$CI_PROJECT_NAME-$GOOS-$GOARCH

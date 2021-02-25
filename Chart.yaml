@@ -1,8 +1,8 @@
 apiVersion: v2
 name: x509-certificate-exporter
-version: 1.5.0
+version: 1.5.1
 # when bumping appVersion, change the annotation too (manual for now)
-appVersion: 2.4.1
+appVersion: 2.5.0
 type: application
 description: A Prometheus exporter for certificates focusing on expiration monitoring
 keywords:
@@ -25,7 +25,7 @@ annotations:
   artifacthub.io/license: MIT
   artifacthub.io/images: |
     - name: x509-certificate-exporter
-      image: enix/x509-certificate-exporter:2.4.1
+      image: enix/x509-certificate-exporter:2.5.0
     - name: kube-rbac-proxy
       image: quay.io/coreos/kube-rbac-proxy:v0.5.0
       whitelisted: true

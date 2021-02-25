@@ -359,87 +359,88 @@ x509_read_errors > 0
 
 ## Values
 
-| Key                                                  | Type   | Default                            | Description                                                                                                                                                                                                                     |
-| ---------------------------------------------------- | ------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| extraLabels                                          | object | `{}`                               |                                                                                                                                                                                                                                 |
-| fullnameOverride                                     | string | `""`                               | String to fully override x509-certificate-exporter.fullname template with a string                                                                                                                                              |
-| hostPathsExporter.affinity                           | object | `{}`                               | Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                                          |
-| hostPathsExporter.daemonSets                         | object | `{}`                               | [SEE README] Map to define one or many DaemonSets running hostPath exporters. Key is used as a name ; value is a map to override all default settings set by `hostPathsExporter.*`.                                             |
-| hostPathsExporter.debugMode                          | bool   | `false`                            | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                          |
-| hostPathsExporter.nodeSelector                       | object | `{}`                               | Node selector for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                                     |
-| hostPathsExporter.podAnnotations                     | object | `{}`                               | Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                                  |
-| hostPathsExporter.podExtraLabels                     | object | `{}`                               | Extra labels added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                                 |
-| hostPathsExporter.podSecurityContext                 | object | `{}`                               | PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                                |
-| hostPathsExporter.resources                          | object | see values.yaml                    | ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                        |
-| hostPathsExporter.restartPolicy                      | string | `"Always"`                         | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                                     |
-| hostPathsExporter.securityContext                    | object | see values.yaml                    | SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                             |
-| hostPathsExporter.tolerations                        | list   | `[]`                               | Toleration for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                                        |
-| hostPathsExporter.updateStrategy                     | object | `{}`                               | updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets)                                                                                                                               |
-| hostPathsExporter.watchDirectories                   | list   | `[]`                               | [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep)                                                                               |
-| hostPathsExporter.watchFiles                         | list   | `[]`                               | [SEE README] List of file paths of the host for PEM encoded certificates to be watched and exported as metrics (one level deep)                                                                                                 |
-| hostPathsExporter.watchKubeconfFiles                 | list   | `[]`                               | [SEE README] List of Kubeconf file paths of the host to scan for embedded certificates to export metrics about                                                                                                                  |
-| image.pullPolicy                                     | string | `"IfNotPresent"`                   | x509-certificate-exporter image pull policy                                                                                                                                                                                     |
-| image.registry                                       | string | `"docker.io"`                      | x509-certificate-exporter image registry                                                                                                                                                                                        |
-| image.repository                                     | string | `"enix/x509-certificate-exporter"` | x509-certificate-exporter image repository                                                                                                                                                                                      |
-| image.tag                                            | string | `nil`                              | x509-certificate-exporter image tag (defaults to Chart appVersion)                                                                                                                                                              |
-| imagePullSecrets                                     | list   | `[]`                               | Specify docker-registry secret names as an array                                                                                                                                                                                |
-| nameOverride                                         | string | `""`                               | String to partially override x509-certificate-exporter.fullname template with a string (will prepend the release name)                                                                                                          |
-| podAnnotations                                       | object | `{}`                               | Annotations added to all Pods                                                                                                                                                                                                   |
-| podExtraLabels                                       | object | `{}`                               | Extra labels added to all Pods                                                                                                                                                                                                  |
-| podListenPort                                        | int    | `9793`                             | TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not)                                                                                                                                                          |
-| prometheusRules.alertOnReadErrors                    | bool   | `true`                             | Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions. |
-| prometheusRules.create                               | bool   | `true`                             | Should a PrometheusRule ressource be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users.                                                                                             |
-| prometheusRules.criticalDaysLeft                     | int    | `14`                               | Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)                                                                       |
-| prometheusRules.extraLabels                          | object | `{}`                               | Extra labels to add on PrometheusRule ressources                                                                                                                                                                                |
-| prometheusRules.readErrorsSeverity                   | string | `"warning"`                        | Severity for the X509ExporterReadErrors alerting rule                                                                                                                                                                           |
-| prometheusRules.warningDaysLeft                      | int    | `28`                               | Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)                                                                               |
-| prometheusServiceMonitor.create                      | bool   | `true`                             | Should a ServiceMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.                                                                                                        |
-| prometheusServiceMonitor.extraLabels                 | object | `{}`                               | Extra labels to add on ServiceMonitor ressources                                                                                                                                                                                |
-| prometheusServiceMonitor.relabelings                 | object | `{}`                               | Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig                                                                                                          |
-| prometheusServiceMonitor.scrapeInterval              | string | `"60s"`                            | Target scrape interval set in the ServiceMonitor                                                                                                                                                                                |
-| rbac.create                                          | bool   | `true`                             | Should RBAC resources be created                                                                                                                                                                                                |
-| rbac.hostPathsExporter.clusterRoleAnnotations        | object | `{}`                               | Annotations added to the ClusterRole for the hostPath exporters                                                                                                                                                                 |
-| rbac.hostPathsExporter.clusterRoleBindingAnnotations | object | `{}`                               | Annotations added to the ClusterRoleBinding for the hostPath exporters                                                                                                                                                          |
-| rbac.hostPathsExporter.serviceAccountAnnotations     | object | `{}`                               | Annotations added to the ServiceAccount for the hostPath exporters                                                                                                                                                              |
-| rbac.hostPathsExporter.serviceAccountName            | string | `nil`                              | Name of the ServiceAccount for hostPath exporters (required if `rbac.create=false`)                                                                                                                                             |
-| rbac.secretsExporter.clusterRoleAnnotations          | object | `{}`                               | Annotations added to the ClusterRole for the Secrets exporter                                                                                                                                                                   |
-| rbac.secretsExporter.clusterRoleBindingAnnotations   | object | `{}`                               | Annotations added to the ClusterRoleBinding for the Secrets exporter                                                                                                                                                            |
-| rbac.secretsExporter.serviceAccountAnnotations       | object | `{}`                               | Annotations added to the ServiceAccount for the Secrets exporter                                                                                                                                                                |
-| rbac.secretsExporter.serviceAccountName              | string | `nil`                              | Name of the ServiceAccount for the Secrets exporter (required if `rbac.create=false`)                                                                                                                                           |
-| rbacProxy.enabled                                    | bool   | `false`                            | Should kube-rbac-proxy be used to expose exporters                                                                                                                                                                              |
-| rbacProxy.image.pullPolicy                           | string | `"IfNotPresent"`                   | kube-rbac-proxy image pull policy                                                                                                                                                                                               |
-| rbacProxy.image.registry                             | string | `"quay.io"`                        | kube-rbac-proxy image registry                                                                                                                                                                                                  |
-| rbacProxy.image.repository                           | string | `"coreos/kube-rbac-proxy"`         | kube-rbac-proxy image repository                                                                                                                                                                                                |
-| rbacProxy.image.tag                                  | string | `"v0.5.0"`                         | kube-rbac-proxy image version                                                                                                                                                                                                   |
-| rbacProxy.resources                                  | object | see values.yaml                    | ResourceRequirements for all containers of kube-rbac-proxy                                                                                                                                                                      |
-| rbacProxy.securityContext                            | object | see values.yaml                    | SecurityContext for all containers of kube-rbac-proxy                                                                                                                                                                           |
-| rbacProxy.upstreamListenPort                         | int    | `9091`                             | Listen port for the exporter running inside kube-rbac-proxy exposed Pods                                                                                                                                                        |
-| secretsExporter.affinity                             | object | `{}`                               | Affinity for Pods of the TLS Secrets exporter                                                                                                                                                                                   |
-| secretsExporter.debugMode                            | bool   | `false`                            | Should debug messages be produced by the TLS Secrets exporter                                                                                                                                                                   |
-| secretsExporter.enabled                              | bool   | `true`                             | Should the TLS Secrets exporter be running                                                                                                                                                                                      |
-| secretsExporter.excludeLabels                        | list   | `[]`                               | Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.                                                                                          |
-| secretsExporter.excludeNamespaces                    | list   | `[]`                               | Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`)                                                                                                                         |
-| secretsExporter.includeLabels                        | list   | `[]`                               | Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.                                                                |
-| secretsExporter.includeNamespaces                    | list   | `[]`                               | Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty)                                                                                                        |
-| secretsExporter.nodeSelector                         | object | `{}`                               | Node selector for Pods of the TLS Secrets exporter                                                                                                                                                                              |
-| secretsExporter.podAnnotations                       | object | `{}`                               | Annotations added to Pods of the TLS Secrets exporter                                                                                                                                                                           |
-| secretsExporter.podExtraLabels                       | object | `{}`                               | Extra labels added to Pods of the TLS Secrets exporter                                                                                                                                                                          |
-| secretsExporter.podSecurityContext                   | object | `{}`                               | PodSecurityContext for Pods of the TLS Secrets exporter                                                                                                                                                                         |
-| secretsExporter.replicas                             | int    | `1`                                | Desired number of TLS Secrets exporter Pod                                                                                                                                                                                      |
-| secretsExporter.resources                            | object | see values.yaml                    | ResourceRequirements for containers of the TLS Secrets exporter                                                                                                                                                                 |
-| secretsExporter.restartPolicy                        | string | `"Always"`                         | restartPolicy for Pods of the TLS Secrets exporter                                                                                                                                                                              |
-| secretsExporter.securityContext                      | object | see values.yaml                    | SecurityContext for containers of the TLS Secrets exporter                                                                                                                                                                      |
-| secretsExporter.strategy                             | object | `{}`                               | DeploymentStrategy for the TLS Secrets exporter                                                                                                                                                                                 |
-| secretsExporter.tolerations                          | list   | `[]`                               | Toleration for Pods of the TLS Secrets exporter                                                                                                                                                                                 |
-| service.annotations                                  | object | `{}`                               | Annotations to add to the Service                                                                                                                                                                                               |
-| service.create                                       | bool   | `true`                             | Should a headless Service be installed (required for ServiceMonitor)                                                                                                                                                            |
-| service.extraLabels                                  | object | `{}`                               | Extra labels to add to the Service                                                                                                                                                                                              |
-| service.port                                         | int    | `9793`                             | TCP port to expose the Service on                                                                                                                                                                                               |
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| extraLabels | object | `{}` |  |
+| fullnameOverride | string | `""` | String to fully override x509-certificate-exporter.fullname template with a string |
+| hostPathsExporter.affinity | object | `{}` | Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.daemonSets | object | `{}` | [SEE README] Map to define one or many DaemonSets running hostPath exporters. Key is used as a name ; value is a map to override all default settings set by `hostPathsExporter.*`. |
+| hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.nodeSelector | object | `{}` | Node selector for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.podAnnotations | object | `{}` | Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.podExtraLabels | object | `{}` | Extra labels added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.resources | object | see values.yaml | ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.securityContext | object | see values.yaml | SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.tolerations | list | `[]` | Toleration for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.updateStrategy | object | `{}` | updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.watchDirectories | list | `[]` | [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep) |
+| hostPathsExporter.watchFiles | list | `[]` | [SEE README] List of file paths of the host for PEM encoded certificates to be watched and exported as metrics (one level deep) |
+| hostPathsExporter.watchKubeconfFiles | list | `[]` | [SEE README] List of Kubeconf file paths of the host to scan for embedded certificates to export metrics about |
+| image.pullPolicy | string | `"IfNotPresent"` | x509-certificate-exporter image pull policy |
+| image.registry | string | `"docker.io"` | x509-certificate-exporter image registry |
+| image.repository | string | `"enix/x509-certificate-exporter"` | x509-certificate-exporter image repository |
+| image.tag | string | `nil` | x509-certificate-exporter image tag (defaults to Chart appVersion) |
+| imagePullSecrets | list | `[]` | Specify docker-registry secret names as an array |
+| nameOverride | string | `""` | String to partially override x509-certificate-exporter.fullname template with a string (will prepend the release name) |
+| podAnnotations | object | `{}` | Annotations added to all Pods |
+| podExtraLabels | object | `{}` | Extra labels added to all Pods |
+| podListenPort | int | `9793` | TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not) |
+| prometheusRules.alertOnReadErrors | bool | `true` | Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions. |
+| prometheusRules.create | bool | `true` | Should a PrometheusRule ressource be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users. |
+| prometheusRules.criticalDaysLeft | int | `14` | Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue) |
+| prometheusRules.extraLabels | object | `{}` | Extra labels to add on PrometheusRule ressources |
+| prometheusRules.readErrorsSeverity | string | `"warning"` | Severity for the X509ExporterReadErrors alerting rule |
+| prometheusRules.warningDaysLeft | int | `28` | Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29) |
+| prometheusServiceMonitor.create | bool | `true` | Should a ServiceMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |
+| prometheusServiceMonitor.extraLabels | object | `{}` | Extra labels to add on ServiceMonitor ressources |
+| prometheusServiceMonitor.relabelings | object | `{}` | Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig |
+| prometheusServiceMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the ServiceMonitor |
+| rbac.create | bool | `true` | Should RBAC resources be created |
+| rbac.hostPathsExporter.clusterRoleAnnotations | object | `{}` | Annotations added to the ClusterRole for the hostPath exporters |
+| rbac.hostPathsExporter.clusterRoleBindingAnnotations | object | `{}` | Annotations added to the ClusterRoleBinding for the hostPath exporters |
+| rbac.hostPathsExporter.serviceAccountAnnotations | object | `{}` | Annotations added to the ServiceAccount for the hostPath exporters |
+| rbac.hostPathsExporter.serviceAccountName | string | `nil` | Name of the ServiceAccount for hostPath exporters (required if `rbac.create=false`) |
+| rbac.secretsExporter.clusterRoleAnnotations | object | `{}` | Annotations added to the ClusterRole for the Secrets exporter |
+| rbac.secretsExporter.clusterRoleBindingAnnotations | object | `{}` | Annotations added to the ClusterRoleBinding for the Secrets exporter |
+| rbac.secretsExporter.serviceAccountAnnotations | object | `{}` | Annotations added to the ServiceAccount for the Secrets exporter |
+| rbac.secretsExporter.serviceAccountName | string | `nil` | Name of the ServiceAccount for the Secrets exporter (required if `rbac.create=false`) |
+| rbacProxy.enabled | bool | `false` | Should kube-rbac-proxy be used to expose exporters |
+| rbacProxy.image.pullPolicy | string | `"IfNotPresent"` | kube-rbac-proxy image pull policy |
+| rbacProxy.image.registry | string | `"quay.io"` | kube-rbac-proxy image registry |
+| rbacProxy.image.repository | string | `"coreos/kube-rbac-proxy"` | kube-rbac-proxy image repository |
+| rbacProxy.image.tag | string | `"v0.5.0"` | kube-rbac-proxy image version |
+| rbacProxy.resources | object | see values.yaml | ResourceRequirements for all containers of kube-rbac-proxy |
+| rbacProxy.securityContext | object | see values.yaml | SecurityContext for all containers of kube-rbac-proxy |
+| rbacProxy.upstreamListenPort | int | `9091` | Listen port for the exporter running inside kube-rbac-proxy exposed Pods |
+| secretsExporter.affinity | object | `{}` | Affinity for Pods of the TLS Secrets exporter |
+| secretsExporter.debugMode | bool | `false` | Should debug messages be produced by the TLS Secrets exporter |
+| secretsExporter.enabled | bool | `true` | Should the TLS Secrets exporter be running |
+| secretsExporter.excludeLabels | list | `[]` | Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.  |
+| secretsExporter.excludeNamespaces | list | `[]` | Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`) |
+| secretsExporter.includeLabels | list | `[]` | Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
+| secretsExporter.includeNamespaces | list | `[]` | Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty) |
+| secretsExporter.nodeSelector | object | `{}` | Node selector for Pods of the TLS Secrets exporter |
+| secretsExporter.podAnnotations | object | `{}` | Annotations added to Pods of the TLS Secrets exporter |
+| secretsExporter.podExtraLabels | object | `{}` | Extra labels added to Pods of the TLS Secrets exporter |
+| secretsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of the TLS Secrets exporter |
+| secretsExporter.replicas | int | `1` | Desired number of TLS Secrets exporter Pod |
+| secretsExporter.resources | object | see values.yaml | ResourceRequirements for containers of the TLS Secrets exporter |
+| secretsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of the TLS Secrets exporter |
+| secretsExporter.securityContext | object | see values.yaml | SecurityContext for containers of the TLS Secrets exporter |
+| secretsExporter.strategy | object | `{}` | DeploymentStrategy for the TLS Secrets exporter |
+| secretsExporter.tolerations | list | `[]` | Toleration for Pods of the TLS Secrets exporter |
+| service.annotations | object | `{}` | Annotations to add to the Service |
+| service.create | bool | `true` | Should a headless Service be installed (required for ServiceMonitor) |
+| service.extraLabels | object | `{}` | Extra labels to add to the Service |
+| service.port | int | `9793` | TCP port to expose the Service on |
 
 ## ⚖️ License
 
 Copyright (c) 2020, 2021 ENIX
 
+<<<<<<< HEAD
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -452,3 +453,22 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 >>>>>>> ca8ba8c (refactor(x509-exporter): set default port to 9793)
+=======
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+>>>>>>> f86c4d6 (chore(x509-certificate-exporter): change of license)

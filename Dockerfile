@@ -41,6 +41,8 @@ FROM --platform=${OS}/${ARCH} alpine:3.13
 
 COPY --from=build /go/src/enix.io/x509-certificate-exporter/x509-certificate-exporter /x509-certificate-exporter
 
+EXPOSE 9793/tcp
+
 ENTRYPOINT [ "/x509-certificate-exporter" ]
 
 #ARG VCS_REF

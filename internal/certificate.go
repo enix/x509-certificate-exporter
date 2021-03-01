@@ -100,7 +100,7 @@ func (cert *certificateRef) parse() error {
 }
 
 func readAndParsePEMFile(path string) ([]*parsedCertificate, error) {
-	contents, err := os.ReadFile(path)
+	contents, err := readFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 					certPath = path.Join(filepath.Dir(filePath), rawCertPaths)
 				}
 
-				data, err := os.ReadFile(certPath)
+				data, err := readFile(certPath)
 				if err != nil {
 					return nil, err
 				}
@@ -233,6 +233,20 @@ func readAndParseKubeSecret(secret *v1.Secret) ([]*parsedCertificate, error) {
 	}
 
 	return output, nil
+}
+
+func readFile(file string) ([]byte, error) {
+	contents, err := os.ReadFile(file)
+	if err == nil || !os.IsNotExist(err) {
+		return contents, err
+	}
+
+	realPath, err := os.Readlink(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return os.ReadFile(path.Join(path.Dir(file), path.Base(realPath)))
 }
 
 func parsePEM(data []byte) ([]*x509.Certificate, error) {

@@ -64,6 +64,23 @@ func TestSinglePEMExpired(t *testing.T) {
 	testSinglePEM(t, 1, time.Now().Add(-2*time.Hour))
 }
 
+func TestSinglePEMBehindSymlink(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+	testRequest(t, &Exporter{
+		Files: []string{path.Join(filepath.Dir(filename), "../test/link.pem")},
+	}, func(metrics []model.MetricFamily) {
+		metric := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, metric, 1, "missing x509_cert_expired metric(s)")
+	})
+
+	testRequest(t, &Exporter{
+		Files: []string{path.Join(filepath.Dir(filename), "../test/badlink.pem")},
+	}, func(metrics []model.MetricFamily) {
+		metric := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, metric, 1, "missing x509_cert_expired metric(s)")
+	})
+}
+
 func TestMultiplePEM(t *testing.T) {
 	notBefore := time.Now()
 	notAfter := notBefore.Add(time.Hour)

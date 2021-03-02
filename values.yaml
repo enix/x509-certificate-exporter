@@ -191,17 +191,17 @@ rbacProxy:
       - ALL
 
 service:
-  # service.create -- Should a headless Service be installed (required for ServiceMonitor)
+  # -- Should a Service be installed (required for ServiceMonitor)
   create: true
   # -- Service type
   type: ClusterIP
-  # service.port -- TCP port to expose the Service on
+  # -- TCP port to expose the Service on
   port: 9793
   # -- K8S node TCP port to expose the Service on. Relevant only when service.type is "NodePort" or "LoadBalancer"
   nodePort: null
-  # service.annotations -- Annotations to add to the Service
+  # -- Annotations to add to the Service
   annotations: {}
-  # service.extraLabels -- Extra labels to add to the Service
+  # -- Extra labels to add to the Service
   extraLabels: {}
 
 prometheusServiceMonitor:

@@ -252,6 +252,42 @@ Upgrade release names `x509-certificate-exporter` to the latest version :
 $ helm upgrade x509-certificate-exporter enix/x509-certificate-exporter
 ```
 
+## 📝 Notes
+
+### `watchFiles` and inode change
+
+Because of limitations with mount binding that CRIs use to expose a single host file to a container, we cannot use
+`subPath` in `volumeMounts`. This feature would in fact result in the perfect implementation where the exporter can only
+access designated files. However if a certificate file is not replaced in-place and it's inode is altered, the exporter
+would keep seeing the old content and can't even tell if it still exists on the host. This situation is common with
+Kubernetes control-plane certificates.
+
+Be aware that for every file path provided to `watchFiles`, the exporter container will be given read access to the
+parent directory. This is how we handle the problem of changing inodes. Metrics will of course be limited to the single
+targetted path, as the program is told to watch the real path from `watchFiles`.
+
+This is to be taken into consideration if you're doing threat assessment. In such case it's recommended not to put
+secret keys in the same directory as certificate files.
+
+### Watching symbolic links
+
+Starting with version 2.6.0, the exporter is now handling symlinks in a special way to better suit containerization and
+the limited access to host filesystem.
+
+When a symlink is added to a `watchFiles` list, we are able to resolve and read it's target as long as it's in the same
+directory. This is dynamic for each metrics scrape and will track symlink changes.
+
+A typical case of this is the Kubelet client certificate that now uses a symlink pointing to a new file each time the
+certificate gets rotated.
+For instance you may be using :
+```yaml
+watchFiles:
+- /var/lib/kubelet/pki/kubelet-client-current.pem
+```
+Because all client certificates reside in the `pki` directory, the exporter will be able to read
+`kubelet-client-current.pem` and it's target properly. Even though the Operating System cannot resolve the link itself
+in the container namespace.
+
 {{ template "chart.valuesSection" . }}
 
 ## ⚖️ License

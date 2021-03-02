@@ -16,6 +16,9 @@ sources:
 - https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter
 - https://github.com/enix/x509-certificate-exporter
 maintainers:
+- name: Enix
+  email: contact@enix.fr
+  url: https://github.com/enixsas
 - name: Thibault Vincent
   email: root@paraneko.org
   url: https://github.com/npdgm

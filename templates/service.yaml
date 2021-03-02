@@ -21,10 +21,8 @@ spec:
   - name: metrics
     port: {{ .Values.service.port }}
     targetPort: metrics
-    {{- if and .Values.service.nodePort (or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer")) }}
-    nodePort: {{ .Values.service.nodePort }}
-    {{- else if eq .Values.service.type "ClusterIP" }}
-    nodePort: null
+    {{- with .Values.service.nodePort }}
+    nodePort: {{ . }}
     {{- end }}
   selector:
     {{- include "x509-certificate-exporter.selectorLabels" . | nindent 4 }}

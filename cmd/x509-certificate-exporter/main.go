@@ -6,7 +6,6 @@ import (
 	"path"
 
 	"enix.io/x509-certificate-exporter/internal"
-	exporter "enix.io/x509-certificate-exporter/internal"
 	getopt "github.com/pborman/getopt/v2"
 	log "github.com/sirupsen/logrus"
 )
@@ -68,12 +67,12 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	exporter := exporter.Exporter{
+	exporter := internal.Exporter{
 		Port:               *port,
 		Files:              files,
 		Directories:        directories,
 		YAMLs:              yamls,
-		YAMLPaths:          exporter.DefaultYamlPaths,
+		YAMLPaths:          internal.DefaultYamlPaths,
 		TrimPathComponents: *trimPathComponents,
 
 		KubeIncludeNamespaces: kubeIncludeNamespaces,

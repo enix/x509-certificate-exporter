@@ -258,13 +258,17 @@ func parsePEM(data []byte) ([]*x509.Certificate, error) {
 			break
 		}
 
+		data = rest
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("tried to parse malformed x509 data, %s", err.Error())
 		}
 
 		output = append(output, cert)
-		data = rest
 	}
 
 	return output, nil

@@ -495,7 +495,7 @@ in the container namespace.
 | secretsExporter.affinity | object | `{}` | Affinity for Pods of the TLS Secrets exporter |
 | secretsExporter.debugMode | bool | `false` | Should debug messages be produced by the TLS Secrets exporter |
 | secretsExporter.enabled | bool | `true` | Should the TLS Secrets exporter be running |
-| secretsExporter.excludeLabels | list | `[]` | Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.  |
+| secretsExporter.excludeLabels | list | `[]` | Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.excludeNamespaces | list | `[]` | Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`) |
 | secretsExporter.includeLabels | list | `[]` | Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.includeNamespaces | list | `[]` | Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty) |
@@ -512,7 +512,9 @@ in the container namespace.
 | service.annotations | object | `{}` | Annotations to add to the Service |
 | service.create | bool | `true` | Should a headless Service be installed (required for ServiceMonitor) |
 | service.extraLabels | object | `{}` | Extra labels to add to the Service |
+| service.nodePort | string | `nil` | K8S node TCP port to expose the Service on. Relevant only when service.type is "NodePort" or "LoadBalancer" |
 | service.port | int | `9793` | TCP port to expose the Service on |
+| service.type | string | `"ClusterIP"` | Service type |
 
 ## ⚖️ License
 

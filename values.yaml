@@ -96,14 +96,14 @@ secretsExporter:
     capabilities:
       drop:
       - ALL
-  
+
   # -- Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty)
   includeNamespaces: []
   # -- Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`)
   excludeNamespaces: []
   # -- Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   includeLabels: []
-  # -- Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. 
+  # -- Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   excludeLabels: []
 
 hostPathsExporter:
@@ -193,8 +193,12 @@ rbacProxy:
 service:
   # service.create -- Should a headless Service be installed (required for ServiceMonitor)
   create: true
+  # -- Service type
+  type: ClusterIP
   # service.port -- TCP port to expose the Service on
   port: 9793
+  # -- K8S node TCP port to expose the Service on. Relevant only when service.type is "NodePort" or "LoadBalancer"
+  nodePort: null
   # service.annotations -- Annotations to add to the Service
   annotations: {}
   # service.extraLabels -- Extra labels to add to the Service

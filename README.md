@@ -31,10 +31,16 @@ A Prometheus exporter for certificates focusing on expiration monitoring, writte
 >>>>>>> 3bcfe63 (doc(x509-certificate-exporter): no deprecation message in newer package)
 
 Get notified before they expire:
+<<<<<<< HEAD
 
 - PEM encoded files, by path or scanning directories
 - Kubeconfigs with embedded certificates or file references
 - TLS Secrets from a Kubernetes cluster
+=======
+* TLS Secrets from a Kubernetes cluster
+* PEM encoded files, by path or scanning directories
+* Kubeconfigs with embedded certificates or file references
+>>>>>>> 6aee8e2 (doc(x509-certificate-exporter): fix code blocks)
 
 The following metrics are available:
 
@@ -72,8 +78,12 @@ $ helm upgrade x509-certificate-exporter enix/x509-certificate-exporter --reuse-
 
 If you don't use the Prometheus operator at all, and don't have the CRD, disable resource creation and perhaps add Pod
 annotations for scrapping :
+<<<<<<< HEAD
 
 ```
+=======
+```yaml
+>>>>>>> 6aee8e2 (doc(x509-certificate-exporter): fix code blocks)
 secretsExporter:
   podAnnotations:
     prometheus.io/port: "9793"
@@ -99,8 +109,12 @@ detect expiring certificates whether you manage them on your own or rely on cont
 > 🙂 If you're only interested in this feature, you could probably install the Chart not specifying any value.
 
 Disable this exporter when Secrets metrics are not wanted – if you're looking for hostPath DaemonSets only :
+<<<<<<< HEAD
 
 ```
+=======
+```yaml
+>>>>>>> 6aee8e2 (doc(x509-certificate-exporter): fix code blocks)
 secretsExporter:
   enabled: false
 ```
@@ -138,8 +152,12 @@ Then you'll need to create at least one DaemonSet in `hostPathsExporter.daemonSe
 
 This is the most basic configuration. It will create one DaemonSet named `nodes` with an empty configuration. Exporters
 won't export no certificate metric.
+<<<<<<< HEAD
 
 ```
+=======
+```yaml
+>>>>>>> 6aee8e2 (doc(x509-certificate-exporter): fix code blocks)
 hostPathsExporter:
   daemonSets:
     nodes: {}
@@ -147,13 +165,32 @@ hostPathsExporter:
 
 ![Grafana Dashboard](./docs/grafana-dashboard.jpg)
 
+<<<<<<< HEAD
 ## Installation
+=======
+This will create a DaemonSet able to monitor the same files on all nodes. It could fit a typical kubeadm cluster with no
+control plane dedicated nodes :
+```yaml
+hostPathsExporter:
+  daemonSets:
+    nodes:
+      watchDirectories:
+      - /etc/kubernetes/pki/
+      - /etc/kubernetes/pki/etcd/
+      watchFiles:
+      - /var/lib/kubelet/pki/kubelet-client-current.pem
+      - /var/lib/kubelet/pki/kubelet.crt
+      watchKubeconfFiles:
+      - /etc/kubernetes/kubelet.conf
+      - /etc/kubernetes/admin.conf
+```
+>>>>>>> 6aee8e2 (doc(x509-certificate-exporter): fix code blocks)
 
 <<<<<<< HEAD
 ### 🏃 TL; DR
 =======
 Dedicated nodes will require other DaemonSets. Based on our kubeadm example, it could be extended like this :
-```
+```yaml
 hostPathsExporter:
   podAnnotations:
     prometheus.io/port: "9793"
@@ -177,21 +214,21 @@ When it's missing and you don't have the CRD, helm will raise one of this error 
 Error: unable to build kubernetes objects from release manifest: [unable to recognize "": no matches for kind "PrometheusRule" in version "monitoring.coreos.com/v1", unable to recognize "": no matches for kind "ServiceMonitor" in version "monitoring.coreos.com/v1"]
 ```
 Add the following values to disable creation of `ServiceMonitors` and `PrometheusRules` :
-```
+```yaml
 prometheusServiceMonitor:
   create: false
 prometheusRules:
   create: false
 ```
 Then perhaps you would need Pod annotations to work with the Kubernetes service discovery in Prometheus :
-```
+```yaml
 secretsExporter:
   podAnnotations:
     prometheus.io/port: "9793"
     prometheus.io/scrape: "true"
 ```
 Also in such case the headless service may not serve any purpose and can be removed :
-```
+```yaml
 service:
   create: false
 ```
@@ -443,6 +480,7 @@ x509_read_errors > 0
 
 ## ⚖️ License
 
+```
 Copyright (c) 2020, 2021 ENIX
 
 <<<<<<< HEAD
@@ -476,4 +514,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+<<<<<<< HEAD
 >>>>>>> f86c4d6 (chore(x509-certificate-exporter): change of license)
+=======
+```
+>>>>>>> 6aee8e2 (doc(x509-certificate-exporter): fix code blocks)

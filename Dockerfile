@@ -3,28 +3,17 @@
 ARG OS="linux"
 ARG ARCH="amd64"
 
-FROM --platform=${OS}/${ARCH} golang:1.16-alpine as build
+FROM --platform=${OS}/${ARCH} golang:1.16 as build
 
 ARG OS
 ARG ARCH
-
-WORKDIR $GOPATH/src/enix.io/x509-certificate-exporter
-
-COPY go.mod go.mod
-COPY go.sum go.sum
-
-RUN go mod download
-
-COPY internal internal
-COPY cmd cmd
-
-ENV GOOS=${OS}
-ENV GOARCH=${ARCH}
-
 ARG VERSION="0.0.0"
 
-RUN go build -ldflags "-X \"enix.io/x509-certificate-exporter/internal.Version=${VERSION}\"" ./cmd/x509-certificate-exporter
+WORKDIR /opt
 
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=${OS} GOARCH=${ARCH} go build -ldflags "-s -X \"enix.io/x509-certificate-exporter/internal.Version=${VERSION}\"" ./cmd/x509-certificate-exporter
 
 ## Production Stage
 
@@ -37,16 +26,13 @@ LABEL maintainer="Enix <no-reply@enix.fr>" \
       org.opencontainers.image.authors="Enix <no-reply@enix.fr>" \
       org.opencontainers.image.licenses="MIT"
 
-FROM --platform=${OS}/${ARCH} alpine:3.13
+FROM scratch
 
-COPY --from=build /go/src/enix.io/x509-certificate-exporter/x509-certificate-exporter /x509-certificate-exporter
+COPY --from=build /opt/x509-certificate-exporter /x509-certificate-exporter
 
 EXPOSE 9793/tcp
 
 ENTRYPOINT [ "/x509-certificate-exporter" ]
 
-#ARG VCS_REF
-#ARG BUILD_DATE
 LABEL org.opencontainers.image.version="$VERSION"
-#      org.opencontainers.image.revision="$VCS_REF" \
-#      org.opencontainers.image.created="$BUILD_DATE"
+

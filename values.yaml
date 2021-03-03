@@ -204,6 +204,9 @@ service:
   # -- Extra labels to add to the Service
   extraLabels: {}
 
+# -- Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster
+hostNetwork: false
+
 prometheusServiceMonitor:
   # -- Should a ServiceMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
   create: true

@@ -441,6 +441,7 @@ in the container namespace.
 |-----|------|---------|-------------|
 | extraLabels | object | `{}` |  |
 | fullnameOverride | string | `""` | String to fully override x509-certificate-exporter.fullname template with a string |
+| hostNetwork | bool | `false` | Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster |
 | hostPathsExporter.affinity | object | `{}` | Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.daemonSets | object | `{}` | [SEE README] Map to define one or many DaemonSets running hostPath exporters. Key is used as a name ; value is a map to override all default settings set by `hostPathsExporter.*`. |
 | hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |

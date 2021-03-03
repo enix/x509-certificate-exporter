@@ -130,6 +130,7 @@ spec:
         {{- . | toYaml | trim | nindent 10 }}
       {{- end }}
     {{- end }}
+      hostNetwork: {{ $.Values.hostNetwork }}
       volumes:
     {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
       - name: dir-{{ . | clean | sha1sum }}

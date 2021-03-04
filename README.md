@@ -511,10 +511,9 @@ in the container namespace.
 | secretsExporter.strategy | object | `{}` | DeploymentStrategy for the TLS Secrets exporter |
 | secretsExporter.tolerations | list | `[]` | Toleration for Pods of the TLS Secrets exporter |
 | service.annotations | object | `{}` | Annotations to add to the Service |
-| service.create | bool | `true` | Should a Service be installed (required for ServiceMonitor) |
+| service.create | bool | `true` | Should a headless Service be installed, targets all instances Deployment and DaemonSets (required for ServiceMonitor) |
 | service.extraLabels | object | `{}` | Extra labels to add to the Service |
 | service.port | int | `9793` | TCP port to expose the Service on |
-| service.type | string | `"ClusterIP"` | Service type |
 
 ## ⚖️ License
 

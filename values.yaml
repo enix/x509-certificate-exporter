@@ -191,10 +191,8 @@ rbacProxy:
       - ALL
 
 service:
-  # -- Should a Service be installed (required for ServiceMonitor)
+  # -- Should a headless Service be installed, targets all instances Deployment and DaemonSets (required for ServiceMonitor)
   create: true
-  # -- Service type
-  type: ClusterIP
   # -- TCP port to expose the Service on
   port: 9793
   # -- Annotations to add to the Service

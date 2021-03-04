@@ -16,17 +16,12 @@ metadata:
     {{- . | toYaml | trim | nindent 4 }}
 {{- end }}
 spec:
-  {{- if not .Values.service.nodePort }}
   clusterIP: None
-  {{- end }}
   type: {{ .Values.service.type }}
   ports:
   - name: metrics
     port: {{ .Values.service.port }}
     targetPort: metrics
-    {{- with .Values.service.nodePort }}
-    nodePort: {{ . }}
-    {{- end }}
   selector:
     {{- include "x509-certificate-exporter.selectorLabels" . | nindent 4 }}
 {{- end }}

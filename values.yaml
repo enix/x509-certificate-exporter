@@ -197,8 +197,6 @@ service:
   type: ClusterIP
   # -- TCP port to expose the Service on
   port: 9793
-  # -- K8S node TCP port to expose the Service on. Relevant only when service.type is "NodePort" or "LoadBalancer"
-  nodePort: null
   # -- Annotations to add to the Service
   annotations: {}
   # -- Extra labels to add to the Service

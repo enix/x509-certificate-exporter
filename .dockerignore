@@ -1,0 +1,6 @@
+*.cov
+*.debug
+coverage.html
+/kubeconfig*
+docs
+

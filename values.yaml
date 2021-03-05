@@ -162,6 +162,9 @@ hostPathsExporter:
 # -- TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not)
 podListenPort: 9793
 
+# -- Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster
+hostNetwork: false
+
 rbacProxy:
   # -- Should kube-rbac-proxy be used to expose exporters
   enabled: false
@@ -205,9 +208,6 @@ service:
   # -- Extra labels to add to the Service
   extraLabels: {}
 
-# -- Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster
-hostNetwork: false
-
 prometheusServiceMonitor:
   # -- Should a ServiceMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
   create: true
@@ -216,6 +216,16 @@ prometheusServiceMonitor:
   # -- Extra labels to add on ServiceMonitor ressources
   extraLabels: {}
   # -- Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig
+  relabelings: {}
+
+prometheusPodMonitor:
+  # -- Should a PodMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
+  create: false
+  # -- Target scrape interval set in the PodMonitor
+  scrapeInterval: 60s
+  # -- Extra labels to add on PodMonitor ressources
+  extraLabels: {}
+  # -- Relabel config for the PodMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig
   relabelings: {}
 
 prometheusRules:

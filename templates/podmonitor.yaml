@@ -1,30 +1,30 @@
-{{- if .Values.prometheusServiceMonitor.create }}
+{{- if .Values.prometheusPodMonitor.create }}
 apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
+kind: PodMonitor
 metadata:
-  name: {{ include "x509-certificate-exporter.fullname" . }}
+  name: {{ include "x509-certificate-exporter.fullname" . }}-podmonitor
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
     {{- with .Values.extraLabels }}
     {{ . | toYaml | trim | nindent 4 }}
     {{- end }}
-    {{- with .Values.prometheusServiceMonitor.extraLabels }}
+    {{- with .Values.prometheusPodMonitor.extraLabels }}
     {{- . | toYaml | trim | nindent 4 }}
     {{- end }}
 spec:
   selector:
     matchLabels:
       {{- include "x509-certificate-exporter.selectorLabels" . | nindent 6 }}
-  endpoints:
+  podMetricsEndpoints:
   - port: metrics
-    interval: {{ .Values.prometheusServiceMonitor.scrapeInterval }}
+    interval: {{ .Values.prometheusPodMonitor.scrapeInterval }}
   {{- if .Values.rbacProxy.enable }}
     bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
   {{- end }}
-  {{- with .Values.prometheusServiceMonitor.relabelings }}
+  {{- with .Values.prometheusPodMonitor.relabelings }}
     relabelings:
       {{ . | toYaml | nindent 6 }}
   {{- end }}

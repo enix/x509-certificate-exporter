@@ -174,15 +174,22 @@ control plane dedicated nodes :
 hostPathsExporter:
   daemonSets:
     nodes:
-      watchDirectories:
-      - /etc/kubernetes/pki/
-      - /etc/kubernetes/pki/etcd/
       watchFiles:
       - /var/lib/kubelet/pki/kubelet-client-current.pem
-      - /var/lib/kubelet/pki/kubelet.crt
+      - /etc/kubernetes/pki/apiserver.crt
+      - /etc/kubernetes/pki/apiserver-etcd-client.crt
+      - /etc/kubernetes/pki/apiserver-kubelet-client.crt
+      - /etc/kubernetes/pki/ca.crt
+      - /etc/kubernetes/pki/front-proxy-ca.crt
+      - /etc/kubernetes/pki/front-proxy-client.crt
+      - /etc/kubernetes/pki/etcd/ca.crt
+      - /etc/kubernetes/pki/etcd/healthcheck-client.crt
+      - /etc/kubernetes/pki/etcd/peer.crt
+      - /etc/kubernetes/pki/etcd/server.crt
       watchKubeconfFiles:
-      - /etc/kubernetes/kubelet.conf
       - /etc/kubernetes/admin.conf
+      - /etc/kubernetes/controller-manager.conf
+      - /etc/kubernetes/scheduler.conf
 ```
 >>>>>>> 6aee8e2 (doc(x509-certificate-exporter): fix code blocks)
 
@@ -197,8 +204,45 @@ hostPathsExporter:
     prometheus.io/scrape: "true"
 >>>>>>> ca8ba8c (refactor(x509-exporter): set default port to 9793)
 
+<<<<<<< HEAD
 The [Helm chart](https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter#-tldr) is the most straightforward way to get a fully-featured exporter running on your cluster.
 The chart is also highly-customizable if you wish to. See the [chart documentation](https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter) to learn more.
+=======
+  daemonSets:
+    cp:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+      watchFiles:
+      - /var/lib/kubelet/pki/kubelet-client-current.pem
+      - /etc/kubernetes/pki/apiserver.crt
+      - /etc/kubernetes/pki/apiserver-etcd-client.crt
+      - /etc/kubernetes/pki/apiserver-kubelet-client.crt
+      - /etc/kubernetes/pki/ca.crt
+      - /etc/kubernetes/pki/front-proxy-ca.crt
+      - /etc/kubernetes/pki/front-proxy-client.crt
+      - /etc/kubernetes/pki/etcd/ca.crt
+      - /etc/kubernetes/pki/etcd/healthcheck-client.crt
+      - /etc/kubernetes/pki/etcd/peer.crt
+      - /etc/kubernetes/pki/etcd/server.crt
+      watchKubeconfFiles:
+      - /etc/kubernetes/admin.conf
+      - /etc/kubernetes/controller-manager.conf
+      - /etc/kubernetes/scheduler.conf
+
+    nodes:
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/ingress
+        operator: Exists
+      watchFiles:
+      - /var/lib/kubelet/pki/kubelet-client-current.pem
+      - /etc/kubernetes/pki/ca.crt
+```
+>>>>>>> 5db219d (doc(x509-certificate-exporter): update kubeadm example)
 
 The provided [Grafana Dashboard](https://grafana.com/grafana/dashboards/13922) can also be used to display the exporter's metrics on your Grafana instance.
 

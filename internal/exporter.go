@@ -82,7 +82,7 @@ func (exporter *Exporter) Serve() error {
 
 // Shutdown : Properly tear down server
 func (exporter *Exporter) Shutdown() error {
-	return exporter.server.Shutdown(context.TODO())
+	return exporter.server.Shutdown(context.Background())
 }
 
 // DiscoverCertificates : Parse all certs in a dry run with verbose logging

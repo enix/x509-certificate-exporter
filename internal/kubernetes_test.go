@@ -383,7 +383,7 @@ func addKubeSecrets(count int, ns string) {
 			panic(err)
 		}
 
-		_, err = sharedKubeClient.CoreV1().Secrets(ns).Create(context.TODO(), &v1.Secret{
+		_, err = sharedKubeClient.CoreV1().Secrets(ns).Create(context.Background(), &v1.Secret{
 			Type: "kubernetes.io/tls",
 			Data: map[string][]byte{
 				"tls.crt": cert,
@@ -413,7 +413,7 @@ func addCustomKubeSecret() {
 		panic(err)
 	}
 
-	_, err = sharedKubeClient.CoreV1().Secrets("default").Create(context.TODO(), &v1.Secret{
+	_, err = sharedKubeClient.CoreV1().Secrets("default").Create(context.Background(), &v1.Secret{
 		Type: "istio.io/cert-and-key",
 		Data: map[string][]byte{
 			"cert-chain.pem": cert,
@@ -430,7 +430,7 @@ func addCustomKubeSecret() {
 }
 
 func removeCustomKubeSecret() {
-	sharedKubeClient.CoreV1().Secrets("default").Delete(context.TODO(), "test-custom-type", metav1.DeleteOptions{})
+	sharedKubeClient.CoreV1().Secrets("default").Delete(context.Background(), "test-custom-type", metav1.DeleteOptions{})
 }
 
 func addBrokenKubeSecret() {
@@ -439,7 +439,7 @@ func addBrokenKubeSecret() {
 		panic(err)
 	}
 
-	_, err = sharedKubeClient.CoreV1().Secrets("default").Create(context.TODO(), &v1.Secret{
+	_, err = sharedKubeClient.CoreV1().Secrets("default").Create(context.Background(), &v1.Secret{
 		Type: "kubernetes.io/tls",
 		Data: map[string][]byte{
 			"tls.crt": corruptedData,

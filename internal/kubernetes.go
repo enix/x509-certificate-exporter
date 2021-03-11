@@ -63,7 +63,7 @@ func (exporter *Exporter) listNamespacesToWatch() ([]string, error) {
 	includedNamespaces := exporter.KubeIncludeNamespaces
 
 	if len(includedNamespaces) < 1 {
-		allNamespaces, err := exporter.kubeClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		allNamespaces, err := exporter.kubeClient.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -116,7 +116,7 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 	}
 
 	labelSelector := metav1.LabelSelector{MatchLabels: includedLabelsWithValue}
-	secrets, err := exporter.kubeClient.CoreV1().Secrets(namespace).List(context.TODO(), metav1.ListOptions{
+	secrets, err := exporter.kubeClient.CoreV1().Secrets(namespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
 	})
 	if err != nil {

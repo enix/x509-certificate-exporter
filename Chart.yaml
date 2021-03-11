@@ -28,7 +28,7 @@ annotations:
   artifacthub.io/license: MIT
   artifacthub.io/images: |
     - name: x509-certificate-exporter
-      image: enix/x509-certificate-exporter:2.6.1
+      image: enix/x509-certificate-exporter:2.7.0
     - name: kube-rbac-proxy
       image: quay.io/coreos/kube-rbac-proxy:v0.5.0
       whitelisted: true

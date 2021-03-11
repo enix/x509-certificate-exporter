@@ -551,6 +551,7 @@ in the container namespace.
 | secretsExporter.replicas | int | `1` | Desired number of TLS Secrets exporter Pod |
 | secretsExporter.resources | object | see values.yaml | ResourceRequirements for containers of the TLS Secrets exporter |
 | secretsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of the TLS Secrets exporter |
+| secretsExporter.secretTypes | list | `[{"key":"tls.crt","type":"kubernetes.io/tls"}]` | Choose which type of secrets should be watched. Key is the map key in the secret data. |
 | secretsExporter.securityContext | object | see values.yaml | SecurityContext for containers of the TLS Secrets exporter |
 | secretsExporter.strategy | object | `{}` | DeploymentStrategy for the TLS Secrets exporter |
 | secretsExporter.tolerations | list | `[]` | Toleration for Pods of the TLS Secrets exporter |

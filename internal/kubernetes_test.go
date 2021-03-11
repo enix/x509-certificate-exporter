@@ -300,7 +300,7 @@ func TestKubeSecretsListFailure(t *testing.T) {
 	}, func(m []model.MetricFamily) {
 		checkMetricsCount(t, m, 0)
 		metrics := getMetricsForName(m, "x509_read_errors")
-		assert.Equal(t, 4., metrics[0].GetGauge().GetValue())
+		assert.Equal(t, 5., metrics[0].GetGauge().GetValue())
 	})
 }
 

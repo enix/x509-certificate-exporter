@@ -16,13 +16,13 @@ import (
 
 // Exporter : Configuration (from command-line)
 type Exporter struct {
-	Port               int
-	Files              []string
-	Directories        []string
-	YAMLs              []string
-	YAMLPaths          []YAMLCertRef
-	TrimPathComponents int
-
+	Port                  int
+	Files                 []string
+	Directories           []string
+	YAMLs                 []string
+	YAMLPaths             []YAMLCertRef
+	TrimPathComponents    int
+	KubeSecretTypes       []string
 	KubeIncludeNamespaces []string
 	KubeExcludeNamespaces []string
 	KubeIncludeLabels     []string

@@ -583,7 +583,7 @@ func testSinglePEM(t *testing.T, expired float64, notBefore time.Time) {
 }
 
 func checkLabels(t *testing.T, labels []*model.LabelPair, path string, isKube bool) {
-	assert.Len(t, labels, 15, "Missing labels")
+	assert.GreaterOrEqual(t, len(labels), 15, "Missing labels")
 
 	pathOrNamespace := path
 	baseLabels := []string{"serial_number", "filepath", "filename"}
@@ -599,6 +599,8 @@ func checkLabels(t *testing.T, labels []*model.LabelPair, path string, isKube bo
 			assert.Equal(t, pathOrNamespace, label.GetValue(), "Invalid label value for %s", label.GetName())
 		} else if label.GetName() == baseLabels[0] {
 			assert.Equal(t, "1", label.GetValue(), "Invalid label value for %s", label.GetName())
+		} else if label.GetName() == "secret_key" {
+			assert.Contains(t, label.GetValue(), ".", "Invalid label value for %s", label.GetName())
 		} else {
 			assert.Equal(t, strings.Split(label.GetName(), "_")[1], label.GetValue(), "Invalid label value for %s", label.GetName())
 		}
@@ -607,6 +609,9 @@ func checkLabels(t *testing.T, labels []*model.LabelPair, path string, isKube bo
 
 func testRequest(t *testing.T, e *Exporter, cb func(metrics []model.MetricFamily)) {
 	e.Port = port
+	if e.KubeSecretTypes == nil {
+		e.KubeSecretTypes = []string{"kubernetes.io/tls:tls.crt"}
+	}
 	e.DiscoverCertificates()
 	e.Listen()
 	go func() {

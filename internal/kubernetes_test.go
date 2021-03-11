@@ -60,12 +60,14 @@ func TestMain(m *testing.M) {
 
 	addKubeSecrets(10, "default")
 	addKubeSecrets(10, "kube-system")
+	addCustomKubeSecret()
 	addBrokenKubeSecret()
 
 	status := m.Run()
 
 	removeAllKubeSecrets(10, "default")
 	removeAllKubeSecrets(10, "kube-system")
+	removeCustomKubeSecret()
 	removeBrokenKubeSecret()
 
 	os.Remove("kubeconfig")
@@ -248,6 +250,20 @@ func TestKubeIncludeExcludeLabelMix4(t *testing.T) {
 	})
 }
 
+func TestKubeCustomSecret(t *testing.T) {
+	testRequestKube(t, &Exporter{
+		KubeSecretTypes: []string{
+			"istio.io/cert-and-key:cert-chain.pem",
+			"istio.io/cert-and-key:root-cert.pem",
+		},
+	}, func(m []model.MetricFamily) {
+		metric := getMetricsForName(m, "x509_cert_expired")
+		assert.Len(t, metric, 2)
+		checkLabels(t, metric[0].GetLabel(), "k8s/default/test-custom-type", true)
+		checkLabels(t, metric[1].GetLabel(), "k8s/default/test-custom-type", true)
+	})
+}
+
 func TestKubeMetricLabels(t *testing.T) {
 	testRequestKube(t, &Exporter{
 		KubeIncludeNamespaces: []string{"default"},
@@ -284,7 +300,7 @@ func TestKubeSecretsListFailure(t *testing.T) {
 	}, func(m []model.MetricFamily) {
 		checkMetricsCount(t, m, 0)
 		metrics := getMetricsForName(m, "x509_read_errors")
-		assert.Equal(t, 5., metrics[0].GetGauge().GetValue())
+		assert.Equal(t, 4., metrics[0].GetGauge().GetValue())
 	})
 }
 
@@ -319,6 +335,16 @@ func TestKubeInvalidConfig3(t *testing.T) {
 	kubeClient, err := getKubeClient(config)
 	assert.NotNil(t, err)
 	assert.Nil(t, kubeClient)
+}
+
+func TestKubeInvalidSecretType(t *testing.T) {
+	testRequestKube(t, &Exporter{
+		KubeIncludeNamespaces: []string{"default"},
+		KubeSecretTypes:       []string{"aze"},
+	}, func(m []model.MetricFamily) {
+		metrics := getMetricsForName(m, "x509_read_errors")
+		assert.Equal(t, 1., metrics[0].GetGauge().GetValue())
+	})
 }
 
 func TestKubeConnectionFromInsideFailure(t *testing.T) {
@@ -377,6 +403,34 @@ func addKubeSecrets(count int, ns string) {
 			panic(err)
 		}
 	}
+}
+
+func addCustomKubeSecret() {
+	certPath := "/tmp/test-custom-type.crt"
+	generateCertificate(certPath, time.Now())
+	cert, err := os.ReadFile(certPath)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = sharedKubeClient.CoreV1().Secrets("default").Create(context.TODO(), &v1.Secret{
+		Type: "istio.io/cert-and-key",
+		Data: map[string][]byte{
+			"cert-chain.pem": cert,
+			"root-cert.pem":  cert,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-custom-type",
+		},
+	}, metav1.CreateOptions{})
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func removeCustomKubeSecret() {
+	sharedKubeClient.CoreV1().Secrets("default").Delete(context.TODO(), "test-custom-type", metav1.DeleteOptions{})
 }
 
 func addBrokenKubeSecret() {

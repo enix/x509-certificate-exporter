@@ -56,13 +56,13 @@ var DefaultYamlPaths = []YAMLCertRef{
 }
 
 type certificateRef struct {
-	path         string
-	format       certificateFormat
-	certificates []*parsedCertificate
-	userIDs      []string
-
-	yamlPaths  []YAMLCertRef
-	kubeSecret v1.Secret
+	path          string
+	format        certificateFormat
+	certificates  []*parsedCertificate
+	userIDs       []string
+	yamlPaths     []YAMLCertRef
+	kubeSecret    v1.Secret
+	kubeSecretKey string
 }
 
 type parsedCertificate struct {
@@ -93,7 +93,7 @@ func (cert *certificateRef) parse() error {
 	case certificateFormatYAML:
 		cert.certificates, err = readAndParseYAMLFile(cert.path, cert.yamlPaths)
 	case certificateFormatKubeSecret:
-		cert.certificates, err = readAndParseKubeSecret(&cert.kubeSecret)
+		cert.certificates, err = readAndParseKubeSecret(&cert.kubeSecret, cert.kubeSecretKey)
 	}
 
 	return err
@@ -219,8 +219,12 @@ func searchYAMLFile(filename, expr string) (string, error) {
 	return "", fmt.Errorf("failed to convert yaml element to string: %T", results)
 }
 
-func readAndParseKubeSecret(secret *v1.Secret) ([]*parsedCertificate, error) {
-	certs, err := parsePEM(secret.Data["tls.crt"])
+func readAndParseKubeSecret(secret *v1.Secret, key string) ([]*parsedCertificate, error) {
+	if secret.Data[key] == nil {
+		return nil, fmt.Errorf("secret %s does not have a key \"%s\"", secret.Name, key)
+	}
+
+	certs, err := parsePEM(secret.Data[key])
 	if err != nil {
 		return nil, err
 	}

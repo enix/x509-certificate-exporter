@@ -45,7 +45,11 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 	certRefs, certErrors := collector.exporter.parseAllCertificates()
 
 	for index, err := range certErrors {
-		log.Debugf("read error %d: %+v", index+1, err)
+		if err.err != nil {
+			log.Debugf("read error %d: %+v", index+1, err.err)
+		} else {
+			log.Debugf("read error %d (unknown) on %s", index+1, err.ref.path)
+		}
 	}
 
 	for _, certRef := range certRefs {
@@ -80,13 +84,17 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 		baseLabels = append(baseLabels, "filename", "filepath")
 	} else {
 		trimmedFilePath = strings.Split(ref.path, "/")[1]
-		baseLabels = append(baseLabels, "secret_name", "secret_namespace")
+		baseLabels = append(baseLabels, "secret_name", "secret_namespace", "secret_key")
 	}
 
 	baseLabelsValue := []string{
 		certData.cert.SerialNumber.String(),
 		filepath.Base(ref.path),
 		trimmedFilePath,
+	}
+
+	if ref.format == certificateFormatKubeSecret {
+		baseLabelsValue = append(baseLabelsValue, ref.kubeSecretKey)
 	}
 
 	issuerLabels, issuerLabelsValue := getLabelsFromName(&certData.cert.Issuer, "issuer")

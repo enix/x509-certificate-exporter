@@ -39,6 +39,9 @@ func main() {
 
 	kubeEnabled := getopt.BoolLong("watch-kube-secrets", 0, "scrape kubernetes.io/tls secrets and monitor them")
 
+	kubeSecretTypes := stringArrayFlag{}
+	getopt.FlagLong(&kubeSecretTypes, "secret-type", 's', "one or more kubernetes secret type & key to watch (e.g. \"kubernetes.io/tls:tls.crt\"")
+
 	kubeIncludeNamespaces := stringArrayFlag{}
 	getopt.FlagLong(&kubeIncludeNamespaces, "include-namespace", 0, "add the given kube namespace to the watch list (when used, all namespaces are excluded by default)")
 
@@ -68,13 +71,13 @@ func main() {
 	}
 
 	exporter := internal.Exporter{
-		Port:               *port,
-		Files:              files,
-		Directories:        directories,
-		YAMLs:              yamls,
-		YAMLPaths:          internal.DefaultYamlPaths,
-		TrimPathComponents: *trimPathComponents,
-
+		Port:                  *port,
+		Files:                 files,
+		Directories:           directories,
+		YAMLs:                 yamls,
+		YAMLPaths:             internal.DefaultYamlPaths,
+		TrimPathComponents:    *trimPathComponents,
+		KubeSecretTypes:       kubeSecretTypes,
 		KubeIncludeNamespaces: kubeIncludeNamespaces,
 		KubeExcludeNamespaces: kubeExcludeNamespaces,
 		KubeIncludeLabels:     kubeIncludeLabels,

@@ -78,6 +78,9 @@ spec:
         - --debug
       {{- end }}
         - --watch-kube-secrets
+      {{- range .Values.secretsExporter.secretTypes }}
+        - --secret-type={{ .type | trim }}:{{ .key | trim }}
+      {{- end }}
       {{- range .Values.secretsExporter.includeNamespaces }}
         - --include-namespace={{ . | trim }}
       {{- end }}

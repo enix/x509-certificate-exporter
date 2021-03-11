@@ -97,6 +97,11 @@ secretsExporter:
       drop:
       - ALL
 
+  # -- Choose which type of secrets should be watched. Key is the map key in the secret data.
+  secretTypes:
+    - type: kubernetes.io/tls
+      key: tls.crt
+
   # -- Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty)
   includeNamespaces: []
   # -- Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`)

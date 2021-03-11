@@ -1,8 +1,8 @@
 apiVersion: v2
 name: x509-certificate-exporter
-version: 1.8.0
+version: 1.9.0
 # when bumping appVersion, change the annotation too (manual for now)
-appVersion: 2.6.1
+appVersion: 2.7.0
 type: application
 description: A Prometheus exporter for certificates focusing on expiration monitoring
 keywords:

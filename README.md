@@ -48,6 +48,7 @@ The following metrics are available:
 * `x509_cert_not_after`
 * `x509_cert_expired`
 * `x509_read_errors`
+* `x509_read_timestamp`
 
 ### Advanced usage
 
@@ -103,6 +104,12 @@ Here is an exemple:
 
 ```
 x509_cert_not_after - time()
+```
+
+When collecting these metrics from tools like Datadog that does not have timestamp functions, the `x509_read_timestamp` allow to know read timestamp.
+
+```
+x509_cert_not_after - x509_read_timestamp > delay_in_seconds
 ```
 
 ### How to ensure it keeps working over time?

@@ -32,6 +32,10 @@ var (
 	certErrorsMetric = "x509_read_errors"
 	certErrorsHelp   = "Indicates the number of read failure(s)"
 	certErrorsDesc   = prometheus.NewDesc(certErrorsMetric, certErrorsHelp, nil, nil)
+
+	certTimestampMetric = "x509_read_timestamp"
+	certTimestampHelp   = "Indicates the read timestamp"
+	certTimestampDesc   = prometheus.NewDesc(certTimestampMetric, certTimestampHelp, nil, nil)
 )
 
 func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
@@ -39,6 +43,7 @@ func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- certNotBeforeDesc
 	ch <- certNotAfterDesc
 	ch <- certErrorsDesc
+	ch <- certTimestampDesc
 }
 
 func (collector *collector) Collect(ch chan<- prometheus.Metric) {
@@ -65,6 +70,12 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 		certErrorsDesc,
 		prometheus.GaugeValue,
 		float64(len(certErrors)),
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		certTimestampDesc,
+		prometheus.GaugeValue,
+		float64(time.Now().Unix()),
 	)
 }
 

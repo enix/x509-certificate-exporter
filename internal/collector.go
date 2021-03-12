@@ -72,11 +72,13 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 		float64(len(certErrors)),
 	)
 
-	ch <- prometheus.MustNewConstMetric(
-		certTimestampDesc,
-		prometheus.GaugeValue,
-		float64(time.Now().Unix()),
-	)
+	if collector.exporter.EmitTimestampMetric {
+		ch <- prometheus.MustNewConstMetric(
+			certTimestampDesc,
+			prometheus.GaugeValue,
+			float64(time.Now().Unix()),
+		)
+	}
 }
 
 func (collector *collector) getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {

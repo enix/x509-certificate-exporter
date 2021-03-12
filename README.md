@@ -107,6 +107,7 @@ x509_cert_not_after - time()
 ```
 
 When collecting these metrics from tools like Datadog that does not have timestamp functions, the `x509_read_timestamp` allow to know read timestamp.
+Run the exporter with `--timestamp-metric` to get that optionnal metric.
 
 ```
 x509_cert_not_after - x509_read_timestamp > delay_in_seconds

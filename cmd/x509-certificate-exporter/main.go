@@ -27,6 +27,7 @@ func main() {
 	port := getopt.IntLong("port", 'p', 9793, "prometheus exporter listening port")
 	debug := getopt.BoolLong("debug", 0, "enable debug mode")
 	trimPathComponents := getopt.IntLong("trim-path-components", 0, 0, "remove <n> leading component(s) from path(s) in label(s)")
+	emitTimestampMetric := getopt.BoolLong("timestamp-metric", 0, "provide an additionnal metric with current timestamp")
 
 	files := stringArrayFlag{}
 	getopt.FlagLong(&files, "watch-file", 'f', "watch one or more x509 certificate file")
@@ -77,6 +78,7 @@ func main() {
 		YAMLs:                 yamls,
 		YAMLPaths:             internal.DefaultYamlPaths,
 		TrimPathComponents:    *trimPathComponents,
+		EmitTimestampMetric:   *emitTimestampMetric,
 		KubeSecretTypes:       kubeSecretTypes,
 		KubeIncludeNamespaces: kubeIncludeNamespaces,
 		KubeExcludeNamespaces: kubeExcludeNamespaces,

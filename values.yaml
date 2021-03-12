@@ -26,6 +26,10 @@ image:
   # -- x509-certificate-exporter image pull policy
   pullPolicy: IfNotPresent
 
+psp:
+  # -- Should Pod Security Policy resources be created
+  create: false
+
 rbac:
   # -- Should RBAC resources be created
   create: true

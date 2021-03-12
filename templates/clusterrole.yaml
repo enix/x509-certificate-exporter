@@ -45,6 +45,16 @@ rules:
   verbs:
   - create
 {{- end }}
+{{- if .Values.psp.create }}
+- apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+  resourceNames:
+  - {{ include "x509-certificate-exporter.secretsExporterName" . }}
+{{- end }}
 {{- end }}
 {{- if .Values.hostPathsExporter.daemonSets }}
 ---
@@ -75,6 +85,20 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+{{- end }}
+{{- if .Values.psp.create }}
+{{- with .Values.hostPathsExporter.daemonSets }}
+- apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+  resourceNames:
+{{- range $dsName, $dsDef := . }}
+  - {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $dsName }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

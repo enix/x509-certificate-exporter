@@ -54,7 +54,7 @@ The following metrics are available:
 For advanced configuration, see the program's `--help` :
 
 ```
-Usage: x509-certificate-exporter [-hv] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [-f value] [--include-label value] [--include-namespace value] [-k value] [-p value] [--trim-path-components value] [--watch-kube-secrets] [parameters ...]
+Usage: x509-certificate-exporter [-hv] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [--expose-relative-metrics] [-f value] [--include-label value] [--include-namespace value] [-k value] [-p value] [-s value] [--trim-path-components value] [--watch-kube-secrets] [parameters ...]
      --debug       enable debug mode
  -d, --watch-dir=value
                    watch one or more directory which contains x509 certificate
@@ -66,6 +66,9 @@ Usage: x509-certificate-exporter [-hv] [--debug] [-d value] [--exclude-label val
      --exclude-namespace=value
                    removes the given kube namespace from the watch list
                    (applied after --include-namespace)
+     --expose-relative-metrics
+                   expose additionnal metrics with relative durations instead
+                   of absolute timestamps
  -f, --watch-file=value
                    watch one or more x509 certificate file
  -h, --help        show this help message and exit
@@ -81,6 +84,9 @@ Usage: x509-certificate-exporter [-hv] [--debug] [-d value] [--exclude-label val
                    Config) which contains embedded x509 certificates or PEM
                    file paths
  -p, --port=value  prometheus exporter listening port [9793]
+ -s, --secret-type=value
+                   one or more kubernetes secret type & key to watch (e.g.
+                   "kubernetes.io/tls:tls.crt"
      --trim-path-components=value
                    remove <n> leading component(s) from path(s) in label(s)
  -v, --version     show version info and exit
@@ -105,10 +111,11 @@ Here is an exemple:
 x509_cert_not_after - time()
 ```
 
-When collecting these metrics from tools like Datadog that does not have timestamp functions, run the exporter with `--add-delays` argument to get that optionnal metrics:
+When collecting metrics from tools like Datadog that does not have timestamp functions,
+the exporter can be run with the `--expose-relative-metrics` flag in order to add the following optionnal metrics:
 
-* `x509_cert_seconds_since_not_before`
-* `x509_cert_seconds_until_not_after`
+* `x509_cert_valid_since_seconds`
+* `x509_cert_expires_in_seconds`
 
 ### How to ensure it keeps working over time?
 

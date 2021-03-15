@@ -47,8 +47,6 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 	for index, err := range certErrors {
 		if err.err != nil {
 			log.Debugf("read error %d: %+v", index+1, err.err)
-		} else {
-			log.Debugf("read error %d (unknown) on %s", index+1, err.ref.path)
 		}
 	}
 

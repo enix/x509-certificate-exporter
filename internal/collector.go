@@ -29,6 +29,14 @@ var (
 	certNotAfterHelp   = "Indicates the certificate's not after timestamp"
 	certNotAfterDesc   = prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, nil, nil)
 
+	certExpiresInMetric = "x509_cert_expires_in_seconds"
+	certExpiresInHelp   = "Indicates the remaining time before the certificate's not after timestamp"
+	certExpiresInDesc   = prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, nil, nil)
+
+	certValidSinceMetric = "x509_cert_valid_since_seconds"
+	certValidSinceHelp   = "Indicates the elapsed time since the certificate's not before timestamp"
+	certValidSinceDesc   = prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, nil, nil)
+
 	certErrorsMetric = "x509_read_errors"
 	certErrorsHelp   = "Indicates the number of read failure(s)"
 	certErrorsDesc   = prometheus.NewDesc(certErrorsMetric, certErrorsHelp, nil, nil)
@@ -39,6 +47,11 @@ func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- certNotBeforeDesc
 	ch <- certNotAfterDesc
 	ch <- certErrorsDesc
+
+	if collector.exporter.ExposeRelativeMetrics {
+		ch <- certExpiresInDesc
+		ch <- certValidSinceDesc
+	}
 }
 
 func (collector *collector) Collect(ch chan<- prometheus.Metric) {
@@ -116,7 +129,7 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 		expired = 1.
 	}
 
-	return []prometheus.Metric{
+	metrics := []prometheus.Metric{
 		prometheus.MustNewConstMetric(
 			prometheus.NewDesc(certExpiredMetric, certExpiredHelp, labels, nil),
 			prometheus.GaugeValue,
@@ -136,6 +149,24 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 			labelsValue...,
 		),
 	}
+
+	if collector.exporter.ExposeRelativeMetrics {
+		metrics = append(metrics, prometheus.MustNewConstMetric(
+			prometheus.NewDesc(certExpiresInMetric, certExpiresInHelp, labels, nil),
+			prometheus.GaugeValue,
+			float64(time.Until(certData.cert.NotAfter).Seconds()),
+			labelsValue...,
+		))
+
+		metrics = append(metrics, prometheus.MustNewConstMetric(
+			prometheus.NewDesc(certValidSinceMetric, certValidSinceHelp, labels, nil),
+			prometheus.GaugeValue,
+			float64(time.Since(certData.cert.NotBefore).Seconds()),
+			labelsValue...,
+		))
+	}
+
+	return metrics
 }
 
 func getLabelsFromName(name *pkix.Name, prefix string) (labels []string, labelsValue []string) {

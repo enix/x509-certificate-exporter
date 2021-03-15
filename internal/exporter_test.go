@@ -558,7 +558,8 @@ func testSinglePEM(t *testing.T, expired float64, notBefore time.Time) {
 	generateCertificate(certPath, notBefore)
 
 	testRequest(t, &Exporter{
-		Files: []string{certPath},
+		Files:                 []string{certPath},
+		ExposeRelativeMetrics: true,
 	}, func(metrics []model.MetricFamily) {
 		metric := getMetricsForName(metrics, "x509_cert_expired")
 		assert.NotEmpty(t, metric, "missing x509_cert_expired metric")
@@ -577,6 +578,28 @@ func testSinglePEM(t *testing.T, expired float64, notBefore time.Time) {
 		naValue := naMetric[0].GetGauge().GetValue()
 		assert.Equal(t, float64(notBefore.Add(time.Hour).Unix()), naValue, "x509_cert_not_after has invalid value")
 		checkLabels(t, naMetric[0].GetLabel(), certPath, false)
+
+		eiMetric := getMetricsForName(metrics, "x509_cert_expires_in_seconds")
+		assert.NotEmpty(t, eiMetric)
+		eiValue := eiMetric[0].GetGauge().GetValue()
+		checkLabels(t, eiMetric[0].GetLabel(), certPath, false)
+		if notBefore.Add(time.Hour).After(time.Now()) {
+			assert.GreaterOrEqual(t, eiValue, 50*time.Minute.Seconds())
+		} else {
+			assert.LessOrEqual(t, eiValue, -time.Hour.Seconds())
+		}
+
+		vsMetric := getMetricsForName(metrics, "x509_cert_valid_since_seconds")
+		assert.NotEmpty(t, eiMetric)
+		vsValue := vsMetric[0].GetGauge().GetValue()
+		checkLabels(t, vsMetric[0].GetLabel(), certPath, false)
+		if notBefore.Add(time.Hour).Before(time.Now()) {
+			assert.GreaterOrEqual(t, vsValue, 2*time.Hour.Seconds())
+			assert.LessOrEqual(t, vsValue, 3*time.Hour.Seconds())
+		} else {
+			assert.GreaterOrEqual(t, vsValue, 0.)
+			assert.LessOrEqual(t, vsValue, time.Minute.Seconds())
+		}
 
 		removeGeneratedCertificate(certPath)
 	})

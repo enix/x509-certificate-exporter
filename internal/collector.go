@@ -25,17 +25,21 @@ var (
 	certNotBeforeHelp   = "Indicates the certificate's not before timestamp"
 	certNotBeforeDesc   = prometheus.NewDesc(certNotBeforeMetric, certNotBeforeHelp, nil, nil)
 
+	certSecondsSinceNotBeforeMetric = "x509_cert_seconds_since_not_before"
+	certSecondsSinceNotBeforeHelp   = "Indicates seconds since certificate's not before timestamp"
+	certSecondsSinceNotBeforeDesc   = prometheus.NewDesc(certSecondsSinceNotBeforeMetric, certSecondsSinceNotBeforeHelp, nil, nil)
+
 	certNotAfterMetric = "x509_cert_not_after"
 	certNotAfterHelp   = "Indicates the certificate's not after timestamp"
 	certNotAfterDesc   = prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, nil, nil)
 
+	certSecondsUntilNotAfterMetric = "x509_cert_seconds_until_not_after"
+	certSecondsUntilNotAfterHelp   = "Indicates the seconds until certificate's not after timestamp"
+	certSecondsUntilNotAfterDesc   = prometheus.NewDesc(certSecondsUntilNotAfterMetric, certSecondsUntilNotAfterHelp, nil, nil)
+
 	certErrorsMetric = "x509_read_errors"
 	certErrorsHelp   = "Indicates the number of read failure(s)"
 	certErrorsDesc   = prometheus.NewDesc(certErrorsMetric, certErrorsHelp, nil, nil)
-
-	certTimestampMetric = "x509_read_timestamp"
-	certTimestampHelp   = "Indicates the read timestamp"
-	certTimestampDesc   = prometheus.NewDesc(certTimestampMetric, certTimestampHelp, nil, nil)
 )
 
 func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
@@ -43,7 +47,10 @@ func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- certNotBeforeDesc
 	ch <- certNotAfterDesc
 	ch <- certErrorsDesc
-	ch <- certTimestampDesc
+	if collector.exporter.EmitDelayMetrics {
+		ch <- certSecondsSinceNotBeforeDesc
+		ch <- certSecondsUntilNotAfterDesc
+	}
 }
 
 func (collector *collector) Collect(ch chan<- prometheus.Metric) {
@@ -71,14 +78,6 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 		prometheus.GaugeValue,
 		float64(len(certErrors)),
 	)
-
-	if collector.exporter.EmitTimestampMetric {
-		ch <- prometheus.MustNewConstMetric(
-			certTimestampDesc,
-			prometheus.GaugeValue,
-			float64(time.Now().Unix()),
-		)
-	}
 }
 
 func (collector *collector) getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
@@ -131,7 +130,7 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 		expired = 1.
 	}
 
-	return []prometheus.Metric{
+	CertificatesMetrics := []prometheus.Metric{
 		prometheus.MustNewConstMetric(
 			prometheus.NewDesc(certExpiredMetric, certExpiredHelp, labels, nil),
 			prometheus.GaugeValue,
@@ -151,6 +150,30 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 			labelsValue...,
 		),
 	}
+
+	if collector.exporter.EmitDelayMetrics {
+		seconds_since_not_before := time.Now().Unix() - certData.cert.NotBefore.Unix()
+		seconds_until_not_after := certData.cert.NotAfter.Unix() - time.Now().Unix()
+
+		CertificatesDelaysMetrics := []prometheus.Metric{
+			prometheus.MustNewConstMetric(
+				prometheus.NewDesc(certSecondsSinceNotBeforeMetric, certSecondsSinceNotBeforeHelp, labels, nil),
+				prometheus.GaugeValue,
+				float64(seconds_since_not_before),
+				labelsValue...,
+			),
+			prometheus.MustNewConstMetric(
+				prometheus.NewDesc(certSecondsUntilNotAfterMetric, certSecondsUntilNotAfterHelp, labels, nil),
+				prometheus.GaugeValue,
+				float64(seconds_until_not_after),
+				labelsValue...,
+			),
+		}
+
+		CertificatesMetrics = append(CertificatesMetrics, CertificatesDelaysMetrics...)
+	}
+
+	return CertificatesMetrics
 }
 
 func getLabelsFromName(name *pkix.Name, prefix string) (labels []string, labelsValue []string) {

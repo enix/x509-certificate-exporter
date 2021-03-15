@@ -79,7 +79,7 @@ spec:
       {{- end }}
       {{- if $.Values.exposeRelativeMetrics }}
         - --expose-relative-metrics
-      {{- else }}
+      {{- end }}
         - --watch-kube-secrets
       {{- range .Values.secretsExporter.secretTypes }}
         - --secret-type={{ .type | trim }}:{{ .key | trim }}

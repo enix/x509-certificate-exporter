@@ -69,7 +69,7 @@ spec:
       {{- end }}
       {{- if $.Values.exposeRelativeMetrics }}
         - --expose-relative-metrics
-      {{- else }}
+      {{- end }}
       {{- if not $.Values.rbacProxy.enabled }}
         - --port={{ $.Values.podListenPort }}
       {{- else }}

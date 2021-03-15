@@ -1,6 +1,6 @@
 apiVersion: v2
 name: x509-certificate-exporter
-version: 1.10.0
+version: 1.10.1
 # when bumping appVersion, change the annotation too (manual for now)
 appVersion: 2.8.0
 type: application

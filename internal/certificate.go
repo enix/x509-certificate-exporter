@@ -220,10 +220,6 @@ func searchYAMLFile(filename, expr string) (string, error) {
 }
 
 func readAndParseKubeSecret(secret *v1.Secret, key string) ([]*parsedCertificate, error) {
-	if secret.Data[key] == nil {
-		return nil, fmt.Errorf("secret %s does not have a key \"%s\"", secret.Name, key)
-	}
-
 	certs, err := parsePEM(secret.Data[key])
 	if err != nil {
 		return nil, err

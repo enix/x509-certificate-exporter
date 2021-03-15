@@ -112,7 +112,7 @@ x509_cert_not_after - time()
 ```
 
 When collecting metrics from tools like Datadog that does not have timestamp functions,
-the exporter can be run with the `--expose-relative-metrics` flag in order to add the following optionnal metrics:
+the exporter can be run with the `--expose-relative-metrics` flag in order to add the following optional metrics:
 
 * `x509_cert_valid_since_seconds`
 * `x509_cert_expires_in_seconds`

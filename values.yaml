@@ -10,6 +10,9 @@ nameOverride: ""
 # -- String to fully override x509-certificate-exporter.fullname template with a string
 fullnameOverride: ""
 
+# -- Enable additional metrics with relative durations instead of absolute timestamps
+exposeRelativeMetrics: false
+
 # -- Specify docker-registry secret names as an array
 imagePullSecrets: []
 

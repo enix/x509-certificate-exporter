@@ -67,6 +67,9 @@ spec:
       {{- with default $.Values.hostPathsExporter.debugMode $dsDef.debugMode }}
         - --debug
       {{- end }}
+      {{- if $.Values.exposeRelativeMetrics }}
+        - --expose-relative-metrics
+      {{- else }}
       {{- if not $.Values.rbacProxy.enabled }}
         - --port={{ $.Values.podListenPort }}
       {{- else }}

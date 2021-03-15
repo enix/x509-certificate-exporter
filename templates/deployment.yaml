@@ -77,6 +77,9 @@ spec:
       {{- if .Values.secretsExporter.debugMode }}
         - --debug
       {{- end }}
+      {{- if $.Values.exposeRelativeMetrics }}
+        - --expose-relative-metrics
+      {{- else }}
         - --watch-kube-secrets
       {{- range .Values.secretsExporter.secretTypes }}
         - --secret-type={{ .type | trim }}:{{ .key | trim }}

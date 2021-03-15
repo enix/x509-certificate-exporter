@@ -483,6 +483,7 @@ in the container namespace.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| exposeRelativeMetrics | bool | `false` | Enable additional metrics with relative durations instead of absolute timestamps |
 | extraLabels | object | `{}` |  |
 | fullnameOverride | string | `""` | String to fully override x509-certificate-exporter.fullname template with a string |
 | hostNetwork | bool | `false` | Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster |

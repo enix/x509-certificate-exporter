@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path"
 
@@ -97,6 +99,8 @@ func main() {
 			}
 		}
 	}
+
+	go http.ListenAndServe(":19793", nil)
 
 	log.Infof("starting %s version %s", path.Base(os.Args[0]), internal.Version)
 	exporter.ListenAndServe()

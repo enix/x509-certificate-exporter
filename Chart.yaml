@@ -27,8 +27,6 @@ annotations:
       url: https://charts.enix.io
     - name: Grafana Dashboard
       url: https://grafana.com/grafana/dashboards/13922
-    - name: Commercial Support
-      url: https://enix.io
   artifacthub.io/recommendations: |
     - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
 
@@ -41,11 +39,11 @@ keywords:
 - exporter
 - certificate
 - expiration
-home: https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter
+home: https://github.com/enix/x509-certificate-exporter
 icon: https://github.githubassets.com/images/icons/emoji/unicode/1f50f.png
 sources:
-- https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter
 - https://github.com/enix/x509-certificate-exporter
+- https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter
 maintainers:
 - name: Enix
   email: contact@enix.fr

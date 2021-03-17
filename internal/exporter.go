@@ -54,6 +54,8 @@ func (exporter *Exporter) Listen() error {
 		if registered, ok := err.(prometheus.AlreadyRegisteredError); ok {
 			prometheus.Unregister(registered.ExistingCollector)
 			prometheus.MustRegister(&collector{exporter: exporter})
+		} else {
+			return err
 		}
 	}
 

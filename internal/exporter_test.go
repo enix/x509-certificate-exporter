@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	model "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/stretchr/testify/assert"
@@ -630,13 +631,22 @@ func checkLabels(t *testing.T, labels []*model.LabelPair, path string, isKube bo
 	}
 }
 
-func testRequest(t *testing.T, e *Exporter, cb func(metrics []model.MetricFamily)) {
-	e.Port = port
-	if e.KubeSecretTypes == nil {
-		e.KubeSecretTypes = []string{"kubernetes.io/tls:tls.crt"}
+func testRequest(t *testing.T, exporter *Exporter, cb func(metrics []model.MetricFamily)) {
+	exporter.Port = port
+	if exporter.KubeSecretTypes == nil {
+		exporter.KubeSecretTypes = []string{"kubernetes.io/tls:tls.crt"}
 	}
-	e.DiscoverCertificates()
-	e.Listen()
+	exporter.DiscoverCertificates()
+
+	err := exporter.Listen()
+	if err != nil {
+		registry := prometheus.NewRegistry()
+		prometheus.DefaultRegisterer = registry
+		prometheus.DefaultGatherer = registry
+		err = exporter.Listen()
+		assert.NoError(t, err)
+	}
+
 	go func() {
 		res, err := http.Get(fmt.Sprintf("http://localhost:%d/metrics", port))
 		if err != nil {
@@ -657,9 +667,9 @@ func testRequest(t *testing.T, e *Exporter, cb func(metrics []model.MetricFamily
 		}
 
 		cb(metrics)
-		e.Shutdown()
+		exporter.Shutdown()
 	}()
-	e.Serve()
+	exporter.Serve()
 }
 
 func getMetricsForName(metrics []model.MetricFamily, name string) []*model.Metric {

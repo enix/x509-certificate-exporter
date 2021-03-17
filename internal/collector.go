@@ -31,11 +31,11 @@ var (
 
 	certExpiresInMetric = "x509_cert_expires_in_seconds"
 	certExpiresInHelp   = "Indicates the remaining time before the certificate's not after timestamp"
-	certExpiresInDesc   = prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, nil, nil)
+	certExpiresInDesc   = prometheus.NewDesc(certExpiresInMetric, certExpiresInHelp, nil, nil)
 
 	certValidSinceMetric = "x509_cert_valid_since_seconds"
 	certValidSinceHelp   = "Indicates the elapsed time since the certificate's not before timestamp"
-	certValidSinceDesc   = prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, nil, nil)
+	certValidSinceDesc   = prometheus.NewDesc(certValidSinceMetric, certValidSinceHelp, nil, nil)
 
 	certErrorsMetric = "x509_read_errors"
 	certErrorsHelp   = "Indicates the number of read failure(s)"

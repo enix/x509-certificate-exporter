@@ -1,8 +1,39 @@
+# when bumping version, please:
+# - replace the "changes" annotation with new content
+# - update "containsSecurityUpdates" if needed
+version: 1.11.0
+# when bumping appVersion, please:
+# - update the "images" annotation
+appVersion: 2.8.0
+annotations:
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/license: MIT
+  artifacthub.io/changes: |
+    - Added support for PodSecurityPolicies
+    - Fixed insufficient memory limit for Secrets exporter
+  artifacthub.io/images: |
+    - name: x509-certificate-exporter
+      image: enix/x509-certificate-exporter:2.8.0
+    - name: kube-rbac-proxy
+      image: quay.io/coreos/kube-rbac-proxy:v0.5.0
+      whitelisted: true
+  artifacthub.io/links: |
+    - name: Chart Sources
+      url: https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter
+    - name: Application Sources
+      url: https://github.com/enix/x509-certificate-exporter
+    - name: Helm Repository
+      url: https://charts.enix.io
+    - name: Grafana Dashboard
+      url: https://grafana.com/grafana/dashboards/13922
+    - name: Commercial Support
+      url: https://enix.io
+  artifacthub.io/recommendations: |
+    - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
+
 apiVersion: v2
 name: x509-certificate-exporter
-version: 1.10.1
-# when bumping appVersion, change the annotation too (manual for now)
-appVersion: 2.8.0
 type: application
 description: A Prometheus exporter for certificates focusing on expiration monitoring
 keywords:
@@ -24,11 +55,3 @@ maintainers:
   url: https://github.com/npdgm
 - name: Arthur Chaloin
   email: arthur.chaloin@enix.fr
-annotations:
-  artifacthub.io/license: MIT
-  artifacthub.io/images: |
-    - name: x509-certificate-exporter
-      image: enix/x509-certificate-exporter:2.8.0
-    - name: kube-rbac-proxy
-      image: quay.io/coreos/kube-rbac-proxy:v0.5.0
-      whitelisted: true

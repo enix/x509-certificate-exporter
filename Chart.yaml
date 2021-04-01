@@ -1,7 +1,7 @@
 # when bumping version, please:
 # - replace the "changes" annotation with new content
 # - update "containsSecurityUpdates" if needed
-version: 1.12.0
+version: 1.12.1
 # when bumping appVersion, please:
 # - update the "images" annotation
 appVersion: 2.8.1
@@ -10,8 +10,8 @@ annotations:
   artifacthub.io/prerelease: "false"
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
-    - exporter: Base image update (fixes security scan warnings)
-    - exporter: Fixed metrics descriptions
+    - "exporter: Base image update (fixes security scan warnings)"
+    - "exporter: Fixed metrics descriptions"
   artifacthub.io/images: |
     - name: x509-certificate-exporter
       image: enix/x509-certificate-exporter:2.8.1

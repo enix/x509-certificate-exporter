@@ -1,9 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"enix.io/x509-certificate-exporter/internal"
 	getopt "github.com/pborman/getopt/v2"
@@ -21,6 +23,17 @@ func (s *stringArrayFlag) String() string {
 	return ""
 }
 
+func checkFlagPassed(name string) bool {
+	found := false
+	flag.Visit(func(arg *flag.Flag) {
+		if arg.Name == name {
+			found = true
+		}
+	})
+
+	return found
+}
+
 func main() {
 	help := getopt.BoolLong("help", 'h', "show this help message and exit")
 	version := getopt.BoolLong("version", 'v', "show version info and exit")
@@ -28,6 +41,7 @@ func main() {
 	debug := getopt.BoolLong("debug", 0, "enable debug mode")
 	trimPathComponents := getopt.IntLong("trim-path-components", 0, 0, "remove <n> leading component(s) from path(s) in label(s)")
 	exposeRelativeMetrics := getopt.BoolLong("expose-relative-metrics", 0, "expose additionnal metrics with relative durations instead of absolute timestamps")
+	enableLabels := getopt.StringLong("expose-labels", 'l', "one or more comma-separated labels to enable (defaults to all if not specified)")
 
 	files := stringArrayFlag{}
 	getopt.FlagLong(&files, "watch-file", 'f', "watch one or more x509 certificate file")
@@ -84,6 +98,10 @@ func main() {
 		KubeExcludeNamespaces: kubeExcludeNamespaces,
 		KubeIncludeLabels:     kubeIncludeLabels,
 		KubeExcludeLabels:     kubeExcludeLabels,
+	}
+
+	if checkFlagPassed("expose-labels") {
+		exporter.ExposeLabels = strings.Split(*enableLabels, ",")
 	}
 
 	if *kubeEnabled {

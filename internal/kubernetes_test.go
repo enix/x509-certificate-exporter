@@ -259,8 +259,8 @@ func TestKubeCustomSecret(t *testing.T) {
 	}, func(m []model.MetricFamily) {
 		metric := getMetricsForName(m, "x509_cert_expired")
 		assert.Len(t, metric, 2)
-		checkLabels(t, metric[0].GetLabel(), "k8s/default/test-custom-type", true)
-		checkLabels(t, metric[1].GetLabel(), "k8s/default/test-custom-type", true)
+		checkLabels(t, metric[0].GetLabel(), "k8s/default/test-custom-type", true, 15)
+		checkLabels(t, metric[1].GetLabel(), "k8s/default/test-custom-type", true, 15)
 	})
 }
 
@@ -270,7 +270,7 @@ func TestKubeMetricLabels(t *testing.T) {
 		KubeIncludeLabels:     []string{"index=0"},
 	}, func(m []model.MetricFamily) {
 		metric := getMetricsForName(m, "x509_cert_expired")[0]
-		checkLabels(t, metric.GetLabel(), "k8s/default/test-default-0.crt", true)
+		checkLabels(t, metric.GetLabel(), "k8s/default/test-default-0.crt", true, 15)
 	})
 }
 

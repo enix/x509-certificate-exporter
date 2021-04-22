@@ -23,6 +23,7 @@ type Exporter struct {
 	YAMLPaths             []YAMLCertRef
 	TrimPathComponents    int
 	ExposeRelativeMetrics bool
+	ExposeLabels          []string
 	KubeSecretTypes       []string
 	KubeIncludeNamespaces []string
 	KubeExcludeNamespaces []string

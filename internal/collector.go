@@ -80,8 +80,9 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (collector *collector) getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
-	var trimmedFilePath string
-	baseLabels := []string{"serial_number"}
+	labels := map[string]string{
+		"serial_number": certData.cert.SerialNumber.String(),
+	}
 
 	if ref.format != certificateFormatKubeSecret {
 		trimComponentsCount := collector.exporter.TrimPathComponents
@@ -91,112 +92,111 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 			trimComponentsCount++
 			prefix = "/"
 		}
-		trimmedFilePath = path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
-		baseLabels = append(baseLabels, "filename", "filepath")
+
+		labels["filename"] = filepath.Base(ref.path)
+		labels["filepath"] = path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
 	} else {
-		trimmedFilePath = strings.Split(ref.path, "/")[1]
-		baseLabels = append(baseLabels, "secret_name", "secret_namespace", "secret_key")
+		labels["secret_name"] = filepath.Base(ref.path)
+		labels["secret_namespace"] = strings.Split(ref.path, "/")[1]
+		labels["secret_key"] = ref.kubeSecretKey
 	}
 
-	baseLabelsValue := []string{
-		certData.cert.SerialNumber.String(),
-		filepath.Base(ref.path),
-		trimmedFilePath,
-	}
-
-	if ref.format == certificateFormatKubeSecret {
-		baseLabelsValue = append(baseLabelsValue, ref.kubeSecretKey)
-	}
-
-	issuerLabels, issuerLabelsValue := getLabelsFromName(&certData.cert.Issuer, "issuer")
-	subjectLabels, subjectLabelsValue := getLabelsFromName(&certData.cert.Subject, "subject")
-	labels := append(baseLabels, append(issuerLabels, subjectLabels...)...)
-	labelsValue := append(baseLabelsValue, append(issuerLabelsValue, subjectLabelsValue...)...)
+	fillLabelsFromName(&certData.cert.Issuer, "issuer", labels)
+	fillLabelsFromName(&certData.cert.Subject, "subject", labels)
 
 	if ref.format == certificateFormatYAML {
 		kind := strings.Split(certData.yqMatchExpr, ".")[1]
-		labels = append(labels, "embedded_kind")
-		labelsValue = append(labelsValue, strings.TrimRight(kind, "s"))
+		labels["embedded_kind"] = strings.TrimRight(kind, "s")
 	}
 
 	if len(certData.userID) > 0 {
-		labels = append(labels, "embedded_key")
-		labelsValue = append(labelsValue, certData.userID)
+		labels["embedded_key"] = certData.userID
 	}
 
 	expired := 0.
-	if time.Now().Unix() > certData.cert.NotAfter.Unix() {
+	if time.Now().After(certData.cert.NotAfter) {
 		expired = 1.
+	}
+
+	labelKeys := []string{}
+	labelValues := []string{}
+	for key, value := range labels {
+		if collector.exporter.ExposeLabels == nil {
+			labelKeys = append(labelKeys, key)
+			labelValues = append(labelValues, value)
+			continue
+		}
+
+		for _, label := range collector.exporter.ExposeLabels {
+			if label == key {
+				labelKeys = append(labelKeys, key)
+				labelValues = append(labelValues, value)
+			}
+		}
 	}
 
 	metrics := []prometheus.Metric{
 		prometheus.MustNewConstMetric(
-			prometheus.NewDesc(certExpiredMetric, certExpiredHelp, labels, nil),
+			prometheus.NewDesc(certExpiredMetric, certExpiredHelp, labelKeys, nil),
 			prometheus.GaugeValue,
 			expired,
-			labelsValue...,
+			labelValues...,
 		),
 		prometheus.MustNewConstMetric(
-			prometheus.NewDesc(certNotBeforeMetric, certNotBeforeHelp, labels, nil),
+			prometheus.NewDesc(certNotBeforeMetric, certNotBeforeHelp, labelKeys, nil),
 			prometheus.GaugeValue,
 			float64(certData.cert.NotBefore.Unix()),
-			labelsValue...,
+			labelValues...,
 		),
 		prometheus.MustNewConstMetric(
-			prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, labels, nil),
+			prometheus.NewDesc(certNotAfterMetric, certNotAfterHelp, labelKeys, nil),
 			prometheus.GaugeValue,
 			float64(certData.cert.NotAfter.Unix()),
-			labelsValue...,
+			labelValues...,
 		),
 	}
 
 	if collector.exporter.ExposeRelativeMetrics {
 		metrics = append(metrics, prometheus.MustNewConstMetric(
-			prometheus.NewDesc(certExpiresInMetric, certExpiresInHelp, labels, nil),
+			prometheus.NewDesc(certExpiresInMetric, certExpiresInHelp, labelKeys, nil),
 			prometheus.GaugeValue,
 			float64(time.Until(certData.cert.NotAfter).Seconds()),
-			labelsValue...,
+			labelValues...,
 		))
 
 		metrics = append(metrics, prometheus.MustNewConstMetric(
-			prometheus.NewDesc(certValidSinceMetric, certValidSinceHelp, labels, nil),
+			prometheus.NewDesc(certValidSinceMetric, certValidSinceHelp, labelKeys, nil),
 			prometheus.GaugeValue,
 			float64(time.Since(certData.cert.NotBefore).Seconds()),
-			labelsValue...,
+			labelValues...,
 		))
 	}
 
 	return metrics
 }
 
-func getLabelsFromName(name *pkix.Name, prefix string) (labels []string, labelsValue []string) {
-	labels = []string{}
-	labelsValue = []string{}
-
+func fillLabelsFromName(name *pkix.Name, prefix string, output map[string]string) {
 	if len(name.Country) > 0 {
-		labels = append(labels, fmt.Sprintf("%s_C", prefix))
-		labelsValue = append(labelsValue, name.Country[0])
-	}
-	if len(name.StreetAddress) > 0 {
-		labels = append(labels, fmt.Sprintf("%s_ST", prefix))
-		labelsValue = append(labelsValue, name.StreetAddress[0])
-	}
-	if len(name.Locality) > 0 {
-		labels = append(labels, fmt.Sprintf("%s_L", prefix))
-		labelsValue = append(labelsValue, name.Locality[0])
-	}
-	if len(name.Organization) > 0 {
-		labels = append(labels, fmt.Sprintf("%s_O", prefix))
-		labelsValue = append(labelsValue, name.Organization[0])
-	}
-	if len(name.OrganizationalUnit) > 0 {
-		labels = append(labels, fmt.Sprintf("%s_OU", prefix))
-		labelsValue = append(labelsValue, name.OrganizationalUnit[0])
-	}
-	if len(name.CommonName) > 0 {
-		labels = append(labels, fmt.Sprintf("%s_CN", prefix))
-		labelsValue = append(labelsValue, name.CommonName)
+		output[fmt.Sprintf("%s_C", prefix)] = name.Country[0]
 	}
 
-	return
+	if len(name.StreetAddress) > 0 {
+		output[fmt.Sprintf("%s_ST", prefix)] = name.StreetAddress[0]
+	}
+
+	if len(name.Locality) > 0 {
+		output[fmt.Sprintf("%s_L", prefix)] = name.Locality[0]
+	}
+
+	if len(name.Organization) > 0 {
+		output[fmt.Sprintf("%s_O", prefix)] = name.Organization[0]
+	}
+
+	if len(name.OrganizationalUnit) > 0 {
+		output[fmt.Sprintf("%s_OU", prefix)] = name.OrganizationalUnit[0]
+	}
+
+	if len(name.CommonName) > 0 {
+		output[fmt.Sprintf("%s_CN", prefix)] = name.CommonName
+	}
 }

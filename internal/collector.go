@@ -121,8 +121,18 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 	labelKeys := []string{}
 	labelValues := []string{}
 	for key, value := range labels {
-		labelKeys = append(labelKeys, key)
-		labelValues = append(labelValues, value)
+		if collector.exporter.ExposeLabels == nil {
+			labelKeys = append(labelKeys, key)
+			labelValues = append(labelValues, value)
+			continue
+		}
+
+		for _, label := range collector.exporter.ExposeLabels {
+			if label == key {
+				labelKeys = append(labelKeys, key)
+				labelValues = append(labelValues, value)
+			}
+		}
 	}
 
 	metrics := []prometheus.Metric{

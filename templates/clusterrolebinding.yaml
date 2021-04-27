@@ -7,9 +7,6 @@ metadata:
   name: {{ include "x509-certificate-exporter.secretsExporterClusterRoleBindingName" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
-    {{- with .Values.extraLabels }}
-    {{ . | toYaml | trim | nindent 4 }}
-    {{- end }}
 {{- with .Values.rbac.secretsExporter.clusterRoleBindingAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -31,9 +28,6 @@ metadata:
   name: {{ include "x509-certificate-exporter.hostPathsExporterClusterRoleBindingName" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
-    {{- with .Values.extraLabels }}
-    {{ . | toYaml | trim | nindent 4 }}
-    {{- end }}
 {{- with .Values.rbac.hostPathsExporter.clusterRoleBindingAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

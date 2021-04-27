@@ -7,9 +7,6 @@ metadata:
   name: {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $dsName }}
   labels:
     {{- include "x509-certificate-exporter.labels" $ | nindent 4 }}
-  {{- with $.Values.extraLabels }}
-    {{- . | toYaml | trim | nindent 4 }}
-  {{- end }}
 spec:
   selector:
     matchLabels:

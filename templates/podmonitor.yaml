@@ -5,9 +5,6 @@ metadata:
   name: {{ include "x509-certificate-exporter.fullname" . }}-podmonitor
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
-    {{- with .Values.extraLabels }}
-    {{ . | toYaml | trim | nindent 4 }}
-    {{- end }}
     {{- with .Values.prometheusPodMonitor.extraLabels }}
     {{- . | toYaml | trim | nindent 4 }}
     {{- end }}

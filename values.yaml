@@ -13,9 +13,6 @@ nameOverride: ""
 # -- String to fully override x509-certificate-exporter.fullname template with a string
 fullnameOverride: ""
 
-# -- Enable additional metrics with relative durations instead of absolute timestamps
-exposeRelativeMetrics: false
-
 # -- Specify docker-registry secret names as an array
 imagePullSecrets: []
 
@@ -64,6 +61,9 @@ podExtraLabels: {}
 podAnnotations: {}
 #  prometheus.io/port: "9793"
 #  prometheus.io/scrape: "true"
+
+# -- Enable additional metrics with relative durations instead of absolute timestamps
+exposeRelativeMetrics: false
 
 secretsExporter:
   # -- Should the TLS Secrets exporter be running
@@ -169,12 +169,6 @@ hostPathsExporter:
   # -- [SEE README] Map to define one or many DaemonSets running hostPath exporters. Key is used as a name ; value is a map to override all default settings set by `hostPathsExporter.*`.
   daemonSets: {}
 
-# -- TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not)
-podListenPort: 9793
-
-# -- Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster
-hostNetwork: false
-
 rbacProxy:
   # -- Should kube-rbac-proxy be used to expose exporters
   enabled: false
@@ -207,6 +201,12 @@ rbacProxy:
     capabilities:
       drop:
       - ALL
+
+# -- TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not)
+podListenPort: 9793
+
+# -- Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster
+hostNetwork: false
 
 service:
   # -- Should a headless Service be installed, targets all instances Deployment and DaemonSets (required for ServiceMonitor)

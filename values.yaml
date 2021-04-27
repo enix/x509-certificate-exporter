@@ -63,6 +63,9 @@ podAnnotations: {}
 # -- Enable additional metrics with relative durations instead of absolute timestamps
 exposeRelativeMetrics: false
 
+# -- Restrict metric labels to this list if set ; helps with cardinality constraining systems such as Datadog
+metricLabelsFilterList: []
+
 secretsExporter:
   # -- Should the TLS Secrets exporter be running
   enabled: true

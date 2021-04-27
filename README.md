@@ -505,6 +505,7 @@ in the container namespace.
 | podExtraLabels | object | `{}` | Extra labels added to all Pods |
 | podAnnotations | object | `{}` | Annotations added to all Pods |
 | exposeRelativeMetrics | bool | `false` | Enable additional metrics with relative durations instead of absolute timestamps |
+| metricLabelsFilterList | list | `[]` | Restrict metric labels to this list if set ; helps with cardinality constraining systems such as Datadog |
 | secretsExporter.enabled | bool | `true` | Should the TLS Secrets exporter be running |
 | secretsExporter.debugMode | bool | `false` | Should debug messages be produced by the TLS Secrets exporter |
 | secretsExporter.replicas | int | `1` | Desired number of TLS Secrets exporter Pod |

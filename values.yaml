@@ -60,7 +60,7 @@ podAnnotations: {}
 #  prometheus.io/port: "9793"
 #  prometheus.io/scrape: "true"
 
-# -- Enable additional metrics with relative durations instead of absolute timestamps
+# -- Enable additional metrics with relative durations instead of absolute timestamps ; not recommended with Prometheus
 exposeRelativeMetrics: false
 
 # -- Restrict metric labels to this list if set ; helps with cardinality constraining systems such as Datadog

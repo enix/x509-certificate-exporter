@@ -1,7 +1,7 @@
 # when bumping version, please:
 # - replace the "changes" annotation with new content
 # - update "containsSecurityUpdates" if needed
-version: 1.12.1
+version: 1.13.0
 # when bumping appVersion, please:
 # - update the "images" annotation
 appVersion: 2.9.0
@@ -11,7 +11,10 @@ annotations:
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
     - "exporter: Base image update (fixes security scan warnings)"
-    - "exporter: Fixed metrics descriptions"
+    - "Add support for metric labels filtering (new in exporter v2.9.0)"
+    - "Detect Kubernetes version and guess best apiVersion for Deployment and RBAC"
+    - "Fix missing labels on Pods"
+    - "Helm template refactoring and style changes"
   artifacthub.io/images: |
     - name: x509-certificate-exporter
       image: enix/x509-certificate-exporter:2.9.0

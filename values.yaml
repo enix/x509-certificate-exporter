@@ -1,16 +1,14 @@
 ---
-# Default values for x509-certificate-exporter.
-
 # -- Override Kubernetes version detection ; usefull with "helm template"
 kubeVersion: ""
 
 # -- Extra labels to add on chart resources
 extraLabels: {}
 
-# -- String to partially override x509-certificate-exporter.fullname template with a string (will prepend the release name)
+# -- Partially override x509-certificate-exporter.fullname template (will prepend the release name)
 nameOverride: ""
 
-# -- String to fully override x509-certificate-exporter.fullname template with a string
+# -- Fully override x509-certificate-exporter.fullname template
 fullnameOverride: ""
 
 # -- Specify docker-registry secret names as an array

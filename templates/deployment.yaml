@@ -22,7 +22,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "x509-certificate-exporter.selectorLabels" . | nindent 8 }}
+        {{- include "x509-certificate-exporter.labels" . | nindent 8 }}
       {{- with .Values.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
       {{- end }}

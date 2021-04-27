@@ -5,6 +5,8 @@ apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: {{ include "x509-certificate-exporter.secretsExporterName" . }}
+  labels:
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
 spec:
   privileged: false
   allowPrivilegeEscalation: false
@@ -38,6 +40,8 @@ apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $dsName }}
+  labels:
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
 spec:
   privileged: false
   allowPrivilegeEscalation: false

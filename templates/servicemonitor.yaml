@@ -15,14 +15,14 @@ spec:
   endpoints:
   - port: metrics
     interval: {{ .Values.prometheusServiceMonitor.scrapeInterval }}
-  {{- if .Values.rbacProxy.enable }}
+    {{- if .Values.rbacProxy.enable }}
     bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
-  {{- end }}
-  {{- with .Values.prometheusServiceMonitor.relabelings }}
+    {{- end }}
+    {{- with .Values.prometheusServiceMonitor.relabelings }}
     relabelings:
       {{ . | toYaml | nindent 6 }}
-  {{- end }}
+    {{- end }}
 {{- end }}

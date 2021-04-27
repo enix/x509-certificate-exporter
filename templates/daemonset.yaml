@@ -11,105 +11,105 @@ spec:
   selector:
     matchLabels:
       {{- include "x509-certificate-exporter.selectorLabels" $ | nindent 6 }}
-{{- with default $.Values.hostPathsExporter.updateStrategy $dsDef.updateStrategy }}
+  {{- with default $.Values.hostPathsExporter.updateStrategy $dsDef.updateStrategy }}
   updateStrategy:
     {{- . | toYaml | trim | nindent 4 }}
-{{- end }}
+  {{- end }}
   template:
     metadata:
       labels:
         {{- include "x509-certificate-exporter.labels" $ | nindent 8 }}
-      {{- with $.Values.podExtraLabels }}
+        {{- with $.Values.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
-      {{- end }}
-      {{- with default $.Values.hostPathsExporter.podExtraLabels $dsDef.podExtraLabels }}
+        {{- end }}
+        {{- with default $.Values.hostPathsExporter.podExtraLabels $dsDef.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
-      {{- end }}
-    {{- with default $.Values.hostPathsExporter.podAnnotations $dsDef.podAnnotations }}
+        {{- end }}
+      {{- with default $.Values.hostPathsExporter.podAnnotations $dsDef.podAnnotations }}
       annotations:
         {{- . | toYaml | trim | nindent 8 }}
-    {{- end }}
+      {{- end }}
     spec:
       serviceAccountName: {{ include "x509-certificate-exporter.hostPathsExporterServiceAccountName" $ }}
-    {{- with $.Values.imagePullSecrets }}
+      {{- with $.Values.imagePullSecrets }}
       imagePullSecrets:
         {{- . | toYaml | trim | nindent 8 }}
-    {{- end }}
-    {{- with default $.Values.hostPathsExporter.affinity $dsDef.affinity }}
+      {{- end }}
+      {{- with default $.Values.hostPathsExporter.affinity $dsDef.affinity }}
       affinity:
         {{- . | toYaml | trim | nindent 8 }}
-    {{- end }}
-    {{- with default $.Values.hostPathsExporter.tolerations $dsDef.tolerations }}
+      {{- end }}
+      {{- with default $.Values.hostPathsExporter.tolerations $dsDef.tolerations }}
       tolerations:
       {{- . | toYaml | trim | nindent 6 }}
-    {{- end }}
-    {{- with default $.Values.hostPathsExporter.podSecurityContext $dsDef.podSecurityContext }}
+      {{- end }}
+      {{- with default $.Values.hostPathsExporter.podSecurityContext $dsDef.podSecurityContext }}
       securityContext:
         {{- . | toYaml | trim | nindent 8 }}
-    {{- end }}
-    {{- with default $.Values.hostPathsExporter.nodeSelector $dsDef.nodeSelector }}
+      {{- end }}
+      {{- with default $.Values.hostPathsExporter.nodeSelector $dsDef.nodeSelector }}
       nodeSelector:
         {{- . | toYaml | trim | nindent 8 }}
-    {{- end }}
+      {{- end }}
       restartPolicy: {{ default $.Values.hostPathsExporter.restartPolicy $dsDef.restartPolicy }}
       containers:
       - name: {{ $.Chart.Name }}
-      {{- with default $.Values.hostPathsExporter.securityContext $dsDef.securityContext }}
+        {{- with default $.Values.hostPathsExporter.securityContext $dsDef.securityContext }}
         securityContext:
           {{- . | toYaml | trim | nindent 10 }}
-      {{- end }}
+        {{- end }}
         image: {{ include "x509-certificate-exporter.image" $ }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
         args:
-      {{- with default $.Values.hostPathsExporter.debugMode $dsDef.debugMode }}
+        {{- with default $.Values.hostPathsExporter.debugMode $dsDef.debugMode }}
         - --debug
-      {{- end }}
-      {{- if $.Values.exposeRelativeMetrics }}
+        {{- end }}
+        {{- if $.Values.exposeRelativeMetrics }}
         - --expose-relative-metrics
-      {{- end }}
-      {{- if not $.Values.rbacProxy.enabled }}
+        {{- end }}
+        {{- if not $.Values.rbacProxy.enabled }}
         - --port={{ $.Values.podListenPort }}
-      {{- else }}
+        {{- else }}
         - --port={{ $.Values.rbacProxy.upstreamListenPort }}
-      {{- end }}
+        {{- end }}
         - --trim-path-components=3
-      {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
+        {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
         - --watch-dir=/mnt/watch/dir-{{ . | clean | sha1sum }}/{{ . | clean }}
-      {{- end }}
-      {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
+        {{- end }}
+        {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
         - --watch-file=/mnt/watch/file-{{ . | clean | sha1sum }}/{{ . | clean }}
-      {{- end }}
-      {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+        {{- end }}
+        {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
         - --watch-kubeconf=/mnt/watch/kube-{{ . | clean | sha1sum }}/{{ . | clean }}
-      {{- end }}
+        {{- end }}
         volumeMounts:
-      {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
+        {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
         - name: dir-{{ . | clean | sha1sum }}
           mountPath: /mnt/watch/dir-{{ . | clean | sha1sum }}/{{ . | clean }}
           readOnly: true
-      {{- end }}
-      {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
+        {{- end }}
+        {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
         - name: file-{{ . | clean | sha1sum }}
           mountPath: /mnt/watch/file-{{ . | clean | sha1sum }}/{{ . | clean | dir }}
           #subPath: {{ . | base }}
           readOnly: true
-      {{- end }}
-      {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+        {{- end }}
+        {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
         - name: kube-{{ . | clean | sha1sum }}
           mountPath: /mnt/watch/kube-{{ . | clean | sha1sum }}/{{ . | clean | dir }}
           #subPath: {{ . | base }}
           readOnly: true
-      {{- end }}
-    {{- if not $.Values.rbacProxy.enabled }}
+        {{- end }}
+      {{- if not $.Values.rbacProxy.enabled }}
         ports:
         - name: metrics
           containerPort: {{ $.Values.podListenPort }}
-    {{- else }}
+      {{- else }}
       - name: kube-rbac-proxy
-      {{- with $.Values.rbacProxy.securityContext }}
+        {{- with $.Values.rbacProxy.securityContext }}
         securityContext:
           {{- toYaml . | trim | nindent 10 }}
-      {{- end }}
+        {{- end }}
         image: {{ include "x509-certificate-exporter.rbacProxy.image" $ }}
         imagePullPolicy: {{ $.Values.rbacProxy.imagePullPolicy }}
         args:
@@ -125,30 +125,30 @@ spec:
         ports:
         - name: metrics
           containerPort: {{ $.Values.podListenPort }}
-      {{- with $.Values.rbacProxy.resources }}
+        {{- with $.Values.rbacProxy.resources }}
         resources:
         {{- . | toYaml | trim | nindent 10 }}
+        {{- end }}
       {{- end }}
-    {{- end }}
       hostNetwork: {{ $.Values.hostNetwork }}
       volumes:
-    {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
+      {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
       - name: dir-{{ . | clean | sha1sum }}
         hostPath:
           path: {{ . | clean }}
           type: Directory
-    {{- end }}
-    {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
+      {{- end }}
+      {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
       - name: file-{{ . | clean | sha1sum }}
         hostPath:
           path: {{ . | clean | dir }}
           type: Directory
-    {{- end }}
-    {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+      {{- end }}
+      {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
       - name: kube-{{ . | clean | sha1sum }}
         hostPath:
           path: {{ . | clean | dir }}
           type: Directory
-    {{- end }}
+      {{- end }}
 {{- end }}
 {{- end }}

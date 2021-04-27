@@ -9,90 +9,90 @@ spec:
   selector:
     matchLabels:
       {{- include "x509-certificate-exporter.selectorLabels" . | nindent 6 }}
-{{- with .Values.secretsExporter.replicas }}
+  {{- with .Values.secretsExporter.replicas }}
   replicas: {{ . }}
-{{- end }}
-{{- with .Values.secretsExporter.strategy }}
+  {{- end }}
+  {{- with .Values.secretsExporter.strategy }}
   strategy:
     {{- toYaml . | trim | nindent 4 }}
-{{- end }}
+  {{- end }}
   template:
     metadata:
       labels:
         {{- include "x509-certificate-exporter.labels" . | nindent 8 }}
-      {{- with .Values.podExtraLabels }}
+        {{- with .Values.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
-      {{- end }}
-      {{- with .Values.secretsExporter.podExtraLabels }}
+        {{- end }}
+        {{- with .Values.secretsExporter.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
-      {{- end }}
-    {{- if or .Values.podAnnotations .Values.secretsExporter.podAnnotations }}
+        {{- end }}
+      {{- if or .Values.podAnnotations .Values.secretsExporter.podAnnotations }}
       annotations:
-      {{- with .Values.podAnnotations }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | trim | nindent 8 }}
-      {{- end }}
-      {{- with .Values.secretsExporter.podAnnotations }}
+        {{- end }}
+        {{- with .Values.secretsExporter.podAnnotations }}
         {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
       {{- end }}
-    {{- end }}
     spec:
-    {{- with .Values.imagePullSecrets }}
+      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | trim | nindent 8 }}
-    {{- end }}
-    {{- with .Values.secretsExporter.affinity }}
+      {{- end }}
+      {{- with .Values.secretsExporter.affinity }}
       affinity:
         {{- toYaml . | trim | nindent 8 }}
-    {{- end }}
-    {{- with .Values.secretsExporter.tolerations }}
+      {{- end }}
+      {{- with .Values.secretsExporter.tolerations }}
       tolerations:
       {{- toYaml . | trim | nindent 6 }}
-    {{- end }}
-    {{- with .Values.secretsExporter.podSecurityContext }}
+      {{- end }}
+      {{- with .Values.secretsExporter.podSecurityContext }}
       securityContext:
         {{- toYaml . | trim | nindent 8 }}
-    {{- end }}
-    {{- with .Values.secretsExporter.nodeSelector }}
+      {{- end }}
+      {{- with .Values.secretsExporter.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
-    {{- end }}
+      {{- end }}
       restartPolicy: {{ .Values.secretsExporter.restartPolicy }}
       serviceAccountName: {{ include "x509-certificate-exporter.secretsExporterServiceAccountName" . }}
       containers:
       - name: {{ .Chart.Name }}
-      {{- with .Values.secretsExporter.securityContext }}
+        {{- with .Values.secretsExporter.securityContext }}
         securityContext:
           {{- toYaml . | trim | nindent 10 }}
-      {{- end }}
-      {{- with .Values.secretsExporter.resources }}
+        {{- end }}
+        {{- with .Values.secretsExporter.resources }}
         resources:
         {{- . | toYaml | trim | nindent 10 }}
-      {{- end }}
+        {{- end }}
         image: {{ include "x509-certificate-exporter.image" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
-      {{- if .Values.secretsExporter.debugMode }}
+        {{- if .Values.secretsExporter.debugMode }}
         - --debug
-      {{- end }}
-      {{- if $.Values.exposeRelativeMetrics }}
+        {{- end }}
+        {{- if $.Values.exposeRelativeMetrics }}
         - --expose-relative-metrics
-      {{- end }}
+        {{- end }}
         - --watch-kube-secrets
-      {{- range .Values.secretsExporter.secretTypes }}
+        {{- range .Values.secretsExporter.secretTypes }}
         - --secret-type={{ .type | trim }}:{{ .key | trim }}
-      {{- end }}
-      {{- range .Values.secretsExporter.includeNamespaces }}
+        {{- end }}
+        {{- range .Values.secretsExporter.includeNamespaces }}
         - --include-namespace={{ . | trim }}
-      {{- end }}
-      {{- range .Values.secretsExporter.excludeNamespaces }}
+        {{- end }}
+        {{- range .Values.secretsExporter.excludeNamespaces }}
         - --exclude-namespace={{ . | trim }}
-      {{- end }}
-      {{- range .Values.secretsExporter.includeLabels }}
+        {{- end }}
+        {{- range .Values.secretsExporter.includeLabels }}
         - --include-label={{ . | trim }}
-      {{- end }}
-      {{- range .Values.secretsExporter.excludeLabels }}
+        {{- end }}
+        {{- range .Values.secretsExporter.excludeLabels }}
         - --exclude-label={{ . | trim }}
-      {{- end }}
+        {{- end }}
       {{- if not .Values.rbacProxy.enabled }}
         - --port={{ .Values.podListenPort }}
         ports:
@@ -101,10 +101,10 @@ spec:
       {{- else }}
         - --port={{ .Values.rbacProxy.upstreamListenPort }}
       - name: kube-rbac-proxy
-      {{- with .Values.rbacProxy.securityContext }}
+        {{- with .Values.rbacProxy.securityContext }}
         securityContext:
           {{- toYaml . | trim | nindent 10 }}
-      {{- end }}
+        {{- end }}
         image: {{ include "x509-certificate-exporter.rbacProxy.image" . }}
         imagePullPolicy: {{ .Values.rbacProxy.imagePullPolicy }}
         args:
@@ -120,9 +120,9 @@ spec:
         ports:
         - name: metrics
           containerPort: {{ .Values.podListenPort }}
-      {{- with .Values.rbacProxy.resources }}
+        {{- with .Values.rbacProxy.resources }}
         resources:
         {{- . | toYaml | trim | nindent 10 }}
+        {{- end }}
       {{- end }}
-    {{- end }}
 {{- end }}

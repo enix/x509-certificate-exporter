@@ -12,7 +12,7 @@ spec:
   groups:
   - name: x509-certificate-exporter.rules
     rules:
-  {{- if .Values.prometheusRules.alertOnReadErrors }}
+    {{- if .Values.prometheusRules.alertOnReadErrors }}
     - alert: X509ExporterReadErrors
       expr: delta(x509_read_errors[15m]) > 0
       for: 5m
@@ -21,7 +21,7 @@ spec:
       annotations:
         summary: Increasing read errors for x509-certificate-exporter
         description: Over the last 15 minutes, this x509-certificate-exporter instance has experienced errors reading certificate files or querying the Kubernetes API. This could be caused by a misconfiguration if triggered when the exporter starts.
-  {{- end }}
+    {{- end }}
     - alert: CertificateRenewal
       expr: ((x509_cert_not_after - time()) / 86400) < {{ .Values.prometheusRules.warningDaysLeft }}
       for: 15m

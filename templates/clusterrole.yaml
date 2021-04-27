@@ -7,10 +7,10 @@ metadata:
   name: {{ include "x509-certificate-exporter.secretsExporterClusterRoleName" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
-{{- with .Values.rbac.secretsExporter.clusterRoleAnnotations }}
+  {{- with .Values.rbac.secretsExporter.clusterRoleAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
-{{- end }}
+  {{- end }}
 rules:
 - apiGroups:
   - ""
@@ -61,10 +61,10 @@ metadata:
   name: {{ include "x509-certificate-exporter.hostPathsExporterClusterRoleName" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
-{{- with .Values.rbac.hostPathsExporter.clusterRoleAnnotations }}
+  {{- with .Values.rbac.hostPathsExporter.clusterRoleAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
-{{- end }}
+  {{- end }}
 rules:
 {{- if .Values.rbacProxy.enable }}
 - apiGroups:
@@ -89,9 +89,9 @@ rules:
   verbs:
   - use
   resourceNames:
-{{- range $dsName, $dsDef := . }}
+  {{- range $dsName, $dsDef := . }}
   - {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $dsName }}
-{{- end }}
+  {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

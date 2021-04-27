@@ -511,15 +511,15 @@ in the container namespace.
 | secretsExporter.replicas | int | `1` | Desired number of TLS Secrets exporter Pod |
 | secretsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of the TLS Secrets exporter |
 | secretsExporter.strategy | object | `{}` | DeploymentStrategy for the TLS Secrets exporter |
-| secretsExporter.resources | object | see values.yaml | ResourceRequirements for containers of the TLS Secrets exporter |
+| secretsExporter.resources | object | check `values.yaml` | ResourceRequirements for containers of the TLS Secrets exporter |
 | secretsExporter.nodeSelector | object | `{}` | Node selector for Pods of the TLS Secrets exporter |
 | secretsExporter.tolerations | list | `[]` | Toleration for Pods of the TLS Secrets exporter |
 | secretsExporter.affinity | object | `{}` | Affinity for Pods of the TLS Secrets exporter |
 | secretsExporter.podExtraLabels | object | `{}` | Extra labels added to Pods of the TLS Secrets exporter |
 | secretsExporter.podAnnotations | object | `{}` | Annotations added to Pods of the TLS Secrets exporter |
 | secretsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of the TLS Secrets exporter |
-| secretsExporter.securityContext | object | see values.yaml | SecurityContext for containers of the TLS Secrets exporter |
-| secretsExporter.secretTypes | list | `[{"key":"tls.crt","type":"kubernetes.io/tls"}]` | Choose which type of secrets should be watched. Key is the map key in the secret data. |
+| secretsExporter.securityContext | object | check `values.yaml` | SecurityContext for containers of the TLS Secrets exporter |
+| secretsExporter.secretTypes | list | check `values.yaml` | Which type of Secrets should be watched ; "key" is the map key in the secret data |
 | secretsExporter.includeNamespaces | list | `[]` | Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty) |
 | secretsExporter.excludeNamespaces | list | `[]` | Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`) |
 | secretsExporter.includeLabels | list | `[]` | Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
@@ -527,14 +527,14 @@ in the container namespace.
 | hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.updateStrategy | object | `{}` | updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets) |
-| hostPathsExporter.resources | object | see values.yaml | ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.resources | object | check `values.yaml` | ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.nodeSelector | object | `{}` | Node selector for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.tolerations | list | `[]` | Toleration for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.affinity | object | `{}` | Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.podExtraLabels | object | `{}` | Extra labels added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.podAnnotations | object | `{}` | Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
-| hostPathsExporter.securityContext | object | see values.yaml | SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.securityContext | object | check `values.yaml` | SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.watchDirectories | list | `[]` | [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep) |
 | hostPathsExporter.watchFiles | list | `[]` | [SEE README] List of file paths of the host for PEM encoded certificates to be watched and exported as metrics (one level deep) |
 | hostPathsExporter.watchKubeconfFiles | list | `[]` | [SEE README] List of Kubeconf file paths of the host to scan for embedded certificates to export metrics about |
@@ -545,8 +545,8 @@ in the container namespace.
 | rbacProxy.image.tag | string | `"v0.5.0"` | kube-rbac-proxy image version |
 | rbacProxy.image.pullPolicy | string | `"IfNotPresent"` | kube-rbac-proxy image pull policy |
 | rbacProxy.upstreamListenPort | int | `9091` | Listen port for the exporter running inside kube-rbac-proxy exposed Pods |
-| rbacProxy.resources | object | see values.yaml | ResourceRequirements for all containers of kube-rbac-proxy |
-| rbacProxy.securityContext | object | see values.yaml | SecurityContext for all containers of kube-rbac-proxy |
+| rbacProxy.resources | object | check `values.yaml` | ResourceRequirements for all containers of kube-rbac-proxy |
+| rbacProxy.securityContext | object | check `values.yaml` | SecurityContext for all containers of kube-rbac-proxy |
 | podListenPort | int | `9793` | TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not) |
 | hostNetwork | bool | `false` | Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster |
 | service.create | bool | `true` | Should a headless Service be installed, targets all instances Deployment and DaemonSets (required for ServiceMonitor) |

@@ -78,7 +78,7 @@ secretsExporter:
   # -- DeploymentStrategy for the TLS Secrets exporter
   strategy: {}
   # -- ResourceRequirements for containers of the TLS Secrets exporter
-  # @default -- see values.yaml
+  # @default -- check `values.yaml`
   resources:
     limits:
       cpu: 200m
@@ -99,7 +99,7 @@ secretsExporter:
   # -- PodSecurityContext for Pods of the TLS Secrets exporter
   podSecurityContext: {}
   # -- SecurityContext for containers of the TLS Secrets exporter
-  # @default -- see values.yaml
+  # @default -- check `values.yaml`
   securityContext:
     runAsUser: 65534
     runAsGroup: 65534
@@ -108,10 +108,11 @@ secretsExporter:
       drop:
       - ALL
 
-  # -- Choose which type of secrets should be watched. Key is the map key in the secret data.
+  # -- Which type of Secrets should be watched ; "key" is the map key in the secret data
+  # @default -- check `values.yaml`
   secretTypes:
-    - type: kubernetes.io/tls
-      key: tls.crt
+  - type: kubernetes.io/tls
+    key: tls.crt
 
   # -- Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty)
   includeNamespaces: []
@@ -130,7 +131,7 @@ hostPathsExporter:
   # -- updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets)
   updateStrategy: {}
   # -- ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets)
-  # @default -- see values.yaml
+  # @default -- check `values.yaml`
   resources:
     limits:
       cpu: 100m
@@ -151,7 +152,7 @@ hostPathsExporter:
   # -- PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   podSecurityContext: {}
   # -- SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets)
-  # @default -- see values.yaml
+  # @default -- check `values.yaml`
   securityContext:
     runAsUser: 0
     runAsGroup: 0
@@ -185,7 +186,7 @@ rbacProxy:
   # -- Listen port for the exporter running inside kube-rbac-proxy exposed Pods
   upstreamListenPort: 9091
   # -- ResourceRequirements for all containers of kube-rbac-proxy
-  # @default -- see values.yaml
+  # @default -- check `values.yaml`
   resources:
     limits:
       cpu: 20m
@@ -194,7 +195,7 @@ rbacProxy:
       cpu: 10m
       memory: 20Mi
   # -- SecurityContext for all containers of kube-rbac-proxy
-  # @default -- see values.yaml
+  # @default -- check `values.yaml`
   securityContext:
     runAsUser: 65534
     runAsGroup: 65534

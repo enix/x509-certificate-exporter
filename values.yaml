@@ -1,6 +1,9 @@
 ---
 # Default values for x509-certificate-exporter.
 
+# -- Override Kubernetes version detection ; usefull with "helm template"
+kubeVersion: ""
+
 # -- Extra labels to add on chart resources
 extraLabels: {}
 

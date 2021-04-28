@@ -82,6 +82,9 @@ spec:
         {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
         - --watch-kubeconf=/mnt/watch/kube-{{ . | clean | sha1sum }}/{{ . | clean }}
         {{- end }}
+        {{- if not (kindIs "invalid" $.Values.metricLabelsFilterList) }}
+        - --expose-labels={{ $.Values.metricLabelsFilterList | join "," }}
+        {{- end }}
         volumeMounts:
         {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
         - name: dir-{{ . | clean | sha1sum }}

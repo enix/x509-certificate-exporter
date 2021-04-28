@@ -41,7 +41,7 @@ kind: PodSecurityPolicy
 metadata:
   name: {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $dsName }}
   labels:
-    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
+    {{- include "x509-certificate-exporter.labels" $ | nindent 4 }}
 spec:
   privileged: false
   allowPrivilegeEscalation: false

@@ -93,8 +93,8 @@ spec:
         {{- range .Values.secretsExporter.excludeLabels }}
         - --exclude-label={{ . | trim }}
         {{- end }}
-        {{- with .Values.metricLabelsFilterList }}
-        - --expose-labels={{ . | join "," }}
+        {{- if not (kindIs "invalid" .Values.metricLabelsFilterList) }}
+        - --expose-labels={{ .Values.metricLabelsFilterList | join "," }}
         {{- end }}
       {{- if not .Values.rbacProxy.enabled }}
         - --port={{ .Values.podListenPort }}

@@ -63,8 +63,8 @@ podAnnotations: {}
 # -- Enable additional metrics with relative durations instead of absolute timestamps ; not recommended with Prometheus
 exposeRelativeMetrics: false
 
-# -- Restrict metric labels to this list if set ; helps with cardinality constraining systems such as Datadog
-metricLabelsFilterList: []
+# -- (list) Restrict metric labels to this list if set ; helps with cardinality constraining systems such as Datadog
+metricLabelsFilterList: null
 
 secretsExporter:
   # -- Should the TLS Secrets exporter be running

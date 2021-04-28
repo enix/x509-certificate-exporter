@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path"
@@ -23,17 +22,6 @@ func (s *stringArrayFlag) String() string {
 	return ""
 }
 
-func checkFlagPassed(name string) bool {
-	found := false
-	flag.Visit(func(arg *flag.Flag) {
-		if arg.Name == name {
-			found = true
-		}
-	})
-
-	return found
-}
-
 func main() {
 	help := getopt.BoolLong("help", 'h', "show this help message and exit")
 	version := getopt.BoolLong("version", 'v', "show version info and exit")
@@ -41,7 +29,7 @@ func main() {
 	debug := getopt.BoolLong("debug", 0, "enable debug mode")
 	trimPathComponents := getopt.IntLong("trim-path-components", 0, 0, "remove <n> leading component(s) from path(s) in label(s)")
 	exposeRelativeMetrics := getopt.BoolLong("expose-relative-metrics", 0, "expose additionnal metrics with relative durations instead of absolute timestamps")
-	enableLabels := getopt.StringLong("expose-labels", 'l', "one or more comma-separated labels to enable (defaults to all if not specified)")
+	exposeLabels := getopt.StringLong("expose-labels", 'l', "one or more comma-separated labels to enable (defaults to all if not specified)")
 
 	files := stringArrayFlag{}
 	getopt.FlagLong(&files, "watch-file", 'f', "watch one or more x509 certificate file")
@@ -100,8 +88,8 @@ func main() {
 		KubeExcludeLabels:     kubeExcludeLabels,
 	}
 
-	if checkFlagPassed("expose-labels") {
-		exporter.ExposeLabels = strings.Split(*enableLabels, ",")
+	if getopt.Lookup("expose-labels").Seen() {
+		exporter.ExposeLabels = strings.Split(*exposeLabels, ",")
 	}
 
 	if *kubeEnabled {

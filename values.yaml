@@ -63,7 +63,7 @@ podAnnotations: {}
 # -- Enable additional metrics with relative durations instead of absolute timestamps ; not recommended with Prometheus
 exposeRelativeMetrics: false
 
-# -- (list) Restrict metric labels to this list if set ; helps with cardinality constraining systems such as Datadog
+# -- (list) Restrict metric labels to this list if set. **Warning** : use with caution as reducing cardinality may yield metrics collisions and force the exporter to ignore certificates. This will also degrade the usability of the Grafana dashboard. This list should always include at least `filepath`, `secret_namespace` and `secret_name`. Also `subject_CN` is highly recommended for when a file contains multiple certificates.
 metricLabelsFilterList: null
 
 secretsExporter:

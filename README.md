@@ -505,7 +505,7 @@ in the container namespace.
 | podExtraLabels | object | `{}` | Extra labels added to all Pods |
 | podAnnotations | object | `{}` | Annotations added to all Pods |
 | exposeRelativeMetrics | bool | `false` | Enable additional metrics with relative durations instead of absolute timestamps ; not recommended with Prometheus |
-| metricLabelsFilterList | list | `nil` | Restrict metric labels to this list if set ; helps with cardinality constraining systems such as Datadog |
+| metricLabelsFilterList | list | `nil` | Restrict metric labels to this list if set. **Warning** : use with caution as reducing cardinality may yield metrics collisions and force the exporter to ignore certificates. This will also degrade the usability of the Grafana dashboard. This list should always include at least `filepath`, `secret_namespace` and `secret_name`. Also `subject_CN` is highly recommended for when a file contains multiple certificates. |
 | secretsExporter.enabled | bool | `true` | Should the TLS Secrets exporter be running |
 | secretsExporter.debugMode | bool | `false` | Should debug messages be produced by the TLS Secrets exporter |
 | secretsExporter.replicas | int | `1` | Desired number of TLS Secrets exporter Pod |

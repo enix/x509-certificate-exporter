@@ -15,6 +15,7 @@ spec:
   endpoints:
   - port: metrics
     interval: {{ .Values.prometheusServiceMonitor.scrapeInterval }}
+    scrapeTimeout: {{ .Values.prometheusServiceMonitor.scrapeTimeout }}
     {{- if .Values.rbacProxy.enable }}
     bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     scheme: https

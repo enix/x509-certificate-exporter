@@ -225,6 +225,8 @@ prometheusServiceMonitor:
   create: true
   # -- Target scrape interval set in the ServiceMonitor
   scrapeInterval: 60s
+  # -- Target scrape timeout set in the ServiceMonitor
+  scrapeTimeout: 10s
   # -- Extra labels to add on ServiceMonitor ressources
   extraLabels: {}
   # -- Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig

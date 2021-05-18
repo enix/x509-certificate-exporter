@@ -555,6 +555,7 @@ in the container namespace.
 | service.extraLabels | object | `{}` | Extra labels to add to the Service |
 | prometheusServiceMonitor.create | bool | `true` | Should a ServiceMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |
 | prometheusServiceMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the ServiceMonitor |
+| prometheusServiceMonitor.scrapeTimeout | string | `"10s"` | Target scrape timeout set in the ServiceMonitor |
 | prometheusServiceMonitor.extraLabels | object | `{}` | Extra labels to add on ServiceMonitor ressources |
 | prometheusServiceMonitor.relabelings | object | `{}` | Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig |
 | prometheusPodMonitor.create | bool | `false` | Should a PodMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |

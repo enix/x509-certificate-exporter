@@ -1,7 +1,7 @@
 # when bumping version, please:
 # - replace the "changes" annotation with new content
 # - update "containsSecurityUpdates" if needed
-version: 1.13.1
+version: 1.13.2
 # when bumping appVersion, please:
 # - update the "images" annotation
 appVersion: 2.9.1
@@ -10,9 +10,7 @@ annotations:
   artifacthub.io/prerelease: "false"
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
-    - "exporter: Fix metric labels filtering not effective"
-    - "Fix metric labels filtering not applied to DaemonSets"
-    - "Allow empty list for metric labels filtering"
+    - "exporter: Add scrape interval setting"
   artifacthub.io/images: |
     - name: x509-certificate-exporter
       image: enix/x509-certificate-exporter:2.9.1

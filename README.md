@@ -560,6 +560,7 @@ in the container namespace.
 | prometheusServiceMonitor.relabelings | object | `{}` | Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig |
 | prometheusPodMonitor.create | bool | `false` | Should a PodMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |
 | prometheusPodMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the PodMonitor |
+| prometheusPodMonitor.scrapeTimeout | string | `"10s"` | Target scrape timeout set in the PodMonitor |
 | prometheusPodMonitor.extraLabels | object | `{}` | Extra labels to add on PodMonitor ressources |
 | prometheusPodMonitor.relabelings | object | `{}` | Relabel config for the PodMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig |
 | prometheusRules.create | bool | `true` | Should a PrometheusRule ressource be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users. |

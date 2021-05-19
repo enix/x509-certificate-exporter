@@ -237,6 +237,8 @@ prometheusPodMonitor:
   create: false
   # -- Target scrape interval set in the PodMonitor
   scrapeInterval: 60s
+  # -- Target scrape timeout set in the PodMonitor
+  scrapeTimeout: 10s
   # -- Extra labels to add on PodMonitor ressources
   extraLabels: {}
   # -- Relabel config for the PodMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig

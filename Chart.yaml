@@ -6,8 +6,8 @@ version: 1.14.0
 # - update the "images" annotation
 appVersion: 2.9.2
 annotations:
-  artifacthub.io/containsSecurityUpdates: "false"
-  artifacthub.io/prerelease: "false"
+  artifacthub.io/containsSecurityUpdates: 'true'
+  artifacthub.io/prerelease: 'false'
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
     - "Add scrape timeout setting"
@@ -34,21 +34,21 @@ name: x509-certificate-exporter
 type: application
 description: A Prometheus exporter for certificates focusing on expiration monitoring
 keywords:
-- prometheus
-- exporter
-- certificate
-- expiration
+  - prometheus
+  - exporter
+  - certificate
+  - expiration
 home: https://github.com/enix/x509-certificate-exporter
 icon: https://github.githubassets.com/images/icons/emoji/unicode/1f50f.png
 sources:
-- https://github.com/enix/x509-certificate-exporter
-- https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter
+  - https://github.com/enix/x509-certificate-exporter
+  - https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter
 maintainers:
-- name: Enix
-  email: contact@enix.fr
-  url: https://github.com/enixsas
-- name: Thibault Vincent
-  email: root@paraneko.org
-  url: https://github.com/npdgm
-- name: Arthur Chaloin
-  email: arthur.chaloin@enix.fr
+  - name: Enix
+    email: contact@enix.fr
+    url: https://github.com/enixsas
+  - name: Thibault Vincent
+    email: root@paraneko.org
+    url: https://github.com/npdgm
+  - name: Arthur Chaloin
+    email: arthur.chaloin@enix.fr

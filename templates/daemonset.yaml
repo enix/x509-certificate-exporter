@@ -58,6 +58,10 @@ spec:
         securityContext:
           {{- . | toYaml | trim | nindent 10 }}
         {{- end }}
+        {{- with default $.Values.hostPathsExporter.resources $dsDef.resources }}
+        resources:
+          {{- . | toYaml | trim | nindent 10 }}
+        {{- end }}
         image: {{ include "x509-certificate-exporter.image" $ }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
         args:

@@ -1,7 +1,7 @@
 # when bumping version, please:
 # - replace the "changes" annotation with new content
 # - update "containsSecurityUpdates" if needed
-version: 1.14.1
+version: 1.15.0
 # when bumping appVersion, please:
 # - update the "images" annotation
 appVersion: 2.9.2
@@ -10,7 +10,7 @@ annotations:
   artifacthub.io/prerelease: 'false'
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
-    - "Packaging changes that do not affect users ; upgrade is not needed"
+    - "Fixed missing resources definition for DaemonSets"
   artifacthub.io/images: |
     - name: x509-certificate-exporter
       image: enix/x509-certificate-exporter:2.9.2

@@ -3,7 +3,9 @@ package internal
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -93,6 +95,11 @@ func (exporter *Exporter) listNamespacesToWatch() ([]string, error) {
 }
 
 func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, error) {
+	cachedSecrets, cached := exporter.secretsCache.Get(namespace)
+	if cached {
+		return cachedSecrets.([]v1.Secret), nil
+	}
+
 	includedLabelsWithValue := map[string]string{}
 	includedLabelsWithoutValue := []string{}
 	for _, label := range exporter.KubeIncludeLabels {
@@ -123,7 +130,15 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 		return nil, err
 	}
 
-	return exporter.filterSecrets(secrets.Items, includedLabelsWithoutValue, excludedLabelsWithoutValue, excludedLabelsWithValue)
+	filteredSecrets, err := exporter.filterSecrets(secrets.Items, includedLabelsWithoutValue, excludedLabelsWithoutValue, excludedLabelsWithValue)
+	if err != nil {
+		return nil, err
+	}
+
+	halfDuration := float64(exporter.MaxCacheDuration.Nanoseconds()) / 2
+	cacheDuration := halfDuration*float64(rand.Float64()) + halfDuration
+	exporter.secretsCache.Set(namespace, filteredSecrets, time.Duration(cacheDuration))
+	return filteredSecrets, nil
 }
 
 func (exporter *Exporter) filterSecrets(secrets []v1.Secret, includedLabels, excludedLabels []string, excludedLabelsWithValue map[string]string) ([]v1.Secret, error) {

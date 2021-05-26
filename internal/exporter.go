@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"time"
 
+	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -22,6 +24,7 @@ type Exporter struct {
 	YAMLs                 []string
 	YAMLPaths             []YAMLCertRef
 	TrimPathComponents    int
+	MaxCacheDuration      time.Duration
 	ExposeRelativeMetrics bool
 	ExposeLabels          []string
 	KubeSecretTypes       []string
@@ -30,11 +33,12 @@ type Exporter struct {
 	KubeIncludeLabels     []string
 	KubeExcludeLabels     []string
 
-	kubeClient  *kubernetes.Clientset
-	listener    net.Listener
-	handler     *http.Handler
-	server      *http.Server
-	isDiscovery bool
+	kubeClient   *kubernetes.Clientset
+	listener     net.Listener
+	handler      *http.Handler
+	server       *http.Server
+	isDiscovery  bool
+	secretsCache *cache.Cache
 }
 
 // ListenAndServe : Convenience function to start exporter
@@ -91,6 +95,7 @@ func (exporter *Exporter) Shutdown() error {
 
 // DiscoverCertificates : Parse all certs in a dry run with verbose logging
 func (exporter *Exporter) DiscoverCertificates() {
+	exporter.secretsCache = cache.New(exporter.MaxCacheDuration, 5*time.Minute)
 	exporter.isDiscovery = true
 	certs, errs := exporter.parseAllCertificates()
 

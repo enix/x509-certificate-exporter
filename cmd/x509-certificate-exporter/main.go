@@ -2,25 +2,16 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"enix.io/x509-certificate-exporter/internal"
 	getopt "github.com/pborman/getopt/v2"
 	log "github.com/sirupsen/logrus"
 )
-
-type stringArrayFlag []string
-
-func (s *stringArrayFlag) Set(value string, _ getopt.Option) error {
-	*s = append(*s, value)
-	return nil
-}
-
-func (s *stringArrayFlag) String() string {
-	return ""
-}
 
 func main() {
 	help := getopt.BoolLong("help", 'h', "show this help message and exit")
@@ -30,6 +21,9 @@ func main() {
 	trimPathComponents := getopt.IntLong("trim-path-components", 0, 0, "remove <n> leading component(s) from path(s) in label(s)")
 	exposeRelativeMetrics := getopt.BoolLong("expose-relative-metrics", 0, "expose additionnal metrics with relative durations instead of absolute timestamps")
 	exposeLabels := getopt.StringLong("expose-labels", 'l', "one or more comma-separated labels to enable (defaults to all if not specified)")
+
+	maxCacheDuration := durationFlag(0)
+	getopt.FlagLong(&maxCacheDuration, "max-cache-duration", 0, "maximum cache duration for kube secrets. cache is per namespace and randomized to avoid massive requests.")
 
 	files := stringArrayFlag{}
 	getopt.FlagLong(&files, "watch-file", 'f', "watch one or more x509 certificate file")
@@ -80,6 +74,7 @@ func main() {
 		YAMLs:                 yamls,
 		YAMLPaths:             internal.DefaultYamlPaths,
 		TrimPathComponents:    *trimPathComponents,
+		MaxCacheDuration:      time.Duration(maxCacheDuration),
 		ExposeRelativeMetrics: *exposeRelativeMetrics,
 		KubeSecretTypes:       kubeSecretTypes,
 		KubeIncludeNamespaces: kubeIncludeNamespaces,
@@ -105,5 +100,6 @@ func main() {
 	}
 
 	log.Infof("starting %s version %s", path.Base(os.Args[0]), internal.Version)
+	rand.Seed(time.Now().UnixNano())
 	exporter.ListenAndServe()
 }

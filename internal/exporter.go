@@ -26,6 +26,7 @@ type Exporter struct {
 	TrimPathComponents    int
 	MaxCacheDuration      time.Duration
 	ExposeRelativeMetrics bool
+	ExposeErrorMetrics    bool
 	ExposeLabels          []string
 	KubeSecretTypes       []string
 	KubeIncludeNamespaces []string
@@ -111,13 +112,10 @@ func (exporter *Exporter) DiscoverCertificates() {
 func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certificateError) {
 	output := []*certificateRef{}
 	outputErrors := []*certificateError{}
-	raiseError := func(err error) {
-		outputErrors = append(outputErrors, &certificateError{
-			err: err,
-		})
-
-		if exporter.isDiscovery {
-			log.Warn(err)
+	raiseError := func(err *certificateError) {
+		outputErrors = append(outputErrors, err)
+		if exporter.isDiscovery && err.err != nil {
+			log.Warn(err.err)
 		}
 	}
 
@@ -139,7 +137,10 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	for _, dir := range exporter.Directories {
 		files, err := os.ReadDir(dir)
 		if err != nil {
-			raiseError(fmt.Errorf("failed to open directory \"%s\", %s", dir, err.Error()))
+			raiseError(&certificateError{
+				err: fmt.Errorf("failed to open directory \"%s\", %s", dir, err.Error()),
+			})
+
 			continue
 		}
 
@@ -159,7 +160,9 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 		certs, errs := exporter.parseAllKubeSecrets()
 		output = append(output, certs...)
 		for _, err := range errs {
-			raiseError(err)
+			raiseError(&certificateError{
+				err: err,
+			})
 		}
 	}
 
@@ -174,7 +177,10 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 				err = fmt.Errorf("no certificate(s) found in \"%s\"", cert.path)
 			}
 
-			raiseError(err)
+			raiseError(&certificateError{
+				err: err,
+				ref: cert,
+			})
 		} else if exporter.isDiscovery {
 			log.Infof("%d valid certificate(s) found in \"%s\"", len(cert.certificates), cert.path)
 		}

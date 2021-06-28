@@ -322,6 +322,40 @@ func TestCorruptedCertInYAML(t *testing.T) {
 	})
 }
 
+func TestErrorMetrics(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+
+	test := func(enableErrorMetrics bool) {
+		testRequest(t, &Exporter{
+			Directories:        []string{path.Join(filepath.Dir(filename), "../test")},
+			ExposeErrorMetrics: enableErrorMetrics,
+		}, func(metrics []model.MetricFamily) {
+			errorMetric := getMetricsForName(metrics, "x509_cert_error")
+
+			if enableErrorMetrics {
+				errors := 0
+				for _, metric := range errorMetric {
+					if metric.GetGauge().GetValue() > 0 {
+						errors++
+					}
+				}
+
+				assert.Len(t, errorMetric, 21, "missing x509_read_error metrics")
+				assert.Equal(t, 17, errors, "missing x509_read_error metrics")
+			} else {
+				assert.Len(t, errorMetric, 0, "unexpected x509_read_error metrics")
+			}
+
+			errorsMetric := getMetricsForName(metrics, "x509_read_errors")
+			assert.Len(t, errorsMetric, 1, "missing x509_read_errors metric")
+			assert.Equal(t, errorsMetric[0].GetGauge().GetValue(), 17., "invalid x509_read_errors value")
+		})
+	}
+
+	test(false)
+	test(true)
+}
+
 func TestBindAddrAlreadyInUse(t *testing.T) {
 	listener, _ := net.Listen("tcp", ":9793")
 	e := &Exporter{Port: 9793}

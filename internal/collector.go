@@ -37,6 +37,10 @@ var (
 	certValidSinceHelp   = "Indicates the elapsed time since the certificate's not before timestamp"
 	certValidSinceDesc   = prometheus.NewDesc(certValidSinceMetric, certValidSinceHelp, nil, nil)
 
+	certErrorMetric = "x509_cert_error"
+	certErrorHelp   = "Indicates wether the corresponding secret has read failure(s)"
+	certErrorDesc   = prometheus.NewDesc(certErrorMetric, certErrorHelp, nil, nil)
+
 	certErrorsMetric = "x509_read_errors"
 	certErrorsHelp   = "Indicates the number of read failure(s)"
 	certErrorsDesc   = prometheus.NewDesc(certErrorsMetric, certErrorsHelp, nil, nil)
@@ -52,16 +56,14 @@ func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
 		ch <- certExpiresInDesc
 		ch <- certValidSinceDesc
 	}
+
+	if collector.exporter.ExposeErrorMetrics {
+		ch <- certErrorDesc
+	}
 }
 
 func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 	certRefs, certErrors := collector.exporter.parseAllCertificates()
-
-	for index, err := range certErrors {
-		if err.err != nil {
-			log.Debugf("read error %d: %+v", index+1, err.err)
-		}
-	}
 
 	for _, certRef := range certRefs {
 		for _, cert := range certRef.certificates {
@@ -69,6 +71,34 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 			for _, metric := range metrics {
 				ch <- metric
 			}
+		}
+
+		if collector.exporter.ExposeErrorMetrics && len(certRef.certificates) > 0 {
+			labelKeys, labelValues := collector.unzipLabels(collector.getBaseLabels(certRef))
+
+			ch <- prometheus.MustNewConstMetric(
+				prometheus.NewDesc(certErrorMetric, certErrorHelp, labelKeys, nil),
+				prometheus.GaugeValue,
+				0,
+				labelValues...,
+			)
+		}
+	}
+
+	for index, err := range certErrors {
+		if err.err != nil {
+			log.Debugf("read error %d: %+v", index+1, err.err)
+		}
+
+		if collector.exporter.ExposeErrorMetrics && err.ref != nil {
+			labelKeys, labelValues := collector.unzipLabels(collector.getBaseLabels(err.ref))
+
+			ch <- prometheus.MustNewConstMetric(
+				prometheus.NewDesc(certErrorMetric, certErrorHelp, labelKeys, nil),
+				prometheus.GaugeValue,
+				1,
+				labelValues...,
+			)
 		}
 	}
 
@@ -80,27 +110,9 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (collector *collector) getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
-	labels := map[string]string{
-		"serial_number": certData.cert.SerialNumber.String(),
-	}
+	labels := collector.getBaseLabels(ref)
 
-	if ref.format != certificateFormatKubeSecret {
-		trimComponentsCount := collector.exporter.TrimPathComponents
-		pathComponents := strings.Split(ref.path, "/")
-		prefix := ""
-		if pathComponents[0] == "" {
-			trimComponentsCount++
-			prefix = "/"
-		}
-
-		labels["filename"] = filepath.Base(ref.path)
-		labels["filepath"] = path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
-	} else {
-		labels["secret_name"] = filepath.Base(ref.path)
-		labels["secret_namespace"] = strings.Split(ref.path, "/")[1]
-		labels["secret_key"] = ref.kubeSecretKey
-	}
-
+	labels["serial_number"] = certData.cert.SerialNumber.String()
 	fillLabelsFromName(&certData.cert.Issuer, "issuer", labels)
 	fillLabelsFromName(&certData.cert.Subject, "subject", labels)
 
@@ -118,23 +130,7 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 		expired = 1.
 	}
 
-	labelKeys := []string{}
-	labelValues := []string{}
-	for key, value := range labels {
-		if collector.exporter.ExposeLabels == nil {
-			labelKeys = append(labelKeys, key)
-			labelValues = append(labelValues, value)
-			continue
-		}
-
-		for _, label := range collector.exporter.ExposeLabels {
-			if label == key {
-				labelKeys = append(labelKeys, key)
-				labelValues = append(labelValues, value)
-			}
-		}
-	}
-
+	labelKeys, labelValues := collector.unzipLabels(labels)
 	metrics := []prometheus.Metric{
 		prometheus.MustNewConstMetric(
 			prometheus.NewDesc(certExpiredMetric, certExpiredHelp, labelKeys, nil),
@@ -173,6 +169,51 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 	}
 
 	return metrics
+}
+
+func (collector *collector) getBaseLabels(ref *certificateRef) map[string]string {
+	labels := map[string]string{}
+
+	if ref.format != certificateFormatKubeSecret {
+		trimComponentsCount := collector.exporter.TrimPathComponents
+		pathComponents := strings.Split(ref.path, "/")
+		prefix := ""
+		if pathComponents[0] == "" {
+			trimComponentsCount++
+			prefix = "/"
+		}
+
+		labels["filename"] = filepath.Base(ref.path)
+		labels["filepath"] = path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
+	} else {
+		labels["secret_name"] = filepath.Base(ref.path)
+		labels["secret_namespace"] = strings.Split(ref.path, "/")[1]
+		labels["secret_key"] = ref.kubeSecretKey
+	}
+
+	return labels
+}
+
+func (collector *collector) unzipLabels(labels map[string]string) ([]string, []string) {
+	labelKeys := []string{}
+	labelValues := []string{}
+
+	for key, value := range labels {
+		if collector.exporter.ExposeLabels == nil {
+			labelKeys = append(labelKeys, key)
+			labelValues = append(labelValues, value)
+			continue
+		}
+
+		for _, label := range collector.exporter.ExposeLabels {
+			if label == key {
+				labelKeys = append(labelKeys, key)
+				labelValues = append(labelValues, value)
+			}
+		}
+	}
+
+	return labelKeys, labelValues
 }
 
 func fillLabelsFromName(name *pkix.Name, prefix string, output map[string]string) {

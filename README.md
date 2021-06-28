@@ -54,7 +54,7 @@ The following metrics are available:
 For advanced configuration, see the program's `--help` :
 
 ```
-Usage: x509-certificate-exporter [-hv] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [--expose-relative-metrics] [-f value] [--include-label value] [--include-namespace value] [-k value] [-p value] [-s value] [--trim-path-components value] [--watch-kube-secrets] [parameters ...]
+Usage: x509-certificate-exporter [-hv] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [--expose-per-cert-error-metrics] [--expose-relative-metrics] [-f value] [--include-label value] [--include-namespace value] [-k value] [-l value] [--max-cache-duration value] [-p value] [-s value] [--trim-path-components value] [--watch-kube-secrets] [parameters ...]
      --debug       enable debug mode
  -d, --watch-dir=value
                    watch one or more directory which contains x509 certificate
@@ -66,6 +66,9 @@ Usage: x509-certificate-exporter [-hv] [--debug] [-d value] [--exclude-label val
      --exclude-namespace=value
                    removes the given kube namespace from the watch list
                    (applied after --include-namespace)
+     --expose-per-cert-error-metrics
+                   expose additionnal error metric for each certificate
+                   indicating wether it has failure(s)
      --expose-relative-metrics
                    expose additionnal metrics with relative durations instead
                    of absolute timestamps
@@ -83,6 +86,10 @@ Usage: x509-certificate-exporter [-hv] [--debug] [-d value] [--exclude-label val
                    watch one or more Kubernetes client configuration (kind
                    Config) which contains embedded x509 certificates or PEM
                    file paths
+ -l, --expose-labels=value
+     --max-cache-duration=value
+                   maximum cache duration for kube secrets. cache is per
+                   namespace and randomized to avoid massive requests.
  -p, --port=value  prometheus exporter listening port [9793]
  -s, --secret-type=value
                    one or more kubernetes secret type & key to watch (e.g.

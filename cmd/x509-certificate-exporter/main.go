@@ -20,6 +20,7 @@ func main() {
 	debug := getopt.BoolLong("debug", 0, "enable debug mode")
 	trimPathComponents := getopt.IntLong("trim-path-components", 0, 0, "remove <n> leading component(s) from path(s) in label(s)")
 	exposeRelativeMetrics := getopt.BoolLong("expose-relative-metrics", 0, "expose additionnal metrics with relative durations instead of absolute timestamps")
+	exposeErrorMetrics := getopt.BoolLong("expose-per-cert-error-metrics", 0, "expose additionnal error metric for each certificate indicating wether it has failure(s)")
 	exposeLabels := getopt.StringLong("expose-labels", 'l', "one or more comma-separated labels to enable (defaults to all if not specified)")
 
 	maxCacheDuration := durationFlag(0)
@@ -76,6 +77,7 @@ func main() {
 		TrimPathComponents:    *trimPathComponents,
 		MaxCacheDuration:      time.Duration(maxCacheDuration),
 		ExposeRelativeMetrics: *exposeRelativeMetrics,
+		ExposeErrorMetrics:    *exposeErrorMetrics,
 		KubeSecretTypes:       kubeSecretTypes,
 		KubeIncludeNamespaces: kubeIncludeNamespaces,
 		KubeExcludeNamespaces: kubeExcludeNamespaces,

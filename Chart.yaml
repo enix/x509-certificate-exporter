@@ -18,8 +18,6 @@ annotations:
       url: https://charts.enix.io
     - name: Grafana Dashboard
       url: https://grafana.com/grafana/dashboards/13922
-  artifacthub.io/recommendations: |
-    - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
 
 apiVersion: v2
 name: x509-certificate-exporter

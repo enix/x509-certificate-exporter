@@ -89,6 +89,11 @@ spec:
         {{- if not (kindIs "invalid" $.Values.metricLabelsFilterList) }}
         - --expose-labels={{ $.Values.metricLabelsFilterList | join "," }}
         {{- end }}
+        {{- if $.Values.secretsExporter.cache.enabled }}
+        - --max-cache-duration={{ $.Values.secretsExporter.cache.maxDuration | int }}s
+        {{- else }}
+        - --max-cache-duration=0
+        {{- end }}
         volumeMounts:
         {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
         - name: dir-{{ . | clean | sha1sum }}

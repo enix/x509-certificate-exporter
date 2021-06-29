@@ -9,6 +9,7 @@ annotations:
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
     - "Fixed missing resources definition for DaemonSets"
+    - "exporter: new opt-in option for per-certificate error metrics"
   artifacthub.io/links: |
     - name: Chart Sources
       url: https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter

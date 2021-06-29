@@ -123,6 +123,12 @@ secretsExporter:
   # -- Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   excludeLabels: []
 
+  cache:
+    # -- Enable caching of Kubernetes resources to prevent scraping timeouts
+    enabled: true
+    # -- Maximum time a resource can stay in cache unrefreshed (seconds) - it will be at least half of that
+    maxDuration: 300
+
 hostPathsExporter:
   # -- Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets)
   debugMode: false

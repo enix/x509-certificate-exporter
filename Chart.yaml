@@ -8,7 +8,7 @@ annotations:
   artifacthub.io/prerelease: 'false'
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
-    - "Fixed missing resources definition for DaemonSets"
+    - "exporter: new in-memory cache of Kubernetes resources"
     - "exporter: new opt-in option for per-certificate error metrics"
   artifacthub.io/links: |
     - name: Chart Sources

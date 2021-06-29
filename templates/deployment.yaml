@@ -101,6 +101,9 @@ spec:
         {{- else }}
         - --max-cache-duration=0
         {{- end }}
+        {{- if .Values.exposePerCertificateErrorMetrics }}
+        - --expose-per-cert-error-metrics
+        {{- end }}
       {{- if not .Values.rbacProxy.enabled }}
         - --port={{ .Values.podListenPort }}
         ports:

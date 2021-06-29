@@ -94,6 +94,9 @@ spec:
         {{- else }}
         - --max-cache-duration=0
         {{- end }}
+        {{- if $.Values.exposePerCertificateErrorMetrics }}
+        - --expose-per-cert-error-metrics
+        {{- end }}
         volumeMounts:
         {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
         - name: dir-{{ . | clean | sha1sum }}

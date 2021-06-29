@@ -60,6 +60,9 @@ podAnnotations: {}
 #  prometheus.io/port: "9793"
 #  prometheus.io/scrape: "true"
 
+# -- Enable additional metrics to report per-certificate errors ; helps with identifying read errors origin not having to look at exporter logs, at the expense of additional storage on Prometheus
+exposePerCertificateErrorMetrics: false
+
 # -- Enable additional metrics with relative durations instead of absolute timestamps ; not recommended with Prometheus
 exposeRelativeMetrics: false
 

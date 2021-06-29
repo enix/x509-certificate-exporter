@@ -1,8 +1,8 @@
 # when bumping version, please:
 # - replace the "changes" annotation with new content
 # - update "containsSecurityUpdates" if needed
-version: 1.15.0
-appVersion: 2.9.2
+version: 1.16.0
+appVersion: 2.10.0
 annotations:
   artifacthub.io/containsSecurityUpdates: 'false'
   artifacthub.io/prerelease: 'false'

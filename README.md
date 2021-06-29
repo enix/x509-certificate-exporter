@@ -43,11 +43,19 @@ Get notified before they expire:
 >>>>>>> 6aee8e2 (doc(x509-certificate-exporter): fix code blocks)
 
 The following metrics are available:
+<<<<<<< HEAD
 
 - `x509_cert_not_before`
 - `x509_cert_not_after`
 - `x509_cert_expired`
 - `x509_read_errors`
+=======
+* `x509_cert_not_before`
+* `x509_cert_not_after`
+* `x509_cert_expired`
+* `x509_cert_error` (optional)
+* `x509_read_errors`
+>>>>>>> dd45346 (doc(x509-certificate-exporter): run helm-docs on README)
 
 Best when used with the [Grafana Dashboard](https://grafana.com/grafana/dashboards/13922) ID `13922`:
 
@@ -504,6 +512,7 @@ in the container namespace.
 | rbac.hostPathsExporter.clusterRoleBindingAnnotations | object | `{}` | Annotations added to the ClusterRoleBinding for the hostPath exporters |
 | podExtraLabels | object | `{}` | Extra labels added to all Pods |
 | podAnnotations | object | `{}` | Annotations added to all Pods |
+| exposePerCertificateErrorMetrics | bool | `false` | Enable additional metrics to report per-certificate errors ; helps with identifying read errors origin not having to look at exporter logs, at the expense of additional storage on Prometheus |
 | exposeRelativeMetrics | bool | `false` | Enable additional metrics with relative durations instead of absolute timestamps ; not recommended with Prometheus |
 | metricLabelsFilterList | list | `nil` | Restrict metric labels to this list if set. **Warning** : use with caution as reducing cardinality may yield metrics collisions and force the exporter to ignore certificates. This will also degrade the usability of the Grafana dashboard. This list should always include at least `filepath`, `secret_namespace` and `secret_name`. Also `subject_CN` is highly recommended for when a file contains multiple certificates. |
 | secretsExporter.enabled | bool | `true` | Should the TLS Secrets exporter be running |
@@ -524,6 +533,8 @@ in the container namespace.
 | secretsExporter.excludeNamespaces | list | `[]` | Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`) |
 | secretsExporter.includeLabels | list | `[]` | Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.excludeLabels | list | `[]` | Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
+| secretsExporter.cache.enabled | bool | `true` | Enable caching of Kubernetes resources to prevent scraping timeouts |
+| secretsExporter.cache.maxDuration | int | `300` | Maximum time a resource can stay in cache unrefreshed (seconds) - it will be at least half of that |
 | hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.updateStrategy | object | `{}` | updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets) |

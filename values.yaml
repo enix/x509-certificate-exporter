@@ -260,6 +260,10 @@ prometheusRules:
   alertOnReadErrors: true
   # -- Severity for the X509ExporterReadErrors alerting rule
   readErrorsSeverity: warning
+  # -- Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too.
+  alertOnCertificateErrors: true
+  # -- Severity for the CertificateError alerting rule
+  certificateErrorsSeverity: warning
   # -- Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)
   warningDaysLeft: 28
   # -- Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)

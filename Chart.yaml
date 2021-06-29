@@ -8,8 +8,7 @@ annotations:
   artifacthub.io/prerelease: 'false'
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
-    - "exporter: new in-memory cache of Kubernetes resources"
-    - "exporter: new opt-in option for per-certificate error metrics"
+    - "New Prometheus alerting rule for per-certificate error metrics"
   artifacthub.io/links: |
     - name: Chart Sources
       url: https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter

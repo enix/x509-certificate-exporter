@@ -28,14 +28,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const listenAddress = "0.0.0.0:9793"
 const port = 9793
 
 func TestRegularStartup(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 
 	e := &Exporter{
-		Port:  port,
-		Files: []string{path.Join(filepath.Dir(filename), "../test/basic.pem")},
+		ListenAddress: listenAddress,
+		Files:         []string{path.Join(filepath.Dir(filename), "../test/basic.pem")},
 	}
 
 	go e.ListenAndServe()
@@ -357,8 +358,8 @@ func TestErrorMetrics(t *testing.T) {
 }
 
 func TestBindAddrAlreadyInUse(t *testing.T) {
-	listener, _ := net.Listen("tcp", ":9793")
-	e := &Exporter{Port: 9793}
+	listener, _ := net.Listen("tcp", listenAddress)
+	e := &Exporter{ListenAddress: listenAddress}
 	err := e.ListenAndServe()
 	listener.Close()
 	assert.NotNil(t, err, "no error was returned for bind failure")
@@ -707,7 +708,7 @@ func checkLabels(t *testing.T, labels []*model.LabelPair, path string, isKube bo
 }
 
 func testRequest(t *testing.T, exporter *Exporter, cb func(metrics []model.MetricFamily)) {
-	exporter.Port = port
+	exporter.ListenAddress = listenAddress
 	if exporter.KubeSecretTypes == nil {
 		exporter.KubeSecretTypes = []string{"kubernetes.io/tls:tls.crt"}
 	}

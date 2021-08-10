@@ -18,7 +18,7 @@ import (
 
 // Exporter : Configuration (from command-line)
 type Exporter struct {
-	Port                  int
+	ListenAddress         string
 	Files                 []string
 	Directories           []string
 	YAMLs                 []string
@@ -65,10 +65,9 @@ func (exporter *Exporter) Listen() error {
 		}
 	}
 
-	listen := fmt.Sprintf(":%d", exporter.Port)
-	log.Infof("listening on %s", listen)
+	log.Infof("listening on %s", exporter.ListenAddress)
 
-	listener, err := net.Listen("tcp", listen)
+	listener, err := net.Listen("tcp", exporter.ListenAddress)
 	if err != nil {
 		return err
 	}

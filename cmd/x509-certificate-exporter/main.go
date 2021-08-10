@@ -16,7 +16,7 @@ import (
 func main() {
 	help := getopt.BoolLong("help", 'h', "show this help message and exit")
 	version := getopt.BoolLong("version", 'v', "show version info and exit")
-	port := getopt.IntLong("port", 'p', 9793, "prometheus exporter listening port")
+	listenAddress := getopt.StringLong("listen-address", 'b', ":9793", "address on which to bind and expose metrics")
 	debug := getopt.BoolLong("debug", 0, "enable debug mode")
 	trimPathComponents := getopt.IntLong("trim-path-components", 0, 0, "remove <n> leading component(s) from path(s) in label(s)")
 	exposeRelativeMetrics := getopt.BoolLong("expose-relative-metrics", 0, "expose additionnal metrics with relative durations instead of absolute timestamps")
@@ -69,7 +69,7 @@ func main() {
 	}
 
 	exporter := internal.Exporter{
-		Port:                  *port,
+		ListenAddress:         *listenAddress,
 		Files:                 files,
 		Directories:           directories,
 		YAMLs:                 yamls,

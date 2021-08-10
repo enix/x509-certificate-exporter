@@ -54,51 +54,52 @@ The following metrics are available:
 For advanced configuration, see the program's `--help` :
 
 ```
-Usage: x509-certificate-exporter [-hv] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [--expose-per-cert-error-metrics] [--expose-relative-metrics] [-f value] [--include-label value] [--include-namespace value] [-k value] [-l value] [--max-cache-duration value] [-p value] [-s value] [--trim-path-components value] [--watch-kube-secrets] [parameters ...]
-     --debug       enable debug mode
+Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [--expose-per-cert-error-metrics] [--expose-relative-metrics] [-f value] [--include-label value] [--include-namespace value] [-k value] [-l value] [--max-cache-duration value] [-s value] [--trim-path-components value] [--watch-kube-secrets] [parameters ...]
+ -b, --listen-address=value
+                address on which to bind and expose metrics [:9793]
+     --debug    enable debug mode
  -d, --watch-dir=value
-                   watch one or more directory which contains x509 certificate
-                   files (not recursive)
+                watch one or more directory which contains x509 certificate
+                files (not recursive)
      --exclude-label=value
-                   removes the kube secrets with the given label (or label
-                   value if specified) from the watch list (applied after
-                   --include-label)
+                removes the kube secrets with the given label (or label
+                value if specified) from the watch list (applied after
+                --include-label)
      --exclude-namespace=value
-                   removes the given kube namespace from the watch list
-                   (applied after --include-namespace)
+                removes the given kube namespace from the watch list
+                (applied after --include-namespace)
      --expose-per-cert-error-metrics
-                   expose additionnal error metric for each certificate
-                   indicating wether it has failure(s)
+                expose additionnal error metric for each certificate
+                indicating wether it has failure(s)
      --expose-relative-metrics
-                   expose additionnal metrics with relative durations instead
-                   of absolute timestamps
+                expose additionnal metrics with relative durations instead
+                of absolute timestamps
  -f, --watch-file=value
-                   watch one or more x509 certificate file
- -h, --help        show this help message and exit
+                watch one or more x509 certificate file
+ -h, --help     show this help message and exit
      --include-label=value
-                   add the kube secrets with the given label (or label value if
-                   specified) to the watch list (when used, all secrets are
-                   excluded by default)
+                add the kube secrets with the given label (or label value if
+                specified) to the watch list (when used, all secrets are
+                excluded by default)
      --include-namespace=value
-                   add the given kube namespace to the watch list (when used,
-                   all namespaces are excluded by default)
+                add the given kube namespace to the watch list (when used,
+                all namespaces are excluded by default)
  -k, --watch-kubeconf=value
-                   watch one or more Kubernetes client configuration (kind
-                   Config) which contains embedded x509 certificates or PEM
-                   file paths
+                watch one or more Kubernetes client configuration (kind
+                Config) which contains embedded x509 certificates or PEM
+                file paths
  -l, --expose-labels=value
      --max-cache-duration=value
-                   maximum cache duration for kube secrets. cache is per
-                   namespace and randomized to avoid massive requests.
- -p, --port=value  prometheus exporter listening port [9793]
+                maximum cache duration for kube secrets. cache is per
+                namespace and randomized to avoid massive requests.
  -s, --secret-type=value
-                   one or more kubernetes secret type & key to watch (e.g.
-                   "kubernetes.io/tls:tls.crt"
+                one or more kubernetes secret type & key to watch (e.g.
+                "kubernetes.io/tls:tls.crt"
      --trim-path-components=value
-                   remove <n> leading component(s) from path(s) in label(s)
- -v, --version     show version info and exit
+                remove <n> leading component(s) from path(s) in label(s)
+ -v, --version  show version info and exit
      --watch-kube-secrets
-                   scrape kubernetes.io/tls secrets and monitor them
+                scrape kubernetes.io/tls secrets and monitor them
 ```
 
 ## FAQ

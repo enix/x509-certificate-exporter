@@ -105,12 +105,12 @@ spec:
         - --expose-per-cert-error-metrics
         {{- end }}
       {{- if not .Values.rbacProxy.enabled }}
-        - --port={{ .Values.podListenPort }}
+        - --listen-address=:{{ .Values.podListenPort }}
         ports:
         - name: metrics
           containerPort: {{ .Values.podListenPort }}
       {{- else }}
-        - --port={{ .Values.rbacProxy.upstreamListenPort }}
+        - --listen-address=:{{ .Values.rbacProxy.upstreamListenPort }}
       - name: kube-rbac-proxy
         {{- with .Values.rbacProxy.securityContext }}
         securityContext:

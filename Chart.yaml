@@ -1,14 +1,15 @@
 # when bumping version, please:
 # - replace the "changes" annotation with new content
 # - update "containsSecurityUpdates" if needed
-version: 1.16.1
-appVersion: 2.10.0
+version: 1.17.0
+appVersion: 2.11.0
 annotations:
   artifacthub.io/containsSecurityUpdates: 'false'
   artifacthub.io/prerelease: 'false'
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
-    - "New Prometheus alerting rule for per-certificate error metrics"
+    - "This release contains no new feature nor fix ; you may skip the upgrade"
+    - "Bump exporter image to version 2.11.0 and refactor socket bind arguments"
   artifacthub.io/links: |
     - name: Chart Sources
       url: https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter

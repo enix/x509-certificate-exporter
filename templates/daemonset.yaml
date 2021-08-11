@@ -72,9 +72,9 @@ spec:
         - --expose-relative-metrics
         {{- end }}
         {{- if not $.Values.rbacProxy.enabled }}
-        - --port={{ $.Values.podListenPort }}
+        - --listen-address=:{{ $.Values.podListenPort }}
         {{- else }}
-        - --port={{ $.Values.rbacProxy.upstreamListenPort }}
+        - --listen-address=:{{ $.Values.rbacProxy.upstreamListenPort }}
         {{- end }}
         - --trim-path-components=3
         {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}

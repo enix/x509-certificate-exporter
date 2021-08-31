@@ -630,6 +630,16 @@ func TestExposeLabels(t *testing.T) {
 	removeGeneratedCertificate(certPath)
 }
 
+func TestListenError(t *testing.T) {
+	exporter := &Exporter{ListenAddress: ":4242"}
+	err := exporter.Listen()
+	assert.NoError(t, err)
+	err = exporter.Listen()
+	assert.Error(t, err)
+	err = exporter.listener.Close()
+	assert.NoError(t, err)
+}
+
 func testSinglePEM(t *testing.T, expired float64, notBefore time.Time) {
 	certPath := "/tmp/test.pem"
 	generateCertificate(certPath, notBefore)

@@ -1,12 +1,9 @@
 ## Build Stage
 
-ARG OS="linux"
-ARG ARCH="amd64"
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.16-alpine as build
 
-FROM --platform=${OS}/${ARCH} golang:1.16-alpine as build
-
-ARG OS
-ARG ARCH
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR $GOPATH/src/enix.io/x509-certificate-exporter
 
@@ -18,8 +15,8 @@ RUN go mod download
 COPY internal internal
 COPY cmd cmd
 
-ENV GOOS=${OS}
-ENV GOARCH=${ARCH}
+ENV GOOS=${TARGETOS}
+ENV GOARCH=${TARGETARCH}
 
 ARG VERSION="0.0.0"
 
@@ -37,7 +34,7 @@ LABEL maintainer="Enix <no-reply@enix.fr>" \
       org.opencontainers.image.authors="Enix <no-reply@enix.fr>" \
       org.opencontainers.image.licenses="MIT"
 
-FROM --platform=${OS}/${ARCH} alpine:3.13
+FROM --platform=${TARGETPLATFORM:-linux/amd64} alpine:3.13
 
 COPY --from=build /go/src/enix.io/x509-certificate-exporter/x509-certificate-exporter /x509-certificate-exporter
 

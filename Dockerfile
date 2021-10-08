@@ -34,7 +34,7 @@ LABEL maintainer="Enix <no-reply@enix.fr>" \
       org.opencontainers.image.authors="Enix <no-reply@enix.fr>" \
       org.opencontainers.image.licenses="MIT"
 
-FROM --platform=${TARGETPLATFORM:-linux/amd64} alpine:3.13
+FROM --platform=${TARGETPLATFORM:-linux/amd64} alpine:3.14
 
 COPY --from=build /go/src/enix.io/x509-certificate-exporter/x509-certificate-exporter /x509-certificate-exporter
 

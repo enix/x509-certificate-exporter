@@ -49,6 +49,46 @@ The following metrics are available:
 * `x509_cert_expired`
 * `x509_read_errors`
 
+### Prometheus Alerts
+
+When installation is not performed with Helm, the following Prometheus alerting
+rules may be deployed manually:
+
+```
+rules:
+    - alert: X509ExporterReadErrors
+        annotations:
+            description: Over the last 15 minutes, this x509-certificate-exporter instance
+                has experienced errors reading certificate files or querying the Kubernetes
+                API. This could be caused by a misconfiguration if triggered when the exporter
+                starts.
+            summary: Increasing read errors for x509-certificate-exporter
+        expr: delta(x509_read_errors[15m]) > 0
+        for: 5m
+        labels:
+            severity: warning
+    - alert: CertificateRenewal
+        annotations:
+            description: Certificate for "{{ $labels.subject_CN }}" should be renewed
+                {{if $labels.secret_name }}in Kubernets secret "{{ $labels.secret_namespace
+                }}/{{ $labels.secret_name }}"{{else}}at location "{{ $labels.filepath }}"{{end}}
+            summary: Certificate should be renewed
+        expr: ((x509_cert_not_after - time()) / 86400) < 28
+        for: 15m
+        labels:
+            severity: warning
+    - alert: CertificateExpiration
+        annotations:
+            description: Certificate for "{{ $labels.subject_CN }}" is about to expire
+                {{if $labels.secret_name }}in Kubernets secret "{{ $labels.secret_namespace
+                }}/{{ $labels.secret_name }}"{{else}}at location "{{ $labels.filepath }}"{{end}}
+            summary: Certificate is about to expire
+        expr: ((x509_cert_not_after - time()) / 86400) < 14
+        for: 15m
+        labels:
+            severity: critical
+```
+
 ### Advanced usage
 
 For advanced configuration, see the program's `--help` :

@@ -155,7 +155,7 @@ func (exporter *Exporter) filterSecrets(secrets []v1.Secret, includedLabels, exc
 				return nil, fmt.Errorf("malformed kube secret type: \"%s\"", secretType)
 			}
 
-			if secret.Type == v1.SecretType(typeAndKey[0]) && secret.Data[typeAndKey[1]] != nil {
+			if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
 				hasIncludedType = true
 			}
 		}

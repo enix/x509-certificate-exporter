@@ -1,16 +1,16 @@
 # when bumping version, please:
 # - replace the "changes" annotation with new content
 # - update "containsSecurityUpdates" if needed
-version: 1.18.0
-appVersion: 2.12.0
+version: 1.19.0
+appVersion: 2.12.1
 annotations:
   artifacthub.io/containsSecurityUpdates: 'true'
   artifacthub.io/prerelease: 'false'
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
-    - "exporter: fix arm64 images that contained an amd64 binary"
-    - "exporter: build with Golang 1.17"
-    - "exporter: bump base image to Alpine 3.14"
+    - "Now watch certificates in the `ca.crt` key of Kubernetes Secrets by default ; upgrading could raise new alerts on existing deployments (ie: for Let's Encrypt legacy chain), unless value `secretTypes` was set"
+    - "exporter: fix Kubernetes Secrets selection with duplicated types"
+    - "exporter: new build resolves security scan alerts for app dependencies and container base image"
   artifacthub.io/links: |
     - name: Chart Sources
       url: https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter

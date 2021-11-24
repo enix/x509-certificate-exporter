@@ -116,8 +116,6 @@ secretsExporter:
   secretTypes:
   - type: kubernetes.io/tls
     key: tls.crt
-  - type: kubernetes.io/tls
-    key: ca.crt
 
   # -- Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty)
   includeNamespaces: []

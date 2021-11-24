@@ -1,21 +1,14 @@
 # when bumping version, please:
 # - replace the "changes" annotation with new content
 # - update "containsSecurityUpdates" if needed
-version: 1.19.0
-appVersion: 2.12.1
+version: 1.20.0
+appVersion: 2.12.0
 annotations:
-<<<<<<< HEAD
   artifacthub.io/containsSecurityUpdates: 'false'
   artifacthub.io/prerelease: 'false'
-=======
-  artifacthub.io/containsSecurityUpdates: "true"
-  artifacthub.io/prerelease: "false"
->>>>>>> 722e92a (Revert "feat(x509-certificate-exporter): release chart v1.20.0, app v2.12.0")
   artifacthub.io/license: MIT
   artifacthub.io/changes: |
-    - "Now watch certificates in the `ca.crt` key of Kubernetes Secrets by default ; upgrading could raise new alerts on existing deployments (ie: for Let's Encrypt legacy chain), unless value `secretTypes` was set"
-    - "exporter: fix Kubernetes Secrets selection with duplicated types"
-    - "exporter: new build resolves security scan alerts for app dependencies and container base image"
+    - "Reverted to exporter version 2.12.0, and defaults values from chart version 1.18.0 ; a bug is being investigated"
   artifacthub.io/links: |
     - name: Chart Sources
       url: https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter

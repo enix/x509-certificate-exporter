@@ -2,11 +2,14 @@ package internal
 
 import (
 	"context"
+	"crypto/x509/pkix"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -183,7 +186,146 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 		} else if exporter.isDiscovery {
 			log.Infof("%d valid certificate(s) found in \"%s\"", len(cert.certificates), cert.path)
 		}
+
+		for _, existingCertRef := range output {
+		checkCertificatePair:
+			for existingParsedCertIndex, existingParsedCert := range existingCertRef.certificates {
+				for parsedCertIndex, parsedCert := range cert.certificates {
+					if parsedCert.cert == existingParsedCert.cert {
+						continue
+					}
+
+					if exporter.compareCertificates(parsedCert, cert, existingParsedCert, existingCertRef) {
+						cert.certificates = append(cert.certificates[:parsedCertIndex], cert.certificates[parsedCertIndex+1:]...)
+						raiseError(&certificateError{
+							ref: cert,
+							err: fmt.Errorf(
+								"duplicate certificate: cert n°%d in \"%s\" and cert n°%d in \"%s\"",
+								parsedCertIndex+1,
+								cert.path,
+								existingParsedCertIndex+1,
+								existingCertRef.path,
+							),
+						})
+
+						goto checkCertificatePair
+					}
+				}
+			}
+		}
 	}
 
 	return output, outputErrors
+}
+
+func (exporter *Exporter) compareCertificates(
+	leftCert *parsedCertificate,
+	leftRef *certificateRef,
+	rightCert *parsedCertificate,
+	rightRef *certificateRef,
+) bool {
+	lhsLabels := exporter.getLabels(leftCert, leftRef)
+	rhsLabels := exporter.getLabels(rightCert, rightRef)
+
+	if len(lhsLabels) != len(rhsLabels) {
+		return false
+	}
+
+	for key, value := range lhsLabels {
+		if rhsLabels[key] != value {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (exporter *Exporter) getLabels(certData *parsedCertificate, ref *certificateRef) map[string]string {
+	labels := exporter.getBaseLabels(ref)
+
+	labels["serial_number"] = certData.cert.SerialNumber.String()
+	fillLabelsFromName(&certData.cert.Issuer, "issuer", labels)
+	fillLabelsFromName(&certData.cert.Subject, "subject", labels)
+
+	if ref.format == certificateFormatYAML {
+		kind := strings.Split(certData.yqMatchExpr, ".")[1]
+		labels["embedded_kind"] = strings.TrimRight(kind, "s")
+	}
+
+	if len(certData.userID) > 0 {
+		labels["embedded_key"] = certData.userID
+	}
+
+	return labels
+}
+
+func (exporter *Exporter) getBaseLabels(ref *certificateRef) map[string]string {
+	labels := map[string]string{}
+
+	if ref.format != certificateFormatKubeSecret {
+		trimComponentsCount := exporter.TrimPathComponents
+		pathComponents := strings.Split(ref.path, "/")
+		prefix := ""
+		if pathComponents[0] == "" {
+			trimComponentsCount++
+			prefix = "/"
+		}
+
+		labels["filename"] = filepath.Base(ref.path)
+		labels["filepath"] = path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
+	} else {
+		labels["secret_name"] = filepath.Base(ref.path)
+		labels["secret_namespace"] = strings.Split(ref.path, "/")[1]
+		labels["secret_key"] = ref.kubeSecretKey
+	}
+
+	return labels
+}
+
+func (exporter *Exporter) unzipLabels(labels map[string]string) ([]string, []string) {
+	labelKeys := []string{}
+	labelValues := []string{}
+
+	for key, value := range labels {
+		if exporter.ExposeLabels == nil {
+			labelKeys = append(labelKeys, key)
+			labelValues = append(labelValues, value)
+			continue
+		}
+
+		for _, label := range exporter.ExposeLabels {
+			if label == key {
+				labelKeys = append(labelKeys, key)
+				labelValues = append(labelValues, value)
+			}
+		}
+	}
+
+	return labelKeys, labelValues
+}
+
+func fillLabelsFromName(name *pkix.Name, prefix string, output map[string]string) {
+	if len(name.Country) > 0 {
+		output[fmt.Sprintf("%s_C", prefix)] = name.Country[0]
+	}
+
+	if len(name.StreetAddress) > 0 {
+		output[fmt.Sprintf("%s_ST", prefix)] = name.StreetAddress[0]
+	}
+
+	if len(name.Locality) > 0 {
+		output[fmt.Sprintf("%s_L", prefix)] = name.Locality[0]
+	}
+
+	if len(name.Organization) > 0 {
+		output[fmt.Sprintf("%s_O", prefix)] = name.Organization[0]
+	}
+
+	if len(name.OrganizationalUnit) > 0 {
+		output[fmt.Sprintf("%s_OU", prefix)] = name.OrganizationalUnit[0]
+	}
+
+	if len(name.CommonName) > 0 {
+		output[fmt.Sprintf("%s_CN", prefix)] = name.CommonName
+	}
 }

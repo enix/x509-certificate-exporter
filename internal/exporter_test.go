@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const listenAddress = "0.0.0.0:9793"
+const listenAddress = "127.0.0.1:9793"
 const port = 9793
 
 func TestRegularStartup(t *testing.T) {
@@ -661,7 +661,7 @@ func TestExposeLabels(t *testing.T) {
 }
 
 func TestListenError(t *testing.T) {
-	exporter := &Exporter{ListenAddress: ":4242"}
+	exporter := &Exporter{ListenAddress: "127.0.0.1:4242"}
 	err := exporter.Listen()
 	assert.NoError(t, err)
 	err = exporter.Listen()

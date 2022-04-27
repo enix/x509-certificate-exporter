@@ -36,7 +36,7 @@ Every [release](https://github.com/enix/x509-certificate-exporter/releases) come
 ### Using the source
 
 The project's entry point is `./cmd/x509-certificate-exporter`.
-You can run & build it as any other Go program :
+You can run & build it as any other Go program:
 
 ```bash
 go build ./cmd/x509-certificate-exporter
@@ -93,7 +93,7 @@ rules:
 
 ### Advanced usage
 
-For advanced configuration, see the program's `--help` :
+For advanced configuration, see the program's `--help`:
 
 ```
 Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [--expose-per-cert-error-metrics] [--expose-relative-metrics] [-f value] [--include-label value] [--include-namespace value] [-k value] [-l value] [--max-cache-duration value] [-s value] [--trim-path-components value] [--watch-kube-secrets] [parameters ...]
@@ -142,6 +142,29 @@ Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclud
  -v, --version  show version info and exit
      --watch-kube-secrets
                 scrape kubernetes.io/tls secrets and monitor them
+```
+
+## Development
+
+Some snippets to get started with development and testing:
+
+```sh
+# Run server, watch test input files, only listen on localhost to
+# avoid firewall popup dialogs
+go run ./cmd/x509-certificate-exporter --debug -b localhost:9793 -d test/
+
+# Once the server is running, you can check the exported metrics
+curl -Ss localhost:9793/metrics | grep "^x509_cert_not_after"
+
+# Automated tests work against a Kubernetes cluster, so create a throwaway
+# cluster (for example with kind). No need to run the server locally for this.
+kind create cluster --kubeconfig ~/.kube/config-kind
+export KUBECONFIG=~/.kube/config-kind
+go test -v ./internal
+kind delete cluster
+
+# Docker build (does not run tests)
+docker buildx build .
 ```
 
 ## FAQ

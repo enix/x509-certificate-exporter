@@ -1,0 +1,4 @@
+# Temporary files created by `kubernetes_test.go`
+/kubeconfig
+/kubeconfig.x509-certificate-exporter
+/kubeconfig.x509-certificate-exporter-list

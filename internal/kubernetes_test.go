@@ -59,12 +59,17 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	err = addKubeSecrets(10, "default")
-	if err != nil {
-		cleanupSecrets()
-		addKubeSecrets(10, "default")
+	// Make tests repeatable on a test cluster by deleting existing secret upfront
+	cleanup := func(failOnError bool) {
+		removeAllKubeSecrets(10, "default", failOnError)
+		removeAllKubeSecrets(10, "kube-system", failOnError)
+		removeCustomKubeSecret()
+		removeBrokenKubeSecret()
+		removeBrokenKubeSecret2()
 	}
+	cleanup(false)
 
+	addKubeSecrets(10, "default")
 	addKubeSecrets(10, "kube-system")
 	addCustomKubeSecret()
 	addBrokenKubeSecret()
@@ -72,7 +77,8 @@ func TestMain(m *testing.M) {
 
 	status := m.Run()
 
-	cleanupSecrets()
+	cleanup(true)
+
 	os.Remove("kubeconfig")
 	os.Remove("kubeconfig.x509-certificate-exporter")
 	os.Remove("kubeconfig.x509-certificate-exporter-list")
@@ -396,6 +402,8 @@ func addKubeSecrets(count int, ns string) error {
 			return err
 		}
 
+		secretName := filepath.Base(certPath)
+
 		_, err = sharedKubeClient.CoreV1().Secrets(ns).Create(context.Background(), &v1.Secret{
 			Type: "kubernetes.io/tls",
 			Data: map[string][]byte{
@@ -403,7 +411,7 @@ func addKubeSecrets(count int, ns string) error {
 				"tls.key": key,
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name: filepath.Base(certPath),
+				Name: secretName,
 				Labels: map[string]string{
 					"test":  "",
 					"aze":   "abc",
@@ -505,22 +513,14 @@ func removeBrokenKubeSecret2() {
 	sharedKubeClient.CoreV1().Secrets("default").Delete(context.TODO(), "empty-pem-data", metav1.DeleteOptions{})
 }
 
-func removeAllKubeSecrets(count int, ns string) {
+func removeAllKubeSecrets(count int, ns string, failOnError bool) {
 	for index := 0; index < count; index++ {
 		name := fmt.Sprintf("test-%s-%d.crt", ns, index)
 		err := sharedKubeClient.CoreV1().Secrets(ns).Delete(context.TODO(), name, metav1.DeleteOptions{})
-		if err != nil {
+		if err != nil && failOnError {
 			panic(err)
 		}
 
 		removeGeneratedCertificate(path.Join("/tmp", name))
 	}
-}
-
-func cleanupSecrets() {
-	removeAllKubeSecrets(10, "default")
-	removeAllKubeSecrets(10, "kube-system")
-	removeCustomKubeSecret()
-	removeBrokenKubeSecret()
-	removeBrokenKubeSecret2()
 }

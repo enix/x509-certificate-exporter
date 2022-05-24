@@ -107,7 +107,7 @@ release-assets:
         GOOS=$(echo "$platform" | cut -d'/' -f1)
         GOARCH=$(echo "$platform" | cut -d'/' -f2)
         BIN=$CI_PROJECT_NAME-$GOOS-$GOARCH
-        go build -o $BIN -ldflags "-X \"enix.io/$CI_PROJECT_NAME/internal.Version=${CI_COMMIT_REF_SLUG:1}\"" ./cmd/$CI_PROJECT_NAME
+        go build -tags netgo,osusergo -o $BIN -ldflags "-X \"enix.io/$CI_PROJECT_NAME/internal.Version=${CI_COMMIT_REF_SLUG:1}\"" ./cmd/$CI_PROJECT_NAME
         ./test/upload-release.sh "github_api_token=$GITHUB_TOKEN" "owner=enix" "repo=$CI_PROJECT_NAME" "tag=$CI_COMMIT_TAG" "filename=$BIN"
       done
 

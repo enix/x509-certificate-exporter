@@ -20,7 +20,7 @@ ENV GOARCH=${TARGETARCH}
 
 ARG VERSION="0.0.0"
 
-RUN go build -ldflags "-X \"enix.io/x509-certificate-exporter/internal.Version=${VERSION}\"" ./cmd/x509-certificate-exporter
+RUN go build -tags netgo,osusergo -ldflags "-X \"enix.io/x509-certificate-exporter/internal.Version=${VERSION}\"" ./cmd/x509-certificate-exporter
 
 
 ## Production Stage

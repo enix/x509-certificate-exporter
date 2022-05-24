@@ -46,7 +46,7 @@ func (exporter *Exporter) parseAllKubeSecrets() ([]*certificateRef, []error) {
 			for _, secretType := range exporter.KubeSecretTypes {
 				typeAndKey := strings.Split(secretType, ":")
 
-				if secret.Type == v1.SecretType(typeAndKey[0]) {
+				if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
 					output = append(output, &certificateRef{
 						path:          fmt.Sprintf("k8s/%s/%s", namespace, secret.GetName()),
 						format:        certificateFormatKubeSecret,

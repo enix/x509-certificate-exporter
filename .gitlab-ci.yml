@@ -10,9 +10,10 @@ variables:
   CACHE_TAG: $CI_REGISTRY_IMAGE:cache
   IMAGE_TAG_LATEST: $CI_REGISTRY_IMAGE:latest
 
-.only-master:
+.only-master-and-release:
   only:
     - master
+    - release
   except:
     - tags
 
@@ -68,7 +69,7 @@ test:
 build:
   extends:
     - .init-docker-buildx
-    - .only-master
+    - .only-master-and-release
   stage: build
   image: docker:stable-dind
   script:
@@ -87,7 +88,7 @@ build-latest:
 
 semantic-release:
   extends:
-    - .only-master
+    - .only-master-and-release
   stage: release
   image: enix/semantic-release:gitlab
   when: manual
@@ -117,7 +118,7 @@ docker-hub:
   stage: release
   image:
     name: ananace/skopeo:latest
-    entrypoint: [""]
+    entrypoint: ['']
   script:
     - export IMAGE_TAG="$CI_REGISTRY_IMAGE:${CI_COMMIT_REF_NAME:1}"
     - export PUBLIC_IMAGE_TAG="docker.io/$DOCKER_HUB_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}"
@@ -131,7 +132,7 @@ quay:
   stage: release
   image:
     name: ananace/skopeo:latest
-    entrypoint: [""]
+    entrypoint: ['']
   script:
     - export IMAGE_TAG="$CI_REGISTRY_IMAGE:${CI_COMMIT_REF_NAME:1}"
     - export PUBLIC_IMAGE_TAG="$QUAY_REPOSITORY/$CI_PROJECT_NAME:${CI_COMMIT_REF_NAME:1}"

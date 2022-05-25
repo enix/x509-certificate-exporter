@@ -59,23 +59,23 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	// err = addKubeSecrets(10, "default")
-	// if err != nil {
-	// 	cleanupSecrets()
-	// 	addKubeSecrets(10, "default")
-	// }
+	err = addKubeSecrets(10, "default")
+	if err != nil {
+		cleanupSecrets()
+		addKubeSecrets(10, "default")
+	}
 
-	// addKubeSecrets(10, "kube-system")
-	// addCustomKubeSecret()
-	// addBrokenKubeSecret()
-	// addBrokenKubeSecret2()
+	addKubeSecrets(10, "kube-system")
+	addCustomKubeSecret()
+	addBrokenKubeSecret()
+	addBrokenKubeSecret2()
 
 	status := m.Run()
 
-	// cleanupSecrets()
-	// os.Remove("kubeconfig")
-	// os.Remove("kubeconfig.x509-certificate-exporter")
-	// os.Remove("kubeconfig.x509-certificate-exporter-list")
+	cleanupSecrets()
+	os.Remove("kubeconfig")
+	os.Remove("kubeconfig.x509-certificate-exporter")
+	os.Remove("kubeconfig.x509-certificate-exporter-list")
 	os.Exit(status)
 }
 

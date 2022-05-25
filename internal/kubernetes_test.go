@@ -59,29 +59,29 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	err = addKubeSecrets(10, "default")
-	if err != nil {
-		cleanupSecrets()
-		addKubeSecrets(10, "default")
-	}
+	// err = addKubeSecrets(10, "default")
+	// if err != nil {
+	// 	cleanupSecrets()
+	// 	addKubeSecrets(10, "default")
+	// }
 
-	addKubeSecrets(10, "kube-system")
-	addCustomKubeSecret()
-	addBrokenKubeSecret()
-	addBrokenKubeSecret2()
+	// addKubeSecrets(10, "kube-system")
+	// addCustomKubeSecret()
+	// addBrokenKubeSecret()
+	// addBrokenKubeSecret2()
 
 	status := m.Run()
 
-	cleanupSecrets()
-	os.Remove("kubeconfig")
-	os.Remove("kubeconfig.x509-certificate-exporter")
-	os.Remove("kubeconfig.x509-certificate-exporter-list")
+	// cleanupSecrets()
+	// os.Remove("kubeconfig")
+	// os.Remove("kubeconfig.x509-certificate-exporter")
+	// os.Remove("kubeconfig.x509-certificate-exporter-list")
 	os.Exit(status)
 }
 
 func TestKubeAllSecrets(t *testing.T) {
 	testRequestKube(t, &Exporter{}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 20)
+		checkMetricsCount(t, m, 21)
 		metrics := getMetricsForName(m, "x509_read_errors")
 		assert.Equal(t, 1., metrics[0].GetGauge().GetValue())
 	})
@@ -91,7 +91,7 @@ func TestKubeIncludeNamespace(t *testing.T) {
 	testRequestKube(t, &Exporter{
 		KubeIncludeNamespaces: []string{"default"},
 	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 10)
+		checkMetricsCount(t, m, 11)
 	})
 }
 
@@ -99,7 +99,7 @@ func TestKubeIncludeMultipleNamespaces(t *testing.T) {
 	testRequestKube(t, &Exporter{
 		KubeIncludeNamespaces: []string{"default", "kube-system"},
 	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 20)
+		checkMetricsCount(t, m, 21)
 	})
 }
 
@@ -133,7 +133,7 @@ func TestKubeIncludeExcludeNamespaceMix2(t *testing.T) {
 		KubeIncludeNamespaces: []string{"default", "kube-system"},
 		KubeExcludeNamespaces: []string{"kube-system"},
 	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 10)
+		checkMetricsCount(t, m, 11)
 	})
 }
 

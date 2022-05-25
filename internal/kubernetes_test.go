@@ -181,7 +181,7 @@ func TestKubeExcludeExistingLabelWithoutValue(t *testing.T) {
 	testRequestKube(t, &Exporter{
 		KubeExcludeLabels: []string{"test"},
 	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 0)
+		checkMetricsCount(t, m, 1)
 	})
 }
 
@@ -189,7 +189,7 @@ func TestKubeExcludeNonExistingLabelWithoutValue(t *testing.T) {
 	testRequestKube(t, &Exporter{
 		KubeExcludeLabels: []string{"xxxx"},
 	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 20)
+		checkMetricsCount(t, m, 21)
 	})
 }
 
@@ -197,7 +197,7 @@ func TestKubeExcludeExistingLabelWithValue(t *testing.T) {
 	testRequestKube(t, &Exporter{
 		KubeExcludeLabels: []string{"aze=abc"},
 	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 0)
+		checkMetricsCount(t, m, 1)
 	})
 }
 
@@ -205,7 +205,7 @@ func TestKubeExcludeNonExistingLabelWithValue(t *testing.T) {
 	testRequestKube(t, &Exporter{
 		KubeExcludeLabels: []string{"xxx=xxx"},
 	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 20)
+		checkMetricsCount(t, m, 21)
 	})
 }
 
@@ -213,7 +213,7 @@ func TestKubeExcludeExistingLabelWithNonExistingValue(t *testing.T) {
 	testRequestKube(t, &Exporter{
 		KubeExcludeLabels: []string{"aze=xxx"},
 	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 20)
+		checkMetricsCount(t, m, 21)
 	})
 }
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"enix.io/x509-certificate-exporter/internal"
+	"github.com/enix/x509-certificate-exporter/internal"
 	getopt "github.com/pborman/getopt/v2"
 	log "github.com/sirupsen/logrus"
 )

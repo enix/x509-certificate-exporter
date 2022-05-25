@@ -5,7 +5,7 @@ FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.17-alpine as build
 ARG TARGETOS
 ARG TARGETARCH
 
-WORKDIR $GOPATH/src/enix.io/x509-certificate-exporter
+WORKDIR $GOPATH/src/github.com/enix/x509-certificate-exporter
 
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -20,7 +20,7 @@ ENV GOARCH=${TARGETARCH}
 
 ARG VERSION="0.0.0"
 
-RUN go build -tags netgo,osusergo -ldflags "-X \"enix.io/x509-certificate-exporter/internal.Version=${VERSION}\"" ./cmd/x509-certificate-exporter
+RUN go build -tags netgo,osusergo -ldflags "-X \"github.com/enix/x509-certificate-exporter/internal.Version=${VERSION}\"" ./cmd/x509-certificate-exporter
 
 
 ## Production Stage
@@ -36,7 +36,7 @@ LABEL maintainer="Enix <no-reply@enix.fr>" \
 
 FROM --platform=${TARGETPLATFORM:-linux/amd64} alpine:3.14
 
-COPY --from=build /go/src/enix.io/x509-certificate-exporter/x509-certificate-exporter /x509-certificate-exporter
+COPY --from=build /go/src/github.com/enix/x509-certificate-exporter/x509-certificate-exporter /x509-certificate-exporter
 
 EXPOSE 9793/tcp
 

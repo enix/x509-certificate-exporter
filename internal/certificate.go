@@ -208,7 +208,7 @@ func searchYAMLFile(filename, expr string) (string, error) {
 
 	results, err := jsonpath.Read(raw, expr)
 	if err != nil {
-		return "", err
+		return "", nil
 	}
 
 	if texts, ok := results.([]interface{}); ok {

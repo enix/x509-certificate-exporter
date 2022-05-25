@@ -589,6 +589,15 @@ func TestTrimPath(t *testing.T) {
 	})
 }
 
+func TestDuplicateCertificate(t *testing.T) {
+	testRequest(t, &Exporter{
+		Files: []string{"../test/bad/duplicate.pem"},
+	}, func(metrics []model.MetricFamily) {
+		metric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 1., metric[0].GetGauge().GetValue())
+	})
+}
+
 func TestExposeLabels(t *testing.T) {
 	certPath := "/tmp/test.pem"
 	generateCertificate(certPath, time.Now())

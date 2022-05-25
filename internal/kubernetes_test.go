@@ -21,6 +21,7 @@ import (
 var sharedKubeClient *kubernetes.Clientset
 
 func TestMain(m *testing.M) {
+	var err error
 	log.SetLevel(log.DebugLevel)
 
 	output, err := exec.Command("bash", "-c", "kubectl --insecure-skip-tls-verify config view --raw > kubeconfig").CombinedOutput()
@@ -58,18 +59,20 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	addKubeSecrets(10, "default")
+	err = addKubeSecrets(10, "default")
+	if err != nil {
+		cleanupSecrets()
+		addKubeSecrets(10, "default")
+	}
+
 	addKubeSecrets(10, "kube-system")
 	addCustomKubeSecret()
 	addBrokenKubeSecret()
+	addBrokenKubeSecret2()
 
 	status := m.Run()
 
-	removeAllKubeSecrets(10, "default")
-	removeAllKubeSecrets(10, "kube-system")
-	removeCustomKubeSecret()
-	removeBrokenKubeSecret()
-
+	cleanupSecrets()
 	os.Remove("kubeconfig")
 	os.Remove("kubeconfig.x509-certificate-exporter")
 	os.Remove("kubeconfig.x509-certificate-exporter-list")
@@ -347,6 +350,16 @@ func TestKubeInvalidSecretType(t *testing.T) {
 	})
 }
 
+func TestKubeEmptyStringKey(t *testing.T) {
+	testRequestKube(t, &Exporter{
+		KubeIncludeLabels: []string{"empty=true"},
+		KubeSecretTypes:   []string{"kubernetes.io/tls:tls.crt", "kubernetes.io/tls:tls.key", "kubernetes.io/tls:nil.key"},
+	}, func(m []model.MetricFamily) {
+		metrics := getMetricsForName(m, "x509_read_errors")
+		assert.Equal(t, 0., metrics[0].GetGauge().GetValue())
+	})
+}
+
 func TestKubeConnectionFromInsideFailure(t *testing.T) {
 	e := &Exporter{}
 	err := e.ConnectToKubernetesCluster("")
@@ -369,18 +382,18 @@ func checkMetricsCount(t *testing.T, allMetrics []model.MetricFamily, count int)
 	assert.Len(t, naMetrics, count, "invalid number of x509_cert_not_after metrics")
 }
 
-func addKubeSecrets(count int, ns string) {
+func addKubeSecrets(count int, ns string) error {
 	for index := 0; index < count; index++ {
 		certPath := fmt.Sprintf("/tmp/test-%s-%d.crt", ns, index)
 		generateCertificate(certPath, time.Now())
 		cert, err := os.ReadFile(certPath)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		key, err := os.ReadFile(certPath + ".key")
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		_, err = sharedKubeClient.CoreV1().Secrets(ns).Create(context.Background(), &v1.Secret{
@@ -400,9 +413,11 @@ func addKubeSecrets(count int, ns string) {
 		}, metav1.CreateOptions{})
 
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
+
+	return nil
 }
 
 func addCustomKubeSecret() {
@@ -444,9 +459,36 @@ func addBrokenKubeSecret() {
 		Data: map[string][]byte{
 			"tls.crt": corruptedData,
 			"tls.key": {},
+			"nil.crt": nil,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "corrupted-pem-data",
+		},
+	}, metav1.CreateOptions{})
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func addBrokenKubeSecret2() {
+	data, err := os.ReadFile("../test/basic.pem")
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = sharedKubeClient.CoreV1().Secrets("default").Create(context.Background(), &v1.Secret{
+		Type: "kubernetes.io/tls",
+		Data: map[string][]byte{
+			"tls.crt": data,
+			"tls.key": {},
+			"nil.crt": nil,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "empty-pem-data",
+			Labels: map[string]string{
+				"empty": "true",
+			},
 		},
 	}, metav1.CreateOptions{})
 
@@ -459,6 +501,10 @@ func removeBrokenKubeSecret() {
 	sharedKubeClient.CoreV1().Secrets("default").Delete(context.TODO(), "corrupted-pem-data", metav1.DeleteOptions{})
 }
 
+func removeBrokenKubeSecret2() {
+	sharedKubeClient.CoreV1().Secrets("default").Delete(context.TODO(), "empty-pem-data", metav1.DeleteOptions{})
+}
+
 func removeAllKubeSecrets(count int, ns string) {
 	for index := 0; index < count; index++ {
 		name := fmt.Sprintf("test-%s-%d.crt", ns, index)
@@ -469,4 +515,12 @@ func removeAllKubeSecrets(count int, ns string) {
 
 		removeGeneratedCertificate(path.Join("/tmp", name))
 	}
+}
+
+func cleanupSecrets() {
+	removeAllKubeSecrets(10, "default")
+	removeAllKubeSecrets(10, "kube-system")
+	removeCustomKubeSecret()
+	removeBrokenKubeSecret()
+	removeBrokenKubeSecret2()
 }

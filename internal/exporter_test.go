@@ -509,7 +509,7 @@ func TestInvalidYAMLMatchExpr(t *testing.T) {
 		YAMLPaths: []YAMLCertRef{
 			{
 				CertMatchExpr: "$.clusters[:].cluster[\"certificate-authority-data\"]",
-				IDMatchExpr:   "$.invalid",
+				IDMatchExpr:   "$.clusters[0]",
 				Format:        YAMLCertFormatBase64,
 			},
 		},

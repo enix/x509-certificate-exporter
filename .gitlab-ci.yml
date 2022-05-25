@@ -62,6 +62,7 @@ test:
     - go tool cover -html=coverage.cov -o coverage.html
   after_script:
     - kind delete cluster --name $CI_PIPELINE_ID
+  coverage: '/coverage: (\d+\.\d+)% of statements/'
   artifacts:
     paths:
       - coverage.html

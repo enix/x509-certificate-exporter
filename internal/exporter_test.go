@@ -598,6 +598,17 @@ func TestDuplicateCertificate(t *testing.T) {
 	})
 }
 
+func TestDuplicateCertificate2(t *testing.T) {
+	testRequest(t, &Exporter{
+		Files:     []string{"../test/basic.pem"},
+		YAMLs:     []string{"../test/bad/yaml-basic.conf"},
+		YAMLPaths: DefaultYamlPaths,
+	}, func(metrics []model.MetricFamily) {
+		metric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 0., metric[0].GetGauge().GetValue())
+	})
+}
+
 func TestBadBase64StringInYAML(t *testing.T) {
 	testRequest(t, &Exporter{
 		YAMLs:     []string{"../test/bad/yaml-bad-base64.conf"},

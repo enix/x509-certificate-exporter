@@ -145,25 +145,16 @@ func (exporter *Exporter) filterSecrets(secrets []v1.Secret, includedLabels, exc
 	filteredSecrets := []v1.Secret{}
 
 	for _, secret := range secrets {
-		validKeyCount := 0
-
-		hasIncludedType := false
-		for _, secretType := range exporter.KubeSecretTypes {
-			typeAndKey := strings.Split(secretType, ":")
-
-			if len(typeAndKey) != 2 {
-				return nil, fmt.Errorf("malformed kube secret type: \"%s\"", secretType)
-			}
-
-			if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
-				hasIncludedType = true
-			}
+		hasIncludedType, err := exporter.checkHasIncludedType(&secret)
+		if err != nil {
+			return nil, err
 		}
 
 		if !hasIncludedType {
 			continue
 		}
 
+		validKeyCount := 0
 		for _, expectedKey := range includedLabels {
 			for key := range secret.GetLabels() {
 				if key == expectedKey {
@@ -198,6 +189,22 @@ func (exporter *Exporter) filterSecrets(secrets []v1.Secret, includedLabels, exc
 	}
 
 	return filteredSecrets, nil
+}
+
+func (exporter *Exporter) checkHasIncludedType(secret *v1.Secret) (bool, error) {
+	for _, secretType := range exporter.KubeSecretTypes {
+		typeAndKey := strings.Split(secretType, ":")
+
+		if len(typeAndKey) != 2 {
+			return false, fmt.Errorf("malformed kube secret type: \"%s\"", secretType)
+		}
+
+		if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func connectToKubernetesCluster(kubeconfigPath string, insecure bool) (*kubernetes.Clientset, error) {

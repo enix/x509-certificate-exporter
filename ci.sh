@@ -4,6 +4,10 @@ version="$1"
 notes="$2"
 containsSecurityUpdates="$3"
 
+if [ "$version" = "" ]; then
+	echo "Skipping x509 certificate exporter release because no version parameter was passed to the CI script"
+fi
+
 prerelease="false"
 versionComponents=(${version//-/ })
 

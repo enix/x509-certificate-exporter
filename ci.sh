@@ -6,6 +6,7 @@ containsSecurityUpdates="$3"
 
 if [ "$version" = "" ]; then
 	echo "Skipping x509 certificate exporter release because no version parameter was passed to the CI script"
+	exit
 fi
 
 prerelease="false"

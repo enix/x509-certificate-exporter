@@ -95,11 +95,12 @@ semantic-release:
   when: manual
   script:
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
-    - semantic-release --ci
+    - semantic-release --ci | tee release.log
+    - export VERSION=$(cat release.log | grep "Published release" | awk '{ print $8 }')
     - >
       echo '{}'
       | jq '.event_type = "x509 Certificate Exporter Automatic Release"'
-      | jq --arg ref "$CI_COMMIT_REF_SLUG" '.client_payload.ref = $ARGS.named["ref"]'
+      | jq --arg ref "v$VERSION" '.client_payload.ref = $ARGS.named["ref"]'
       | jq --arg notes "$(cat CHANGELOG.md)" '.client_payload.notes = $ARGS.named["notes"]'
       | jq '.client_payload.containsSecurityUpdates = ${CONTAINS_SECURITY_UPDATES:-false}'
       > body.json

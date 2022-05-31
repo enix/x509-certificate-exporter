@@ -97,7 +97,6 @@ semantic-release:
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
     - semantic-release --ci | tee release.log
     - export VERSION=$(cat release.log | grep "Published release" | awk '{ print $8 }')
-    - echo token "'$GITHUB_TOKEN_HELM_CHARTS'"
     - >
       echo '{}'
       | jq '.event_type = "x509 Certificate Exporter Automatic Release"'
@@ -106,7 +105,7 @@ semantic-release:
       | jq ".client_payload.containsSecurityUpdates = \"${CONTAINS_SECURITY_UPDATES:-false}\""
       > body.json
     - >
-      curl -X POST 'https://api.github.com/repos/enix/helm-charts/dispatches' -d "$(cat body.json)" -H 'Authorization: Bearer $GITHUB_TOKEN_HELM_CHARTS'
+      curl -X POST 'https://api.github.com/repos/enix/helm-charts/dispatches' -d "$(cat body.json)" -H "Authorization: Bearer $GITHUB_TOKEN_HELM_CHARTS"
 
 release-assets:
   stage: release

@@ -96,14 +96,14 @@ semantic-release:
   script:
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
     - semantic-release --ci
-    - |-
+    - >
       echo '{}'
-      | jq '.event_type = "release"'
+      | jq '.event_type = "x509 Certificate Exporter Automatic Release"'
       | jq --arg ref "$CI_COMMIT_REF_SLUG" '.client_payload.ref = $ARGS.named["ref"]'
       | jq --arg notes "$(cat CHANGELOG.md)" '.client_payload.notes = $ARGS.named["notes"]'
       | jq '.client_payload.containsSecurityUpdates = ${CONTAINS_SECURITY_UPDATES:-false}'
       > body.json
-    - |-
+    - >
       curl -X POST 'https://api.github.com/repos/enix/helm-charts/dispatches' -d "$(cat body.json)" -H 'Authorization: Bearer $GITHUB_TOKEN'
 
 release-assets:

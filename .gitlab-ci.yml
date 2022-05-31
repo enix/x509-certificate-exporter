@@ -97,6 +97,7 @@ semantic-release:
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
     - semantic-release --ci | tee release.log
     - export VERSION=$(cat release.log | grep "Published release" | awk '{ print $8 }')
+    - echo token "'$GITHUB_TOKEN_HELM_CHARTS'"
     - >
       echo '{}'
       | jq '.event_type = "x509 Certificate Exporter Automatic Release"'

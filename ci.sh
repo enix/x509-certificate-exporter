@@ -16,6 +16,8 @@ if [ ! -z "${versionComponents[1]}" ]; then
 	prerelease="true"
 fi
 
+echo "Releasing x509 certificate exporter version: $version (prerelease: $prerelease)"
+
 yq -i ".version = \"$version\"" Chart.yaml
 yq -i ".appVersion = \"$version\"" Chart.yaml
 yq -i ".annotations[\"artifacthub.io/prerelease\"] = \"$prerelease\"" Chart.yaml

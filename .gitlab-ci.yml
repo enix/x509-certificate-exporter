@@ -105,7 +105,7 @@ semantic-release:
       | jq ".client_payload.containsSecurityUpdates = \"${CONTAINS_SECURITY_UPDATES:-false}\""
       > body.json
     - >
-      curl -X POST 'https://api.github.com/repos/enix/helm-charts/dispatches' -d "$(cat body.json)" -H 'Authorization: Bearer $GITHUB_TOKEN'
+      curl -X POST 'https://api.github.com/repos/enix/helm-charts/dispatches' -d "$(cat body.json)" -H 'Authorization: Bearer $GITHUB_TOKEN_HELM_CHARTS'
 
 release-assets:
   stage: release

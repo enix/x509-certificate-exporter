@@ -95,17 +95,7 @@ semantic-release:
   when: manual
   script:
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
-    - semantic-release --ci | tee release.log
-    - export VERSION=$(cat release.log | grep "Published release" | awk '{ print $8 }')
-    - >
-      echo '{}'
-      | jq '.event_type = "x509 Certificate Exporter Automatic Release"'
-      | jq --arg ref "$VERSION" '.client_payload.ref = $ARGS.named["ref"]'
-      | jq --arg notes "$(cat CHANGELOG.md)" '.client_payload.notes = $ARGS.named["notes"]'
-      | jq ".client_payload.contains_security_updates = \"${CONTAINS_SECURITY_UPDATES:-false}\""
-      > body.json
-    - >
-      curl -X POST 'https://api.github.com/repos/enix/helm-charts/dispatches' -d "$(cat body.json)" -H "Authorization: Bearer $GITHUB_TOKEN_HELM_CHARTS"
+    - semantic-release --ci
 
 release-assets:
   stage: release
@@ -150,3 +140,22 @@ quay:
     - export PUBLIC_IMAGE_TAG_LATEST="$QUAY_REPOSITORY/$CI_PROJECT_NAME:latest"
     - skopeo --insecure-policy copy --all --src-creds "$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD" --dest-creds "$QUAY_USER:$QUAY_PASSWORD" "docker://${IMAGE_TAG}" "docker://${PUBLIC_IMAGE_TAG}"
     - skopeo --insecure-policy copy --all --src-creds "$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD" --dest-creds "$QUAY_USER:$QUAY_PASSWORD" "docker://${IMAGE_TAG_LATEST}" "docker://${PUBLIC_IMAGE_TAG_LATEST}"
+
+chart:
+  extends:
+    - .only-semver
+  stage: release
+  needs:
+    - docker-hub
+    - quay
+  script:
+    - curl -sL https://api.github.com/repos/enix/x509-certificate-exporter/releases/tags/${CI_COMMIT_REF_NAME} | jq -r .body > CHANGELOG.md
+    - >
+      echo '{}'
+      | jq '.event_type = "x509 Certificate Exporter Automatic Release"'
+      | jq --arg ref "$(cat CHANGELOG.md)" '.client_payload.ref = $ARGS.named["ref"]'
+      | jq --arg notes "$NOTES" '.client_payload.notes = $ARGS.named["notes"]'
+      | jq ".client_payload.contains_security_updates = \"${CONTAINS_SECURITY_UPDATES:-false}\""
+      > body.json
+    - >
+      curl -X POST 'https://api.github.com/repos/enix/helm-charts/dispatches' -d "$(cat body.json)" -H "Authorization: Bearer $GITHUB_TOKEN_HELM_CHARTS"

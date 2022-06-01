@@ -102,7 +102,7 @@ semantic-release:
       | jq '.event_type = "x509 Certificate Exporter Automatic Release"'
       | jq --arg ref "$VERSION" '.client_payload.ref = $ARGS.named["ref"]'
       | jq --arg notes "$(cat CHANGELOG.md)" '.client_payload.notes = $ARGS.named["notes"]'
-      | jq ".client_payload.containsSecurityUpdates = \"${CONTAINS_SECURITY_UPDATES:-false}\""
+      | jq ".client_payload.contains_security_updates = \"${CONTAINS_SECURITY_UPDATES:-false}\""
       > body.json
     - >
       curl -X POST 'https://api.github.com/repos/enix/helm-charts/dispatches' -d "$(cat body.json)" -H "Authorization: Bearer $GITHUB_TOKEN_HELM_CHARTS"

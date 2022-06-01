@@ -221,6 +221,10 @@ func (exporter *Exporter) shrinkSecret(secret v1.Secret) (v1.Secret, error) {
 	result := v1.Secret{
 		Type: secret.Type,
 		Data: map[string][]byte{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secret.Name,
+			Namespace: secret.Namespace,
+		},
 	}
 
 	for _, secretType := range exporter.KubeSecretTypes {
@@ -235,7 +239,7 @@ func (exporter *Exporter) shrinkSecret(secret v1.Secret) (v1.Secret, error) {
 		}
 	}
 
-	return result, nil
+	return secret, nil
 }
 
 func connectToKubernetesCluster(kubeconfigPath string, insecure bool) (*kubernetes.Clientset, error) {

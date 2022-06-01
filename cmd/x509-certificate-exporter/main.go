@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path"
 	"strings"
@@ -22,6 +24,7 @@ func main() {
 	exposeRelativeMetrics := getopt.BoolLong("expose-relative-metrics", 0, "expose additionnal metrics with relative durations instead of absolute timestamps")
 	exposeErrorMetrics := getopt.BoolLong("expose-per-cert-error-metrics", 0, "expose additionnal error metric for each certificate indicating wether it has failure(s)")
 	exposeLabels := getopt.StringLong("expose-labels", 'l', "one or more comma-separated labels to enable (defaults to all if not specified)")
+	profile := getopt.BoolLong("profile", 0, "optionally enable a pprof server to monitor cpu and memory usage at runtime")
 
 	maxCacheDuration := durationFlag(0)
 	getopt.FlagLong(&maxCacheDuration, "max-cache-duration", 0, "maximum cache duration for kube secrets. cache is per namespace and randomized to avoid massive requests.")
@@ -66,6 +69,11 @@ func main() {
 
 	if *debug {
 		log.SetLevel(log.DebugLevel)
+	}
+
+	if *profile {
+		log.Infoln("pprof server listening on :6060")
+		go http.ListenAndServe(":6060", nil)
 	}
 
 	exporter := internal.Exporter{

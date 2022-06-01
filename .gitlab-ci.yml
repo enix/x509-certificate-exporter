@@ -100,7 +100,7 @@ semantic-release:
     - >
       echo '{}'
       | jq '.event_type = "x509 Certificate Exporter Automatic Release"'
-      | jq --arg ref "v$VERSION" '.client_payload.ref = $ARGS.named["ref"]'
+      | jq --arg ref "$VERSION" '.client_payload.ref = $ARGS.named["ref"]'
       | jq --arg notes "$(cat CHANGELOG.md)" '.client_payload.notes = $ARGS.named["notes"]'
       | jq ".client_payload.containsSecurityUpdates = \"${CONTAINS_SECURITY_UPDATES:-false}\""
       > body.json

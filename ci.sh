@@ -22,4 +22,10 @@ yq -i ".version = \"$version\"" Chart.yaml
 yq -i ".appVersion = \"$version\"" Chart.yaml
 yq -i ".annotations[\"artifacthub.io/prerelease\"] = \"$prerelease\"" Chart.yaml
 yq -i ".annotations[\"artifacthub.io/containsSecurityUpdates\"] = \"$containsSecurityUpdates\"" Chart.yaml
-yq -i ".annotations[\"artifacthub.io/changes\"] = \"$(echo "$notes" | sed "s/\\\"/\\\\\"/g")\"" Chart.yaml
+
+yq -i ".annotations[\"artifacthub.io/changes\"] = \"\"" Chart.yaml
+IFS=$'\n'
+for line in $notes; do
+	yq -i ".annotations[\"artifacthub.io/changes\"] += \"- $(echo "$line" | sed "s/\\\"/\\\\\"/g")\"" Chart.yaml
+	yq -i $'.annotations[\"artifacthub.io/changes\"] += "\n"' Chart.yaml
+done

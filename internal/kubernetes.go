@@ -135,10 +135,20 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 		return nil, err
 	}
 
+	shrinkedSecrets := []v1.Secret{}
+	for _, secret := range filteredSecrets {
+		shrinkedSecret, err := exporter.shrinkSecret(secret)
+		if err != nil {
+			return nil, err
+		}
+
+		shrinkedSecrets = append(shrinkedSecrets, shrinkedSecret)
+	}
+
 	halfDuration := float64(exporter.MaxCacheDuration.Nanoseconds()) / 2
 	cacheDuration := halfDuration*float64(rand.Float64()) + halfDuration
-	exporter.secretsCache.Set(namespace, filteredSecrets, time.Duration(cacheDuration))
-	return filteredSecrets, nil
+	exporter.secretsCache.Set(namespace, shrinkedSecrets, time.Duration(cacheDuration))
+	return shrinkedSecrets, nil
 }
 
 func (exporter *Exporter) filterSecrets(secrets []v1.Secret, includedLabels, excludedLabels []string, excludedLabelsWithValue map[string]string) ([]v1.Secret, error) {
@@ -205,6 +215,27 @@ func (exporter *Exporter) checkHasIncludedType(secret *v1.Secret) (bool, error) 
 	}
 
 	return false, nil
+}
+
+func (exporter *Exporter) shrinkSecret(secret v1.Secret) (v1.Secret, error) {
+	result := v1.Secret{
+		Type: secret.Type,
+		Data: map[string][]byte{},
+	}
+
+	for _, secretType := range exporter.KubeSecretTypes {
+		typeAndKey := strings.Split(secretType, ":")
+
+		if len(typeAndKey) != 2 {
+			return result, fmt.Errorf("malformed kube secret type: \"%s\"", secretType)
+		}
+
+		if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
+			result.Data[typeAndKey[1]] = secret.Data[typeAndKey[1]]
+		}
+	}
+
+	return result, nil
 }
 
 func connectToKubernetesCluster(kubeconfigPath string, insecure bool) (*kubernetes.Clientset, error) {

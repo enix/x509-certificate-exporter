@@ -149,6 +149,8 @@ chart:
     - docker-hub
     - quay
   script:
+    - apt update -y
+    - apt install -y curl jq
     - curl -sL https://api.github.com/repos/enix/x509-certificate-exporter/releases/tags/${CI_COMMIT_REF_NAME} | jq -r .body > CHANGELOG.md
     - >
       echo '{}'

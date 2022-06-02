@@ -217,7 +217,7 @@ func (exporter *Exporter) checkHasIncludedType(secret *v1.Secret) (bool, error) 
 	return false, nil
 }
 
-func (exporter *Exporter) shrinkSecret(secret v1.Secret) (v1.Secret, error) {
+func (exporter *Exporter) shrinkSecret(secret v1.Secret) v1.Secret {
 	result := v1.Secret{
 		Type: secret.Type,
 		Data: map[string][]byte{},
@@ -229,17 +229,12 @@ func (exporter *Exporter) shrinkSecret(secret v1.Secret) (v1.Secret, error) {
 
 	for _, secretType := range exporter.KubeSecretTypes {
 		typeAndKey := strings.Split(secretType, ":")
-
-		if len(typeAndKey) != 2 {
-			return result, fmt.Errorf("malformed kube secret type: \"%s\"", secretType)
-		}
-
 		if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
 			result.Data[typeAndKey[1]] = secret.Data[typeAndKey[1]]
 		}
 	}
 
-	return secret, nil
+	return secret
 }
 
 func connectToKubernetesCluster(kubeconfigPath string, insecure bool) (*kubernetes.Clientset, error) {

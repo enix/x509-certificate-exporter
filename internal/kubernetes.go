@@ -137,12 +137,7 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 
 	shrinkedSecrets := []v1.Secret{}
 	for _, secret := range filteredSecrets {
-		shrinkedSecret, err := exporter.shrinkSecret(secret)
-		if err != nil {
-			return nil, err
-		}
-
-		shrinkedSecrets = append(shrinkedSecrets, shrinkedSecret)
+		shrinkedSecrets = append(shrinkedSecrets, exporter.shrinkSecret(secret))
 	}
 
 	halfDuration := float64(exporter.MaxCacheDuration.Nanoseconds()) / 2

@@ -156,8 +156,8 @@ chart:
     - >
       echo '{}'
       | jq '.event_type = "x509 Certificate Exporter Automatic Release"'
-      | jq --arg ref "$(cat CHANGELOG.md)" '.client_payload.ref = $ARGS.named["ref"]'
-      | jq --arg notes "$NOTES" '.client_payload.notes = $ARGS.named["notes"]'
+      | jq --arg ref "${CI_COMMIT_REF_NAME:1}" '.client_payload.ref = $ARGS.named["ref"]'
+      | jq --arg notes "$(cat CHANGELOG.md)" '.client_payload.notes = $ARGS.named["notes"]'
       | jq ".client_payload.contains_security_updates = \"${CONTAINS_SECURITY_UPDATES:-false}\""
       > body.json
     - >

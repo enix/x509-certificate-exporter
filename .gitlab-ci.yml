@@ -145,6 +145,7 @@ chart:
   extends:
     - .only-semver
   stage: release
+  image: debian
   needs:
     - docker-hub
     - quay

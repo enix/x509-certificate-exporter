@@ -566,17 +566,19 @@ in the container namespace.
 | service.extraLabels | object | `{}` | Extra labels to add to the Service |
 | prometheusServiceMonitor.create | bool | `true` | Should a ServiceMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |
 | prometheusServiceMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the ServiceMonitor |
-| prometheusServiceMonitor.scrapeTimeout | string | `"10s"` | Target scrape timeout set in the ServiceMonitor |
+| prometheusServiceMonitor.scrapeTimeout | string | `"30s"` | Target scrape timeout set in the ServiceMonitor |
 | prometheusServiceMonitor.extraLabels | object | `{}` | Extra labels to add on ServiceMonitor ressources |
 | prometheusServiceMonitor.relabelings | object | `{}` | Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig |
 | prometheusPodMonitor.create | bool | `false` | Should a PodMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |
 | prometheusPodMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the PodMonitor |
-| prometheusPodMonitor.scrapeTimeout | string | `"10s"` | Target scrape timeout set in the PodMonitor |
+| prometheusPodMonitor.scrapeTimeout | string | `"30s"` | Target scrape timeout set in the PodMonitor |
 | prometheusPodMonitor.extraLabels | object | `{}` | Extra labels to add on PodMonitor ressources |
 | prometheusPodMonitor.relabelings | object | `{}` | Relabel config for the PodMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig |
 | prometheusRules.create | bool | `true` | Should a PrometheusRule ressource be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users. |
 | prometheusRules.alertOnReadErrors | bool | `true` | Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions. |
 | prometheusRules.readErrorsSeverity | string | `"warning"` | Severity for the X509ExporterReadErrors alerting rule |
+| prometheusRules.alertOnCertificateErrors | bool | `true` | Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too. |
+| prometheusRules.certificateErrorsSeverity | string | `"warning"` | Severity for the CertificateError alerting rule |
 | prometheusRules.warningDaysLeft | int | `28` | Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29) |
 | prometheusRules.criticalDaysLeft | int | `14` | Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue) |
 | prometheusRules.extraLabels | object | `{}` | Extra labels to add on PrometheusRule ressources |

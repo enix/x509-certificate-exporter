@@ -151,7 +151,7 @@ chart:
     - quay
   before_script:
     - apt update -y
-    - apt install -y curl jq yq
+    - apt install -y curl jq
     - curl -sSL 'https://github.com/helm/chart-releaser/releases/download/v1.4.0/chart-releaser_1.4.0_linux_amd64.tar.gz' | tar xz
     - mv cr /usr/bin/cr
     - curl -sSL 'https://github.com/mikefarah/yq/releases/download/v4.25.2/yq_linux_amd64.tar.gz | tar xz

@@ -150,10 +150,12 @@ chart:
     - docker-hub
     - quay
   before_script:
-    - add-apt-repository ppa:rmescandon/yq
     - apt update -y
     - apt install -y curl jq yq
     - curl -sSL 'https://github.com/helm/chart-releaser/releases/download/v1.4.0/chart-releaser_1.4.0_linux_amd64.tar.gz' | tar xz
+    - mv cr /usr/bin/cr
+    - curl -sSL 'https://github.com/mikefarah/yq/releases/download/v4.25.2/yq_linux_amd64.tar.gz | tar xz
+    - mv yq_linux_amd64 /usr/bin/yq
   script:
     - cd deploy/chart
     - curl -sL "https://api.github.com/repos/enix/x509-certificate-exporter/releases/tags/${CI_COMMIT_REF_NAME}" | jq -r .body > CHANGELOG.md

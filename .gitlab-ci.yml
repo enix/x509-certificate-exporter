@@ -164,4 +164,4 @@ chart:
     - git clone https://github.com/enix/helm-charts $CHARTS_DIRECTORY
     - mkdir -p $CHARTS_DIRECTORY/charts/x509-certificate-exporter
     - cp -r ** $CHARTS_DIRECTORY/charts/x509-certificate-exporter
-    - CR_SKIP_EXISTING=true cr upload --charts-repo-url 'https://charts.enix.io/'
+    - cr upload --skip-existing

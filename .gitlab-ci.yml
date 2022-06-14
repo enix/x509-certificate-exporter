@@ -149,16 +149,16 @@ chart:
   needs:
     - docker-hub
     - quay
-  script:
+  before_script:
     - apt update -y
     - apt install -y curl jq
-    - curl -sL https://api.github.com/repos/enix/x509-certificate-exporter/releases/tags/${CI_COMMIT_REF_NAME} | jq -r .body > CHANGELOG.md
-    - >
-      echo '{}'
-      | jq '.event_type = "x509 Certificate Exporter Automatic Release"'
-      | jq --arg ref "${CI_COMMIT_REF_NAME:1}" '.client_payload.ref = $ARGS.named["ref"]'
-      | jq --arg notes "$(cat CHANGELOG.md)" '.client_payload.notes = $ARGS.named["notes"]'
-      | jq ".client_payload.contains_security_updates = \"${CONTAINS_SECURITY_UPDATES:-false}\""
-      > body.json
-    - >
-      curl -X POST 'https://api.github.com/repos/enix/helm-charts/dispatches' -d "$(cat body.json)" -H "Authorization: Bearer $GITHUB_TOKEN_HELM_CHARTS"
+    - curl -sSL 'https://github.com/helm/chart-releaser/releases/download/v1.4.0/chart-releaser_1.4.0_linux_amd64.tar.gz' | tar xz
+  script:
+    - cd deploy/chart
+    - curl -sL "https://api.github.com/repos/enix/x509-certificate-exporter/releases/tags/${CI_COMMIT_REF_NAME}" | jq -r .body > CHANGELOG.md
+    - ./ci.sh "${CI_COMMIT_REF_NAME:1}" "$(cat CHANGELOG.md)" "${CONTAINS_SECURITY_UPDATES:-false}"
+    - export CHARTS_DIRECTORY=/tmp/charts
+    - git clone https://github.com/enix/helm-charts $CHARTS_DIRECTORY
+    - mkdir -p $CHARTS_DIRECTORY/charts/x509-certificate-exporter
+    - cp -r ** $CHARTS_DIRECTORY/charts/x509-certificate-exporter
+    - CR_SKIP_EXISTING=true cr upload --charts-repo-url 'https://charts.enix.io/'

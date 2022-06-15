@@ -166,3 +166,4 @@ chart:
     - cp -r ** $CHARTS_DIRECTORY/charts/x509-certificate-exporter
     - cr package $CHARTS_DIRECTORY/charts/x509-certificate-exporter
     - cr upload --skip-existing --owner enix --git-repo helm-charts
+    - cr index --push -i index.yaml --owner enix --git-repo helm-charts

@@ -156,6 +156,8 @@ chart:
     - mv cr /usr/bin/cr
     - curl -sSL 'https://github.com/mikefarah/yq/releases/download/v4.25.2/yq_linux_amd64.tar.gz' | tar xz
     - mv yq_linux_amd64 /usr/bin/yq
+    - git config --global user.name "Monkeynator"
+    - git config --global user.email "monkeynator@enix.io"
   script:
     - cd deploy/chart
     - curl -sL "https://api.github.com/repos/enix/x509-certificate-exporter/releases/tags/${CI_COMMIT_REF_NAME}" | jq -r .body > CHANGELOG.md

@@ -1,14 +1,10 @@
-# when bumping version, please:
-# - replace the "changes" annotation with new content
-# - update "containsSecurityUpdates" if needed
-version: 1.20.1
-appVersion: 2.12.0
+version: v0.0.0
+appVersion: v0.0.0
 annotations:
   artifacthub.io/containsSecurityUpdates: 'false'
   artifacthub.io/prerelease: 'false'
   artifacthub.io/license: MIT
-  artifacthub.io/changes: |
-    - "Reverted to exporter version 2.12.0, and defaults values from chart version 1.18.0 ; a bug is being investigated"
+  artifacthub.io/changes: ''
   artifacthub.io/links: |
     - name: Chart Sources
       url: https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter

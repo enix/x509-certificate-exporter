@@ -391,6 +391,8 @@ in the container namespace.
 | prometheusRules.readErrorsSeverity | string | `"warning"` | Severity for the X509ExporterReadErrors alerting rule |
 | prometheusRules.alertOnCertificateErrors | bool | `true` | Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too. |
 | prometheusRules.certificateErrorsSeverity | string | `"warning"` | Severity for the CertificateError alerting rule |
+| prometheusRules.certificateRenewalsSeverity | string | `"warning"` | Severity for the CertificateRenewal alerting rule |
+| prometheusRules.certificateExpirationsSeverity | string | `"critical"` | Severity for the CertificateExpiration alerting rule |
 | prometheusRules.warningDaysLeft | int | `28` | Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29) |
 | prometheusRules.criticalDaysLeft | int | `14` | Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue) |
 | prometheusRules.extraLabels | object | `{}` | Extra labels to add on PrometheusRule ressources |

@@ -264,6 +264,10 @@ prometheusRules:
   alertOnCertificateErrors: true
   # -- Severity for the CertificateError alerting rule
   certificateErrorsSeverity: warning
+  # -- Severity for the CertificateRenewal alerting rule
+  certificateRenewalsSeverity: warning
+  # -- Severity for the CertificateExpiration alerting rule
+  certificateExpirationsSeverity: critical
   # -- Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)
   warningDaysLeft: 28
   # -- Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)

@@ -34,4 +34,4 @@ done
 rawChanges="$(echo -n $changes | jq -R -s '.')"
 rawChanges="${rawChanges:1}"
 rawChanges="${rawChanges%?}"
-sed -i '' "s/artifacthub.io\\/changes:\ \'\'/artifacthub.io\\/changes: '$rawChanges'/g" Chart.yaml
+sed -i "s/artifacthub.io\\/changes:\ \'\'/artifacthub.io\\/changes: '$rawChanges'/g" Chart.yaml

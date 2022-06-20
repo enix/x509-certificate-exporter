@@ -32,6 +32,4 @@ for line in $notes; do
 done
 
 rawChanges="$(echo -n $changes | jq -R -s '.')"
-rawChanges="${rawChanges:1}"
-rawChanges="${rawChanges%?}"
-sed -i "s/artifacthub.io\\/changes:\ \'\'/artifacthub.io\\/changes: '$rawChanges'/g" Chart.yaml
+yq -i ".annotations[\"artifacthub.io/changes\"] = $rawChanges" Chart.yaml

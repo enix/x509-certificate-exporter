@@ -26,7 +26,9 @@ yq -i ".annotations[\"artifacthub.io/containsSecurityUpdates\"] = \"$containsSec
 changes="[]"
 IFS=$'\n'
 for line in $notes; do
-	changes=$(echo $changes | jq ". += [$(echo -n $line | jq -R -s '.')]")
+	if [[ "${line:0:1}" == "*" ]]; then
+		changes=$(echo $changes | jq ". += [$(echo -n ${line:2} | jq -R -s '.')]")
+	fi
 done
 
 rawChanges="$(echo -n $changes | jq -R -s '.')"

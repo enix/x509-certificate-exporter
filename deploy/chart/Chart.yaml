@@ -7,7 +7,7 @@ annotations:
   artifacthub.io/changes: ''
   artifacthub.io/links: |
     - name: Chart Sources
-      url: https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter
+      url: https://github.com/enix/x509-certificate-exporter/tree/master/deploy/chart
     - name: Application Sources
       url: https://github.com/enix/x509-certificate-exporter
     - name: Helm Repository
@@ -28,7 +28,6 @@ home: https://github.com/enix/x509-certificate-exporter
 icon: https://github.githubassets.com/images/icons/emoji/unicode/1f50f.png
 sources:
   - https://github.com/enix/x509-certificate-exporter
-  - https://github.com/enix/helm-charts/tree/master/charts/x509-certificate-exporter
 maintainers:
   - name: Enix
     email: contact@enix.fr

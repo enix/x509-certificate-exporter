@@ -1,4 +1,4 @@
-module github.com/enix/x509-certificate-exporter/v2
+module github.com/enix/x509-certificate-exporter/v3
 
 go 1.16
 

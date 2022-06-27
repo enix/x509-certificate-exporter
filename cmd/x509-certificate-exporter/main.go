@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/enix/x509-certificate-exporter/v2/internal"
+	"github.com/enix/x509-certificate-exporter/v3/internal"
 	getopt "github.com/pborman/getopt/v2"
 	log "github.com/sirupsen/logrus"
 )

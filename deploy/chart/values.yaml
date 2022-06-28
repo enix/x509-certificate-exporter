@@ -274,3 +274,7 @@ prometheusRules:
   criticalDaysLeft: 14
   # -- Extra labels to add on PrometheusRule ressources
   extraLabels: {}
+  # -- Extra labels to add on PrometheusRule rule
+  alertExtraLabels: {}
+  # -- Extra rulePrefix to PrometheusRule rule
+  rulePrefix: ""

@@ -103,6 +103,7 @@ release-assets:
   extends:
     - .only-semver
   script:
+    - set -o xtrace
     - export IFS=","
     - >
       for platform in $STANDALONE_PLATFORMS; do

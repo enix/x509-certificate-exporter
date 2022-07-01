@@ -254,23 +254,61 @@ prometheusPodMonitor:
   relabelings: {}
 
 prometheusRules:
-  # -- Should a PrometheusRule ressource be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users.
-  create: true
-  # -- Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions.
-  alertOnReadErrors: true
-  # -- Severity for the X509ExporterReadErrors alerting rule
-  readErrorsSeverity: warning
-  # -- Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too.
-  alertOnCertificateErrors: true
-  # -- Severity for the CertificateError alerting rule
-  certificateErrorsSeverity: warning
-  # -- Severity for the CertificateRenewal alerting rule
-  certificateRenewalsSeverity: warning
-  # -- Severity for the CertificateExpiration alerting rule
-  certificateExpirationsSeverity: critical
-  # -- Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)
-  warningDaysLeft: 28
-  # -- Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)
-  criticalDaysLeft: 14
-  # -- Extra labels to add on PrometheusRule ressources
-  extraLabels: {}
+  enabled: true
+  extraLabels:
+    prometheus: app-prometheus
+  rules:
+    - alert: 'X509ExporterReadErrors'
+      expr: delta(x509_read_errors[15m]) > 0
+      for: 5m
+      labels:
+        severity: "warning"
+        priority: P3
+        support_level: 8x5
+      annotations:
+        summary: 'Increasing read errors for x509-certificate-exporter'
+        description: >
+          Over the last 15 minutes, this {{ "{{ $labels.namespace }}" }}/x509-certificate-exporter
+          instance has experienced errors reading certificate files or querying the Kubernetes API.
+          This could be caused by a misconfiguration if triggered when the exporter starts.
+    - alert: 'CertificateError'
+      expr: x509_cert_error > 0
+      for: 15m
+      labels:
+        severity: "warning"
+        priority: P3
+        support_level: 8x5
+      annotations:
+        summary: 'Certificate cannot be decoded'
+        description: >
+          Certificate could not be decoded {{ "{{ if $labels.secret_name }}" }} in Kubernetes secret
+          "{{ "{{ $labels.secret_namespace }}/{{ $labels.secret_name }}" }}"
+          {{ "{{else}}" }}at location "{{ "{{ $labels.filepath }}" }}"{{ "{{end}}" }}
+    - alert: 'CertificateRenewal'
+      expr: ((x509_cert_not_after - time()) / 86400) < 28
+      for: 15m
+      labels:
+        severity: "warning"
+        priority: P3
+        support_level: 8x5
+      annotations:
+        summary: 'Certificate should be renewed'
+        description: >
+          Certificate for "{{ "{{ $labels.subject_CN }}" }}" should be
+          renewed {{ "{{ if $labels.secret_name }}" }} in Kubernetes secret
+          "{{ "{{ $labels.secret_namespace }}/{{ $labels.secret_name }}" }}"
+          {{ "{{else}}" }}at location "{{ "{{ $labels.filepath }}" }}"{{ "{{end}}" }}
+    - alert: 'CertificateExpiration'
+      expr: ((x509_cert_not_after - time()) / 86400) < 14
+      for: 15m
+      labels:
+        severity: "critical"
+        priority: P3
+        support_level: 8x5
+      annotations:
+        summary: 'Certificate is about to expire'
+        description: >
+          Certificate for "{{ "{{ $labels.subject_CN }}" }}" is about to expire
+          {{ "{{ if $labels.secret_name }}" }} in Kubernetes secret
+          "{{ "{{ $labels.secret_namespace }}/{{ $labels.secret_name }}" }}"
+          {{ "{{else}}" }}at location "{{ "{{ $labels.filepath }}" }}"{{ "{{end}}" }}

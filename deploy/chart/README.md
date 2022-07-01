@@ -386,18 +386,40 @@ in the container namespace.
 | prometheusPodMonitor.scrapeTimeout | string | `"30s"` | Target scrape timeout set in the PodMonitor |
 | prometheusPodMonitor.extraLabels | object | `{}` | Extra labels to add on PodMonitor ressources |
 | prometheusPodMonitor.relabelings | object | `{}` | Relabel config for the PodMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig |
-| prometheusRules.create | bool | `true` | Should a PrometheusRule ressource be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users. |
-| prometheusRules.alertOnReadErrors | bool | `true` | Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions. |
-| prometheusRules.readErrorsSeverity | string | `"warning"` | Severity for the X509ExporterReadErrors alerting rule |
-| prometheusRules.alertOnCertificateErrors | bool | `true` | Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too. |
-| prometheusRules.certificateErrorsSeverity | string | `"warning"` | Severity for the CertificateError alerting rule |
-| prometheusRules.certificateRenewalsSeverity | string | `"warning"` | Severity for the CertificateRenewal alerting rule |
-| prometheusRules.certificateExpirationsSeverity | string | `"critical"` | Severity for the CertificateExpiration alerting rule |
-| prometheusRules.warningDaysLeft | int | `28` | Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29) |
-| prometheusRules.criticalDaysLeft | int | `14` | Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue) |
-| prometheusRules.extraLabels | object | `{}` | Extra labels to add on PrometheusRule ressources |
-| prometheusRules.alertExtraLabels | object | `{}` | Extra labels to add on PrometheusRule rules |
-| prometheusRules.rulePrefix | string | `""` | Extra rulePrefix to PrometheusRule rules |
+| prometheusRules.enabled | bool | `true` |  |
+| prometheusRules.extraLabels | object | `{}` |  |
+| prometheusRules.rules[0].alert | string | `"X509ExporterReadErrors"` |  |
+| prometheusRules.rules[0].expr | string | `"delta(x509_read_errors[15m]) > 0"` |  |
+| prometheusRules.rules[0].for | string | `"5m"` |  |
+| prometheusRules.rules[0].labels.severity | string | `"warning"` |  |
+| prometheusRules.rules[0].labels.priority | string | `"P3"` |  |
+| prometheusRules.rules[0].labels.support_level | string | `"8x5"` |  |
+| prometheusRules.rules[0].annotations.summary | string | `"Increasing read errors for x509-certificate-exporter"` |  |
+| prometheusRules.rules[0].annotations.description | string | `"Over the last 15 minutes, this {{ \"{{ $labels.namespace }}\" }}/x509-certificate-exporter instance has experienced errors reading certificate files or querying the Kubernetes API. This could be caused by a misconfiguration if triggered when the exporter starts.\n"` |  |
+| prometheusRules.rules[1].alert | string | `"CertificateError"` |  |
+| prometheusRules.rules[1].expr | string | `"x509_cert_error > 0"` |  |
+| prometheusRules.rules[1].for | string | `"15m"` |  |
+| prometheusRules.rules[1].labels.severity | string | `"warning"` |  |
+| prometheusRules.rules[1].labels.priority | string | `"P3"` |  |
+| prometheusRules.rules[1].labels.support_level | string | `"8x5"` |  |
+| prometheusRules.rules[1].annotations.summary | string | `"Certificate cannot be decoded"` |  |
+| prometheusRules.rules[1].annotations.description | string | `"Certificate could not be decoded {{ \"{{ if $labels.secret_name }}\" }} in Kubernetes secret \"{{ \"{{ $labels.secret_namespace }}/{{ $labels.secret_name }}\" }}\" {{ \"{{else}}\" }}at location \"{{ \"{{ $labels.filepath }}\" }}\"{{ \"{{end}}\" }}\n"` |  |
+| prometheusRules.rules[2].alert | string | `"CertificateRenewal"` |  |
+| prometheusRules.rules[2].expr | string | `"((x509_cert_not_after - time()) / 86400) < 28"` |  |
+| prometheusRules.rules[2].for | string | `"15m"` |  |
+| prometheusRules.rules[2].labels.severity | string | `"warning"` |  |
+| prometheusRules.rules[2].labels.priority | string | `"P3"` |  |
+| prometheusRules.rules[2].labels.support_level | string | `"8x5"` |  |
+| prometheusRules.rules[2].annotations.summary | string | `"Certificate should be renewed"` |  |
+| prometheusRules.rules[2].annotations.description | string | `"Certificate for \"{{ \"{{ $labels.subject_CN }}\" }}\" should be renewed {{ \"{{ if $labels.secret_name }}\" }} in Kubernetes secret \"{{ \"{{ $labels.secret_namespace }}/{{ $labels.secret_name }}\" }}\" {{ \"{{else}}\" }}at location \"{{ \"{{ $labels.filepath }}\" }}\"{{ \"{{end}}\" }}\n"` |  |
+| prometheusRules.rules[3].alert | string | `"CertificateExpiration"` |  |
+| prometheusRules.rules[3].expr | string | `"((x509_cert_not_after - time()) / 86400) < 14"` |  |
+| prometheusRules.rules[3].for | string | `"15m"` |  |
+| prometheusRules.rules[3].labels.severity | string | `"critical"` |  |
+| prometheusRules.rules[3].labels.priority | string | `"P3"` |  |
+| prometheusRules.rules[3].labels.support_level | string | `"8x5"` |  |
+| prometheusRules.rules[3].annotations.summary | string | `"Certificate is about to expire"` |  |
+| prometheusRules.rules[3].annotations.description | string | `"Certificate for \"{{ \"{{ $labels.subject_CN }}\" }}\" is about to expire {{ \"{{ if $labels.secret_name }}\" }} in Kubernetes secret \"{{ \"{{ $labels.secret_namespace }}/{{ $labels.secret_name }}\" }}\" {{ \"{{else}}\" }}at location \"{{ \"{{ $labels.filepath }}\" }}\"{{ \"{{end}}\" }}\n"` |  |
 
 ## ⚖️ License
 

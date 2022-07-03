@@ -398,6 +398,9 @@ in the container namespace.
 | prometheusRules.extraLabels | object | `{}` | Extra labels to add on PrometheusRule ressources |
 | prometheusRules.alertExtraLabels | object | `{}` | Extra labels to add on PrometheusRule rules |
 | prometheusRules.rulePrefix | string | `""` | Extra rulePrefix to PrometheusRule rules |
+| prometheusRules.disableBuiltinAlertGroup | bool | `false` | Skip all built-in alerts when using extraAlertGroups |
+| prometheusRules.extraAlertGroups | list | `[]` | Additional alert groups for custom configuration (example in `values.yaml`) |
+| extraDeploy | list | `[]` | Extra objects to deploy with the release |
 
 ## ⚖️ License
 

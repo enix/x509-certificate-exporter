@@ -287,6 +287,20 @@ prometheusRules:
   alertExtraLabels: {}
   # -- Extra rulePrefix to PrometheusRule rules
   rulePrefix: ""
+  # -- Skip all built-in alerts when using extraAlertGroups
+  disableBuiltinAlertGroup: false
+  # -- Additional alert groups for custom configuration (example in `values.yaml`)
+  extraAlertGroups: []
+  # - name: custom.rules
+  #   rules:
+  #   - alert: X509ExporterReadErrorsCustom
+  #     expr: x509_read_errors > 0
+  #     for: 30m
+  #     labels:
+  #       severity: warning
+  #     annotations:
+  #       summary: Error events exist for this x509-certificate-exporter
+  #       description: This x509-certificate-exporter instance has experienced parse errors in the past.
 
 # -- Extra objects to deploy with the release
 extraDeploy: []

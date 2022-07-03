@@ -11,6 +11,11 @@ metadata:
     {{- end }}
 spec:
   groups:
+  {{- if .Values.prometheusRules.disableBuiltinAlertGroup }}
+    {{- if not (len .Values.prometheusRules.extraAlertGroups) }}
+      {{ fail "Extra alert groups (extraAlertGroups) are required when disableBuiltinAlertGroup is set!" }}
+    {{- end }}
+  {{- else }}
   - name: x509-certificate-exporter.rules
     rules:
     {{- if .Values.prometheusRules.alertOnReadErrors }}
@@ -61,4 +66,8 @@ spec:
       annotations:
         summary: Certificate is about to expire
         description: Certificate for "{{ "{{" }} $labels.subject_CN {{ "}}" }}" is about to expire {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+  {{- end }}
+{{- range .Values.prometheusRules.extraAlertGroups }}
+  - {{ tpl (toYaml .) $ | indent 4 | trim }}
+{{- end }}
 {{- end }}

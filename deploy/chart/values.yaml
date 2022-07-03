@@ -287,3 +287,6 @@ prometheusRules:
   alertExtraLabels: {}
   # -- Extra rulePrefix to PrometheusRule rules
   rulePrefix: ""
+
+# -- Extra objects to deploy with the release
+extraDeploy: []

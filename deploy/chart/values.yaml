@@ -1,10 +1,10 @@
 ---
 # Note to contributors:
 # We use helm-docs to generate README.md from comments in this file, so the
-# tool should be run again when values.yaml is modified. We appreciated PRs
+# tool should be run again when values.yaml is modified. We appreciate PRs
 # that include this change, but you don't have to.
 # However we wish to preserve ordering and not sort the whole list by
-# alphanumeric order, because it doesn't suit well newcomers.
+# alphanumeric order, because it doesn't suit well new users.
 # So please use this command if you run it:
 #  $ helm-docs --sort-values-order file
 

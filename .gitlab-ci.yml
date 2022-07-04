@@ -162,7 +162,7 @@ chart:
   script:
     - cd deploy/chart
     - curl -sL "https://api.github.com/repos/enix/x509-certificate-exporter/releases/tags/${CI_COMMIT_REF_NAME}" | jq -r .body > CHANGELOG.md
-    - ./ci.sh "${CI_COMMIT_REF_NAME:1}" "$(cat CHANGELOG.md)" "${CONTAINS_SECURITY_UPDATES:-false}"
+    - ../../.gitlab-ci/release-chart.sh "${CI_COMMIT_REF_NAME:1}" "$(cat CHANGELOG.md)" "${CONTAINS_SECURITY_UPDATES:-false}"
     - export CHARTS_DIRECTORY=/tmp/charts
     - git clone https://github.com/enix/helm-charts $CHARTS_DIRECTORY
     - mkdir -p $CHARTS_DIRECTORY/charts/x509-certificate-exporter

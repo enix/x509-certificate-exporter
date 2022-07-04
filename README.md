@@ -20,8 +20,8 @@ Get notified before they expire:
 
 ### 🏃 TL; DR
 
-The [Helm chart](https://github.com/enix/x509-certificate-exporter/tree/master/deploy/chart#-tldr) is the most straightforward way to get a fully-featured exporter running on your cluster.
-The chart is also highly-customizable if you wish to. See the [chart documentation](https://github.com/enix/x509-certificate-exporter/tree/master/deploy/chart) to learn more.
+The [Helm chart](https://github.com/enix/x509-certificate-exporter/tree/master/deploy/charts/x509-certificate-exporter#-tldr) is the most straightforward way to get a fully-featured exporter running on your cluster.
+The chart is also highly-customizable if you wish to. See the [chart documentation](https://github.com/enix/x509-certificate-exporter/tree/master/deploy/charts/x509-certificate-exporter) to learn more.
 
 The provided [Grafana Dashboard](https://grafana.com/grafana/dashboards/13922) can also be used to display the exporter's metrics on your Grafana instance.
 

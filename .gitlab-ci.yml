@@ -160,7 +160,7 @@ chart:
     - git config --global user.name "Monkeynator"
     - git config --global user.email "monkeynator@enix.io"
   script:
-    - cd deploy/chart
+    - cd deploy/charts/x509-certificate-exporter/
     - curl -sL "https://api.github.com/repos/enix/x509-certificate-exporter/releases/tags/${CI_COMMIT_REF_NAME}" | jq -r .body > CHANGELOG.md
     - ../../.gitlab-ci/release-chart.sh "${CI_COMMIT_REF_NAME:1}" "$(cat CHANGELOG.md)" "${CONTAINS_SECURITY_UPDATES:-false}"
     - export CHARTS_DIRECTORY=/tmp/charts

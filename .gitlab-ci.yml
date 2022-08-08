@@ -93,6 +93,8 @@ semantic-release:
   stage: release
   image: enix/semantic-release:gitlab
   when: manual
+  before_script:
+    - git show-ref
   script:
     - "echo \"{\\\"repository\\\": \\\"https://github.com/${GITHUB_REPO}\\\"}\" > package.json"
     - semantic-release --ci
@@ -102,6 +104,8 @@ release-assets:
   image: golang:1.17
   extends:
     - .only-semver
+  before_script:
+    - git show-ref --tags
   script:
     - set -o xtrace
     - export IFS=","

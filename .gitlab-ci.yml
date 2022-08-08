@@ -6,7 +6,7 @@ stages:
 variables:
   GITHUB_REPO: enix/$CI_PROJECT_NAME
   PLATFORMS: linux/amd64,linux/arm64
-  STANDALONE_PLATFORMS: linux/386,linux/arm,linux/arm64,linux/amd64,windows/386,windows/amd64,darwin/amd64
+  STANDALONE_PLATFORMS: linux/386,linux/arm,linux/arm64,linux/amd64,windows/386,windows/amd64,darwin/amd64,freebsd/amd64,openbsd/amd64,solaris/amd64
   CACHE_TAG: $CI_REGISTRY_IMAGE:cache
   IMAGE_TAG_LATEST: $CI_REGISTRY_IMAGE:latest
 

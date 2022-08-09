@@ -157,7 +157,8 @@ go run ./cmd/x509-certificate-exporter --debug -b localhost:9793 -d test/
 curl -Ss localhost:9793/metrics | grep "^x509_cert_not_after"
 
 # Automated tests work against a Kubernetes cluster, so create a throwaway
-# cluster (for example with kind). No need to run the server locally for this.
+# cluster (for example with kind). Do not run the server locally because the
+# tests run the server executable with the default listening port.
 kind create cluster --kubeconfig ~/.kube/config-kind
 export KUBECONFIG=~/.kube/config-kind
 go test -v ./internal

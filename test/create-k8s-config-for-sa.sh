@@ -1,4 +1,5 @@
 #! /bin/bash
+set -euo pipefail
 
 kubectl="kubectl --insecure-skip-tls-verify"
 server=$(TERM=dumb $kubectl config view --minify | grep server | cut -f 2- -d ":" | tr -d " ")

@@ -24,6 +24,6 @@ spec:
     {{- end }}
     {{- with .Values.prometheusPodMonitor.relabelings }}
     relabelings:
-      {{ . | toYaml | nindent 6 }}
+    {{- . | toYaml | nindent 4 }}
     {{- end }}
 {{- end }}

@@ -248,7 +248,7 @@ prometheusServiceMonitor:
   # -- Extra labels to add on ServiceMonitor ressources
   extraLabels: {}
   # -- Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig
-  relabelings: {}
+  relabelings: []
 
 prometheusPodMonitor:
   # -- Should a PodMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
@@ -260,7 +260,7 @@ prometheusPodMonitor:
   # -- Extra labels to add on PodMonitor ressources
   extraLabels: {}
   # -- Relabel config for the PodMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig
-  relabelings: {}
+  relabelings: []
 
 prometheusRules:
   # -- Should a PrometheusRule ressource be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users.

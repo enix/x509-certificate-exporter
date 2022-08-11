@@ -1,0 +1,19 @@
+#!/bin/ksh
+# Georg Pfuetzenreuter <mail@georg-pfuetzenreuter.net>
+# OpenBSD service script for https://github.com/enix/x509-certificate-exporter
+# Install this file to /etc/rc.d/x509exporter and grant it executable permissions
+
+daemon="/usr/local/bin/x509-certificate-exporter"
+daemon_flags="-d /etc/ssl/private"
+
+# a user having read access to certificate files in the directory specified above
+daemon_user=x509exporter
+
+# source functions
+. /etc/rc.d/rc.subr
+
+# run in background since Go applications do not daemonize on their own
+rc_bg=YES
+
+# init
+rc_cmd $1

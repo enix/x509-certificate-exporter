@@ -1,0 +1,15 @@
+[Unit]
+Description=Prometheus exporter for X.509 certificates
+Documentation=https://github.com/enix/x509-certificate-exporter
+After=network.target
+
+[Service]
+Type=exec
+Restart=on-failure
+ExecStart=/usr/local/bin/x509-certificate-exporter --watch-file=/etc/my-ca.pem --watch-dir=/etc/my-certificates/
+MemoryAccounting=true
+MemoryHigh=8M
+MemoryMax=16M
+
+[Install]
+WantedBy=multi-user.target

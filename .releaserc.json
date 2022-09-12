@@ -12,7 +12,7 @@
   ],
   "branches": [
     {
-      "name": "master",
+      "name": "main",
       "prerelease": "beta"
     },
     {

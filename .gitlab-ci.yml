@@ -39,7 +39,7 @@ variables:
 
 test:
   stage: test
-  image: golang:1.17-alpine
+  image: golang:1.18-alpine
   except:
     - tags
   services:
@@ -101,7 +101,7 @@ semantic-release:
 
 release-assets:
   stage: release
-  image: golang:1.17
+  image: golang:1.18
   extends:
     - .only-semver
   before_script:

@@ -1,6 +1,6 @@
 ## Build Stage
 
-FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.18-alpine as build
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.18.6-alpine as build
 
 ARG TARGETOS
 ARG TARGETARCH

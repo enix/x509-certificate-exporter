@@ -1,5 +1,7 @@
 ## Build Stage
 
+# https://github.com/hadolint/hadolint/issues/861
+# hadolint ignore=DL3029
 FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.18.6-alpine as build
 
 ARG TARGETOS
@@ -34,6 +36,8 @@ LABEL maintainer="Enix <no-reply@enix.fr>" \
       org.opencontainers.image.authors="Enix <no-reply@enix.fr>" \
       org.opencontainers.image.licenses="MIT"
 
+# https://github.com/hadolint/hadolint/issues/861
+# hadolint ignore=DL3029
 FROM --platform=${TARGETPLATFORM:-linux/amd64} alpine:3.14.7
 
 COPY --from=build /go/src/github.com/enix/x509-certificate-exporter/x509-certificate-exporter /x509-certificate-exporter

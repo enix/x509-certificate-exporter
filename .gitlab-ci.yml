@@ -46,7 +46,7 @@ test:
     - docker:20-dind
   before_script:
     - apk add --update gcc libc-dev curl docker-cli bash
-    - GO111MODULE="on" go get sigs.k8s.io/kind@v0.9.0
+    - go install sigs.k8s.io/kind@v0.9.0
     - curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
     - chmod +x kubectl
     - mv kubectl /usr/local/bin

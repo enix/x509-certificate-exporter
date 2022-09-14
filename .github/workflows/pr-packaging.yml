@@ -36,7 +36,9 @@ jobs:
       #    fi
 
       - name: Run chart-testing (lint)
-        run: ct lint --chart-dirs deploy/charts --validate-maintainers=false --check-version-increment=false --target-branch ${{ github.base_ref }}
+        run: |
+          ct lint --chart-dirs deploy/charts --target-branch ${{ github.base_ref }} \
+            --validate-maintainers=false --check-version-increment=false 
 
       #- name: Create KinD cluster
       #  uses: engineerd/setup-kind@v0.5.0

@@ -8,9 +8,21 @@
         "changelogFile": "CHANGELOG.md"
       }
     ],
-    "@semantic-release/github"
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "CHANGELOG.md",
+          "../builds/*"
+        ]
+      }
+    ] 
   ],
   "branches": [
+    {
+      "name": "main",
+      "prerelease": "beta"
+    },
     {
       "name": "main",
       "prerelease": "beta"

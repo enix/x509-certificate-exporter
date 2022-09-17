@@ -1,0 +1,40 @@
+name: Container
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+
+permissions:
+  pull-requests: write
+
+jobs:
+  hadolint:
+    name: Dockerfile Linting
+    runs-on: ubuntu-latest
+    steps: 
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Run hadolint
+        id: hadolint
+        uses: hadolint/hadolint-action@v2.1.0
+
+      - name: Update Pull Request
+        uses: actions/github-script@v6
+        if: ${{ github.event_name == 'pull_request' && !success() }}
+        with:
+          script: |
+            const output = `
+            #### Hadolint: \`${{ steps.hadolint.outcome }}\`
+            \`\`\`
+            ${process.env.HADOLINT_RESULTS}
+            \`\`\`
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })

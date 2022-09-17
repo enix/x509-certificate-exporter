@@ -19,8 +19,11 @@ ENV GOOS=${TARGETOS}
 ENV GOARCH=${TARGETARCH}
 
 ARG VERSION="0.0.0"
-
-RUN go build -tags netgo,osusergo -ldflags "-X \"github.com/enix/x509-certificate-exporter/v3/internal.Version=${VERSION}\"" ./cmd/x509-certificate-exporter
+  -tags netgo,osusergo \
+  -ldflags "-X \"github.com/enix/x509-certificate-exporter/v3/internal.Version=${VERSION}\" \
+            -X \"github.com/enix/x509-certificate-exporter/v3/internal.CommitHash=${VCS_REF}\" \
+            -X \"github.com/enix/x509-certificate-exporter/v3/internal.BuildDateTime=$(date -u -Iseconds)\"" \
+  ./cmd/x509-certificate-exporter
 
 
 ## Production Stage

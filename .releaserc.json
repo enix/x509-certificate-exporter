@@ -17,6 +17,10 @@
     },
     {
       "name": "release"
+    },
+    {
+      "name": "test-github-actions",
+      "prerelease": "test"
     }
   ]
 }

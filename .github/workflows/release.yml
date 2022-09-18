@@ -332,12 +332,19 @@ jobs:
             base_archs=()
             base_archs+=(amd64)
             base_archs+=(arm64)
+            base_archs+=(riscv64)
 
             for container_arch in ${base_archs[@]} ; do
               job "${base_image}: assembling image for: ${container_arch}"
 
               if [[ "${base_tag}" != "" ]] ; then
-                container_base="docker://${base_image}:${base_tag}"
+                # FIXME exceptions for RISC-V
+                if [[ "${container_arch}" == "riscv64" && "${base_image}" == "alpine" ]] ; then
+                  # use 'edge' waiting for version 3.17
+                  container_base="docker://${base_image}:edge"
+                else
+                  container_base="docker://${base_image}:${base_tag}"
+                fi
               else
                 container_base="${base_image}"
               fi

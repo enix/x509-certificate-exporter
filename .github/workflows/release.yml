@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, darwin, freebsd, netbsd, openbsd, solaris, windows]
+        goos: [linux, darwin, freebsd, illumos, netbsd, openbsd, solaris, windows]
         goarch: [amd64, arm64, "386"]
         exclude:
           - goos: darwin
@@ -65,6 +65,10 @@ jobs:
             goarch: "386"
           - goos: freebsd
             goarch: arm64
+          - goos: illumos
+            goarch: arm64
+          - goos: illumos
+            goarch: "386"
           - goos: openbsd
             goarch: arm64
           - goos: solaris

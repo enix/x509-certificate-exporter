@@ -411,7 +411,7 @@ jobs:
               for tag in ${tags[@]} ; do
                 destinations+=("${repo}:${tag}-${base_image}")
                 # use Busybox as default image
-                if [[ "${base_image}" == "alpine" ]] ; then
+                if [[ "${base_image}" == "busybox" ]] ; then
                   destinations+=("${repo}:${tag}")
                 fi
               done

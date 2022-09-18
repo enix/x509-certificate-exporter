@@ -2,11 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-  # FIXME
-  push:
-    branches:
-      - beta
-      - test-github-actions
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}

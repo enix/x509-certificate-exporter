@@ -1,0 +1,602 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  # FIXME
+  push:
+    branches:
+      - beta
+      - test-github-actions
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  COMMIT_NAME: Monkeynator
+  COMMIT_EMAIL: monkeynator@enix.io
+
+jobs:
+  semver:
+    name: Semantic Version
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.dry-run.outputs.new_release_published }}
+      version: ${{ steps.dry-run.outputs.new_release_version }}
+      major: ${{ steps.dry-run.outputs.new_release_major_version }}
+      minor: ${{ steps.dry-run.outputs.new_release_minor_version }}
+      patch: ${{ steps.dry-run.outputs.new_release_patch_version }}
+      channel: ${{ steps.dry-run.outputs.new_release_channel }}
+      notes: ${{ steps.dry-run.outputs.new_release_notes }}
+      last: ${{ steps.dry-run.outputs.last_release_version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Run semantic-release (dry-run)
+        id: dry-run
+        uses: cycjimmy/semantic-release-action@v3
+        with:
+          dry_run: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+
+      - name: Sanity checks
+        run: |
+          set -euo pipefail
+          [[ "${{ steps.dry-run.outputs.new_release_published }}" == "true" ]]
+
+  # TODO
+  # - check whether Mage is a good fit
+  build:
+    name: Build
+    needs: [semver]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin, freebsd, openbsd, solaris, windows]
+        goarch: [amd64, arm64, "386"]
+        exclude:
+          - goos: darwin
+            goarch: arm64
+          - goos: darwin
+            goarch: "386"
+          - goos: freebsd
+            goarch: arm64
+          - goos: openbsd
+            goarch: arm64
+          - goos: solaris
+            goarch: arm64
+          - goos: solaris
+            goarch: "386"
+          - goos: windows
+            goarch: arm64
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          path: repository
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.18.6"
+
+      - name: Build binaries and prepare assets
+        run: |
+          set -euxo pipefail
+
+          mkdir build assets
+
+          ext=""
+          asset_packer="tar cvfz"
+          asset_ext=".tar.gz"
+          if [[ "${{ matrix.goos }}" == "windows" ]] ; then
+            ext=".exe"
+            asset_packer="zip -vr"
+            asset_ext=".zip"
+          fi
+
+          base_name="x509-certificate-exporter"
+          binary_name="${base_name}${ext}"
+          asset_name="${base_name}-${{ matrix.goos }}-${{ matrix.goarch }}${asset_ext}"
+          sum_name="${asset_name}.sha256"
+
+          ldflags=()
+          ldflags+=("-X github.com/enix/x509-certificate-exporter/v3/internal.Version=${{ needs.semver.outputs.version }}")
+          ldflags+=("-X github.com/enix/x509-certificate-exporter/v3/internal.CommitHash=${{ github.sha }}")
+          ldflags+=("-X github.com/enix/x509-certificate-exporter/v3/internal.BuildDateTime=$(date --utc --iso-8601=seconds)")
+
+          cd ${{ github.workspace }}/repository
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -v \
+              -tags netgo,osusergo \
+              -ldflags "${ldflags[*]}" \
+              -o ${{ github.workspace }}/build/${binary_name} \
+              ./cmd/x509-certificate-exporter
+
+          cd ${{ github.workspace }}/build
+          file ${binary_name}
+          ( shopt -s dotglob; eval ${asset_packer} ${{ github.workspace }}/assets/${asset_name} * )
+
+          cd ${{ github.workspace }}/assets
+          sha256sum ${asset_name} | cut -d ' ' -f 1 | tee ${sum_name}
+          ls -la
+
+      - name: Upload assets to artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: assets/*
+          retention-days: 1
+
+  release:
+    name: Release
+    needs:
+      - semver
+      - build
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.release.outputs.new_release_published }}
+      version: ${{ steps.release.outputs.new_release_version }}
+      major: ${{ steps.release.outputs.new_release_major_version }}
+      minor: ${{ steps.release.outputs.new_release_minor_version }}
+      patch: ${{ steps.release.outputs.new_release_patch_version }}
+      channel: ${{ steps.release.outputs.new_release_channel }}
+      notes: ${{ steps.release.outputs.new_release_notes }}
+      last: ${{ steps.release.outputs.last_release_version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          path: repository
+          persist-credentials: false
+
+      - name: Retrieve assets from artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: binaries
+          path: assets
+
+      - name: Run semantic-release
+        id: release
+        uses: cycjimmy/semantic-release-action@v3
+        with:
+          working_directory: repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+          GIT_COMMITTER_NAME: ${{ env.COMMIT_NAME }}
+          GIT_COMMITTER_EMAIL: ${{ env.COMMIT_EMAIL }}
+          GIT_AUTHOR_NAME: ${{ env.COMMIT_NAME }}
+          GIT_AUTHOR_EMAIL: ${{ env.COMMIT_EMAIL }}
+
+      - name: Sanity checks (consistency with the dry-run)
+        run: |
+          set -euo pipefail
+          [[ "${{ needs.semver.outputs.published }}" == "${{ steps.release.outputs.new_release_published }}" ]]
+          [[ "${{ needs.semver.outputs.channel }}" == "${{ steps.release.outputs.new_release_channel }}" ]]
+          [[ "${{ needs.semver.outputs.version }}" == "${{ steps.release.outputs.new_release_version }}" ]]
+
+  containers:
+    name: Containers
+    needs: [release]
+    # TODO restore ubuntu-latest when Github bumps the tag
+    # It was set to 22.04 to get a more recent version of buildah and avoid warnings
+    runs-on: ubuntu-22.04
+    env:
+      CR_VERSION: "1.4.0"
+    steps:
+      - name: Set up bash helpers
+        run: |
+          set -euo pipefail
+
+          echo "HELPERS<<EOF" >>$GITHUB_ENV
+          cat <<EOF >>$GITHUB_ENV
+          export PATH=${{ github.workspace }}/bin/:\${PATH}
+          function job {
+            printf "\n\033[1;35m[#] \${1}\033[0m\n"
+          }
+          function step {
+            printf "\033[1;36m[*] \${1}\033[0m\n"
+          }
+          function info {
+            printf "\033[0;33m[-] \${1}\033[0m\n"
+          }
+          function json {
+            \$@ | jq -C
+          }
+          function yaml {
+            \$@ | yq -C
+          }
+          EOF
+          echo "EOF" >>$GITHUB_ENV
+
+      - name: Configure git
+        run: |
+          set -euo pipefail
+          git config --global user.name "${{ env.COMMIT_NAME }}"
+          git config --global user.email "${{ env.COMMIT_EMAIL }}"
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          path: repository
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.9.4
+      
+      - name: Cache for chart-releaser
+        id: cache-cr
+        uses: actions/cache@v3
+        with:
+          path: bin/cr
+          key: ${{ runner.os }}-cr-${{ env.CR_VERSION }}
+
+      # TODO check asset signature
+      - name: Set up chart-releaser
+        if: steps.cache-cr.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+
+          [ -d bin ] || mkdir bin
+          
+          URL="https://github.com/helm/chart-releaser/releases/download/v${{ env.CR_VERSION }}/chart-releaser_${{ env.CR_VERSION }}_linux_amd64.tar.gz"
+          curl -sSL "${URL}" | tar xz -C bin cr
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to Quay.io
+        uses: docker/login-action@v2
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_ROBOT_TOKEN }}
+
+      - name: Retrieve assets from artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: binaries
+          path: assets
+
+      - name: Set up buildah
+        run: |
+          set -euo pipefail
+          eval "${HELPERS}"
+
+          job "buildah status"
+          json buildah info
+
+          job "purge images and containers"
+          buildah rm --all
+          buildah rmi --all --force
+
+      # TODO
+      # - get base images versions from env
+      - name: Build container images from binary assets
+        id: build-oci
+        env:
+          BUILDAH_HISTORY: "true"
+        run: |
+          set -euo pipefail
+          eval "${HELPERS}"
+
+          job "preparing the build matrix"
+
+          declare -A base_images
+          base_images["alpine"]="3.14.7"
+
+          info "base images to build from:"
+          for base_image in ${!base_images[@]} ; do
+            base_tag="${base_images[${base_image}]}"
+            if [[ "${base_tag}" != "" ]] ; then
+              info "  ${base_image}:${base_tag}"
+            else
+              info "  ${base_image}"
+            fi
+          done
+
+          for base_image in ${!base_images[@]} ; do
+            base_tag="${base_images[${base_image}]}"
+          
+            job "${base_image}: create the multi-platform manifest"
+
+            manifest_name="x509-certificate-exporter-${base_image}"
+            manifest_id="$(buildah manifest create "${manifest_name}")"
+            info "name = ${manifest_name}"
+            info "id   = ${manifest_id}"
+
+            json buildah inspect --type manifest "${manifest_name}"
+
+            base_archs=()
+            base_archs+=(amd64)
+            base_archs+=(arm64)
+
+            for container_arch in ${base_archs[@]} ; do
+              job "${base_image}: assembling image for: ${container_arch}"
+
+              if [[ "${base_tag}" != "" ]] ; then
+                container_base="docker://${base_image}:${base_tag}"
+              else
+                container_base="${base_image}"
+              fi
+
+              container_name="${base_image}-${container_arch}"
+              info "container = ${container_name}"
+
+              step "create a working container"
+
+              container_os="linux"
+              info "arch = ${container_arch}"
+              info "os   = ${container_os}"
+              info "base = ${container_base}"
+              
+              buildah from \
+                --name "${container_name}" \
+                --arch="${container_arch}" \
+                --os="${container_os}" \
+                "${container_base}"
+
+              step "update image configuration"
+              buildah config \
+                --author "Enix <contact@enix.fr>" \
+                --label org.opencontainers.image.title="X.509 Certificate Exporter" \
+                --label org.opencontainers.image.description="A Prometheus exporter for certificates focusing on expiration monitoring." \
+                --label org.opencontainers.image.url="https://github.com/enix/x509-certificate-exporter" \
+                --label org.opencontainers.image.documentation="https://github.com/enix/x509-certificate-exporter#readme" \
+                --label org.opencontainers.image.sources="https://github.com/enix/sandbox-x509-certificate-exporter/blob/test-github-actions/.github/workflows/release.yml" \
+                --label org.opencontainers.image.authors="Enix <contact@enix.fr>" \
+                --label org.opencontainers.image.licenses="MIT" \
+                --label org.opencontainers.image.version="${{ needs.release.outputs.version }}" \
+                --label org.opencontainers.image.revision="${{ github.sha }}" \
+                --label org.opencontainers.image.created="$(date --utc --iso-8601=seconds)" \
+                --os "${container_os}" \
+                --arch "${container_arch}" \
+                --workingdir "/" \
+                --entrypoint "/x509-certificate-exporter" \
+                --cmd "" \
+                --port "9793/tcp" \
+                "${container_name}"
+
+              step "extract binary from assets"
+              tar xfz ${{ github.workspace }}/assets/x509-certificate-exporter-${container_os}-${container_arch}.tar.gz \
+                -C ${{ github.workspace }} x509-certificate-exporter
+
+              step "copy binary"
+              buildah copy \
+                --chmod 0555 \
+                --chown 0:0 \
+                "${container_name}" \
+                "${{ github.workspace }}/x509-certificate-exporter" \
+                "/x509-certificate-exporter"
+
+              step "commit image"
+              image_id="$(buildah commit \
+                --rm \
+                --format docker \
+                --manifest "${manifest_name}" \
+                "${container_name}")"
+
+              #step "inspect image"
+              #json buildah inspect --type image "${image_id}"
+            done
+
+            job "${base_image}: inspect the multi-platform manifest"
+            json buildah inspect --type manifest "${manifest_name}"
+
+            job "${base_image}: preparing push parameters"
+            
+            repositories=()
+            repositories+=("docker.io/${{ github.repository }}")
+            repositories+=("quay.io/${{ github.repository }}")
+
+            tags=()
+            tags+=("${{ needs.release.outputs.version }}")
+            if [[ "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]] ; then
+              tags+=("latest")
+            fi
+            
+            info "tags to push to:"
+            destinations=()
+            for repo in ${repositories[@]} ; do
+              for tag in ${tags[@]} ; do
+                destinations+=("${repo}:${tag}-${base_image}")
+                # use Busybox as default image
+                if [[ "${base_image}" == "alpine" ]] ; then
+                  destinations+=("${repo}:${tag}")
+                fi
+              done
+            done
+            for destination in ${destinations[@]} ; do
+              info "  ${destination}"
+            done
+
+            job "${base_image}: push manifest and images"
+            for destination in ${destinations[@]} ; do
+              step "destination: ${destination}"
+              buildah manifest push \
+                --all \
+                "${manifest_name}" \
+                "docker://${destination}"
+            done
+          done
+
+          job "purge all containers"
+          buildah rm --all
+
+          job "purge all images"
+          buildah rmi --all --force
+
+      - name: Convert Github changelog for Artifacthub
+        shell: python
+        env:
+          GITHUB_CHANGELOG: ${{ needs.release.outputs.notes }}
+        run: |
+          import os
+          import yaml
+          import re
+
+          # Based on:
+          # - https://github.com/conventional-changelog/conventional-changelog/blob/master/packages/conventional-changelog-angular/writer-opts.js
+          # - https://github.com/artifacthub/hub/blob/master/web/src/layout/package/changelog/Content.tsx
+          header_to_kind = {
+              'Features':                 { 'kind': 'added',  'prefix': '' },
+              'Bug Fixes':                { 'kind': 'fixed',  'prefix': '' },
+              'Reverts':                  { 'kind': 'removed', 'prefix': 'revert' },
+              'Performance Improvements': { 'kind': 'changed', 'prefix': 'perf' },
+              'BREAKING CHANGES':         { 'kind': 'changed', 'prefix': 'BREAKING' },
+              # sections bellow won't show up in conventional-changelog unless having 'BREAKING' notes
+              'Documentation':            { 'kind': 'changed', 'prefix': 'docs' },
+              'Styles':                   { 'kind': 'changed', 'prefix': 'style' },
+              'Code Refactoring':         { 'kind': 'changed', 'prefix': 'refactor' },
+              'Tests':                    { 'kind': 'changed', 'prefix': 'test' },
+              'Build System':             { 'kind': 'changed', 'prefix': 'build' },
+              'Continuous Integration':   { 'kind': 'changed', 'prefix': 'ci' },
+          }
+
+          extract_log = re.compile(
+              r'\* '
+              r'(?:\*\*(?P<scope>.+):\*\* )?'
+              r'(?P<description>.*?)'
+              r'(?: \(\[[0-9a-f]+\]\((?P<commit>[^)]*)\)\)'
+                  r'(?:, closes (?P<issues>.*))?'
+              r')?')
+          extract_issues = re.compile(
+              r' ?(?:(?:#[0-9+])|(?:\[#(?P<id>[0-9]+)\]\((?P<url>[^)]*)\)))+')
+
+          entries = []
+
+          mapping = None
+          for line in os.environ['GITHUB_CHANGELOG'].splitlines():
+              if line.startswith('### '):
+                  header = line[4:].strip()
+                  mapping = header_to_kind.get(header, None)
+                  continue
+
+              if mapping and line.startswith('*'):
+                  match = extract_log.fullmatch(line)
+                  if match is None:
+                      raise ValueError('failed to extract log line: {}'.format(line))
+
+                  scope = match.group('scope')
+                  if scope == '*':
+                      scope = None
+
+                  kind = mapping.get('kind')
+                  if mapping.get('kind') == 'fixed' and scope == 'security':
+                      kind = 'security'
+                  
+                  description = match.group('description')
+                  desc_prefix = mapping.get('prefix')
+                  if desc_prefix:
+                    description = '{}: {}'.format(desc_prefix, description)
+
+                  links = []
+                  commit_url = match.group('commit')
+                  if commit_url:
+                      links.append({
+                          'name': 'GitHub commit',
+                          'url': commit_url
+                      })
+                  issues = match.group('issues')
+                  if issues:
+                      for issue in extract_issues.finditer(issues):
+                          links.append({
+                              'name': 'GitHub issue #{}'.format(issue.group('id')),
+                              'url': issue.group('url')
+                          })        
+
+                  entry = {
+                      'kind': kind,
+                      'description': description
+                  }
+                  if len(links):
+                      entry['links'] = links
+
+                  entries.append(entry)
+
+          output = yaml.dump(entries)
+          print(output)
+          with open(os.environ['GITHUB_ENV'], 'w') as outfile:
+              outfile.write('ARTIFACTHUB_CHANGELOG<<EOF\n')
+              outfile.write(output)
+              outfile.write('EOF\n')
+
+      # TODO
+      # - OCI releases?
+      # - signing?
+      - name: Run chart-releaser
+        env:
+          ARTIFACTHUB_CHANGELOG: ${{ env.ARTIFACTHUB_CHANGELOG }}
+        run: |
+          set -euo pipefail
+          eval "${HELPERS}"
+          
+          cd ${{ github.workspace }}/repository/deploy/charts/x509-certificate-exporter/
+
+          job "chart manifest preparation"
+
+          step "set version information"
+
+          version="${{ needs.release.outputs.version }}"
+          versionComponents=(${version//-/ })
+          prerelease="false"
+          if [[ "${versionComponents[1]}" != "" ]] ; then
+            prerelease="true"
+          fi
+          containsSecurityUpdates="false"
+
+          info "  version      = ${version}"
+          info "  prerelease   = ${prerelease}"
+          info "  security fix = ${containsSecurityUpdates}"
+
+          yq -i ".version = \"${version}\"" Chart.yaml
+          yq -i ".appVersion = \"${version}\"" Chart.yaml
+          yq -i ".annotations[\"artifacthub.io/prerelease\"] = \"${prerelease}\"" Chart.yaml
+          yq -i ".annotations[\"artifacthub.io/containsSecurityUpdates\"] = \"${containsSecurityUpdates}\"" Chart.yaml
+
+          step "set release changes for Artifacthub"
+          yq -i ".annotations[\"artifacthub.io/changes\"] = strenv(ARTIFACTHUB_CHANGELOG)" Chart.yaml
+
+          job "inspect files to be released"
+
+          for yaml_file in Chart.yaml ; do
+            step "${yaml_file}"
+            yaml cat "${yaml_file}"
+          done
+
+          job "release the chart"
+          
+          step "clone helm charts repository"
+          charts_repo="${{ github.workspace }}/enix_charts"
+          git clone https://github.com/enix/helm-charts "${charts_repo}"
+
+          chart_path="${charts_repo}/charts/x509-certificate-exporter/"
+          mkdir -p "${chart_path}"
+          cp -r ** "${chart_path}"
+          cd "${chart_path}"
+
+          cr package "${chart_path}"
+          #ls -la ./ .cr-release-packages/
+
+          cr upload --skip-existing --owner enix --git-repo helm-charts
+          cr index --push -i index.yaml --owner enix --git-repo helm-charts
+
+  cleanup:
+    name: Cleanup
+    needs:
+      - release
+      - containers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete assets artifact
+        uses: geekyeggo/delete-artifact@v1
+        with:
+          name: binaries

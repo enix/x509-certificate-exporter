@@ -295,7 +295,7 @@ jobs:
           job "preparing the build matrix"
 
           declare -A base_images
-          base_images["alpine"]="3.14.7"
+          base_images["alpine"]="3.16.2"
           base_images["busybox"]="1.35.0-uclibc"
           base_images["scratch"]=""
 

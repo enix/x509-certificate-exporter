@@ -477,7 +477,14 @@ jobs:
             tags=()
             tags+=("${{ needs.release.outputs.version }}")
             if [[ "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]] ; then
-              tags+=("latest")
+              version="${{ needs.release.outputs.version }}"
+              versionComponents=(${version//-/ })
+              if [[ "${versionComponents[1]}" != "" ]] ; then
+                info "looks like a prerelease, not adding the latest tag"
+              else
+                info "stable version, adding the latest tag"
+                tags+=("latest")
+              fi
             fi
             
             info "tags to push to:"

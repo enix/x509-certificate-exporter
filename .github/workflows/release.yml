@@ -12,6 +12,37 @@ env:
   COMMIT_EMAIL: monkeynator@enix.io
 
 jobs:
+  semver:
+    name: Semantic Version
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.dry-run.outputs.new_release_published }}
+      version: ${{ steps.dry-run.outputs.new_release_version }}
+      major: ${{ steps.dry-run.outputs.new_release_major_version }}
+      minor: ${{ steps.dry-run.outputs.new_release_minor_version }}
+      patch: ${{ steps.dry-run.outputs.new_release_patch_version }}
+      channel: ${{ steps.dry-run.outputs.new_release_channel }}
+      notes: ${{ steps.dry-run.outputs.new_release_notes }}
+      last: ${{ steps.dry-run.outputs.last_release_version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Run semantic-release (dry-run)
+        id: dry-run
+        uses: cycjimmy/semantic-release-action@v3
+        with:
+          dry_run: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+
+      - name: Sanity checks
+        run: |
+          set -euo pipefail
+          [[ "${{ steps.dry-run.outputs.new_release_published }}" == "true" ]]
+
   tests:
     name: Tests
     runs-on: ubuntu-latest
@@ -69,42 +100,13 @@ jobs:
       #- name: Run chart-testing (install)
       #  run: ct install --chart-dirs deploy/charts
 
-  semver:
-    name: Semantic Version
-    runs-on: ubuntu-latest
-    outputs:
-      published: ${{ steps.dry-run.outputs.new_release_published }}
-      version: ${{ steps.dry-run.outputs.new_release_version }}
-      major: ${{ steps.dry-run.outputs.new_release_major_version }}
-      minor: ${{ steps.dry-run.outputs.new_release_minor_version }}
-      patch: ${{ steps.dry-run.outputs.new_release_patch_version }}
-      channel: ${{ steps.dry-run.outputs.new_release_channel }}
-      notes: ${{ steps.dry-run.outputs.new_release_notes }}
-      last: ${{ steps.dry-run.outputs.last_release_version }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          persist-credentials: false
-
-      - name: Run semantic-release (dry-run)
-        id: dry-run
-        uses: cycjimmy/semantic-release-action@v3
-        with:
-          dry_run: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
-
-      - name: Sanity checks
-        run: |
-          set -euo pipefail
-          [[ "${{ steps.dry-run.outputs.new_release_published }}" == "true" ]]
-
   # TODO
   # - check whether Mage is a good fit
   build:
     name: Build
-    needs: [semver]
+    needs: 
+      - semver
+      - tests
     runs-on: ubuntu-latest
     strategy:
       matrix:

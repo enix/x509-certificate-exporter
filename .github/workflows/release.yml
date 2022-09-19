@@ -580,7 +580,13 @@ jobs:
                   description = match.group('description')
                   desc_prefix = mapping.get('prefix')
                   if desc_prefix:
-                    description = '{}: {}'.format(desc_prefix, description)
+                      if scope:
+                        description = '{}({}): {}'.format(desc_prefix, scope, description)
+                      else:
+                        description = '{}: {}'.format(desc_prefix, description)
+                  else:
+                    if scope:
+                      description = '{}: {}'.format(scope, description)
 
                   links = []
                   commit_url = match.group('commit')

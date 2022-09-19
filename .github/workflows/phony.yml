@@ -1,0 +1,229 @@
+name: Phony
+
+on:
+  workflow_dispatch:
+
+env:
+  COMMIT_NAME: Monkeynator
+  COMMIT_EMAIL: monkeynator@enix.io
+  VERSION: v3.5.0-beta.1
+
+jobs:
+  containers:
+    name: Containers
+    runs-on: ubuntu-22.04
+    env:
+      CR_VERSION: "1.4.0"
+    steps:
+      - name: Set up bash helpers
+        run: |
+          set -euo pipefail
+
+          echo "HELPERS<<EOF" >>$GITHUB_ENV
+          cat <<EOF >>$GITHUB_ENV
+          export PATH=${{ github.workspace }}/bin/:\${PATH}
+          function job {
+            printf "\n\033[1;35m[#] \${1}\033[0m\n"
+          }
+          function step {
+            printf "\033[1;36m[*] \${1}\033[0m\n"
+          }
+          function info {
+            printf "\033[0;33m[-] \${1}\033[0m\n"
+          }
+          function json {
+            \$@ | jq -C
+          }
+          function yaml {
+            \$@ | yq -C
+          }
+          EOF
+          echo "EOF" >>$GITHUB_ENV
+
+      - name: Configure git
+        run: |
+          set -euo pipefail
+          git config --global user.name "${{ env.COMMIT_NAME }}"
+          git config --global user.email "${{ env.COMMIT_EMAIL }}"
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          path: repository
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.9.4
+      
+      - name: Set up chart-releaser
+        run: |
+          set -euo pipefail
+
+          [ -d bin ] || mkdir bin
+          
+          URL="https://github.com/helm/chart-releaser/releases/download/v${{ env.CR_VERSION }}/chart-releaser_${{ env.CR_VERSION }}_linux_amd64.tar.gz"
+          curl -sSL "${URL}" | tar xz -C bin cr
+
+      - name: Fetch Github changelog
+        run: |
+          echo "GITHUB_CHANGELOG<<EOF" >>$GITHUB_ENV
+          curl -sL "https://api.github.com/repos/enix/x509-certificate-exporter/releases/tags/${{ env.VERSION }}" | jq -r '.body' >>$GITHUB_ENV
+          echo "EOF" >>$GITHUB_ENV
+
+      - name: Convert Github changelog for Artifacthub
+        shell: python
+        env:
+          GITHUB_CHANGELOG: ${{ env.GITHUB_CHANGELOG }}
+        run: |
+          import os
+          import yaml
+          import re
+
+          # Based on:
+          # - https://github.com/conventional-changelog/conventional-changelog/blob/master/packages/conventional-changelog-angular/writer-opts.js
+          # - https://github.com/artifacthub/hub/blob/master/web/src/layout/package/changelog/Content.tsx
+          header_to_kind = {
+              'Features':                 { 'kind': 'added',  'prefix': '' },
+              'Bug Fixes':                { 'kind': 'fixed',  'prefix': '' },
+              'Reverts':                  { 'kind': 'removed', 'prefix': 'revert' },
+              'Performance Improvements': { 'kind': 'changed', 'prefix': 'perf' },
+              'BREAKING CHANGES':         { 'kind': 'changed', 'prefix': 'BREAKING' },
+              # sections bellow won't show up in conventional-changelog unless having 'BREAKING' notes
+              'Documentation':            { 'kind': 'changed', 'prefix': 'docs' },
+              'Styles':                   { 'kind': 'changed', 'prefix': 'style' },
+              'Code Refactoring':         { 'kind': 'changed', 'prefix': 'refactor' },
+              'Tests':                    { 'kind': 'changed', 'prefix': 'test' },
+              'Build System':             { 'kind': 'changed', 'prefix': 'build' },
+              'Continuous Integration':   { 'kind': 'changed', 'prefix': 'ci' },
+          }
+
+          extract_log = re.compile(
+              r'\* '
+              r'(?:\*\*(?P<scope>.+):\*\* )?'
+              r'(?P<description>.*?)'
+              r'(?: \(\[[0-9a-f]+\]\((?P<commit>[^)]*)\)\)'
+                  r'(?:, closes (?P<issues>.*))?'
+              r')?')
+          extract_issues = re.compile(
+              r' ?(?:(?:#[0-9+])|(?:\[#(?P<id>[0-9]+)\]\((?P<url>[^)]*)\)))+')
+
+          entries = []
+
+          mapping = None
+          for line in os.environ['GITHUB_CHANGELOG'].splitlines():
+              if line.startswith('### '):
+                  header = line[4:].strip()
+                  mapping = header_to_kind.get(header, None)
+                  continue
+
+              if mapping and line.startswith('*'):
+                  match = extract_log.fullmatch(line)
+                  if match is None:
+                      raise ValueError('failed to extract log line: {}'.format(line))
+
+                  scope = match.group('scope')
+                  if scope == '*':
+                      scope = None
+
+                  kind = mapping.get('kind')
+                  if mapping.get('kind') == 'fixed' and scope == 'security':
+                      kind = 'security'
+                  
+                  description = match.group('description')
+                  desc_prefix = mapping.get('prefix')
+                  if desc_prefix:
+                    description = '{}: {}'.format(desc_prefix, description)
+
+                  links = []
+                  commit_url = match.group('commit')
+                  if commit_url:
+                      links.append({
+                          'name': 'GitHub commit',
+                          'url': commit_url
+                      })
+                  issues = match.group('issues')
+                  if issues:
+                      for issue in extract_issues.finditer(issues):
+                          links.append({
+                              'name': 'GitHub issue #{}'.format(issue.group('id')),
+                              'url': issue.group('url')
+                          })        
+
+                  entry = {
+                      'kind': kind,
+                      'description': description
+                  }
+                  if len(links):
+                      entry['links'] = links
+
+                  entries.append(entry)
+
+          output = yaml.dump(entries)
+          print(output)
+          with open(os.environ['GITHUB_ENV'], 'w') as outfile:
+              outfile.write('ARTIFACTHUB_CHANGELOG<<EOF\n')
+              outfile.write(output)
+              outfile.write('EOF\n')
+
+      - name: Run chart-releaser
+        env:
+          ARTIFACTHUB_CHANGELOG: ${{ env.ARTIFACTHUB_CHANGELOG }}
+          CR_TOKEN: ${{ secrets.CHARTSREPO_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          eval "${HELPERS}"
+          
+          cd ${{ github.workspace }}/repository/deploy/charts/x509-certificate-exporter/
+
+          job "chart manifest preparation"
+
+          step "set version information"
+
+          version="${{ env.VERSION }}"
+          versionComponents=(${version//-/ })
+          prerelease="false"
+          if [[ "${versionComponents[1]}" != "" ]] ; then
+            prerelease="true"
+          fi
+          containsSecurityUpdates="false"
+
+          info "  version      = ${version}"
+          info "  prerelease   = ${prerelease}"
+          info "  security fix = ${containsSecurityUpdates}"
+
+          yq -i ".version = \"${version}\"" Chart.yaml
+          yq -i ".appVersion = \"${version}\"" Chart.yaml
+          yq -i ".annotations[\"artifacthub.io/prerelease\"] = \"${prerelease}\"" Chart.yaml
+          yq -i ".annotations[\"artifacthub.io/containsSecurityUpdates\"] = \"${containsSecurityUpdates}\"" Chart.yaml
+
+          step "set release changes for Artifacthub"
+          yq -i ".annotations[\"artifacthub.io/changes\"] = strenv(ARTIFACTHUB_CHANGELOG)" Chart.yaml
+
+          job "inspect files to be released"
+
+          for yaml_file in Chart.yaml ; do
+            step "${yaml_file}"
+            yaml cat "${yaml_file}"
+          done
+
+          job "release the chart"
+          
+          step "clone helm charts repository"
+          charts_repo="${{ github.workspace }}/enix_charts"
+          git clone https://github.com/enix/helm-charts "${charts_repo}"
+
+          chart_path="${charts_repo}/charts/x509-certificate-exporter/"
+          mkdir -p "${chart_path}"
+          cp -r ** "${chart_path}"
+          cd "${chart_path}"
+
+          step "create the chart package"
+          cr package "${chart_path}"
+          #ls -la ./ .cr-release-packages/
+
+          step "upload the chart"
+          cr upload --skip-existing --owner enix --git-repo helm-charts
+
+          step "update repository index"
+          cr index --push -i index.yaml --owner enix --git-repo helm-charts

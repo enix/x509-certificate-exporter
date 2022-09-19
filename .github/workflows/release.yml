@@ -98,7 +98,6 @@ jobs:
             --charts deploy/charts/x509-certificate-exporter \
             --validate-maintainers=false --check-version-increment=false
 
-
       # FIXME
       #- name: Run chart-testing (install)
       #  run: ct install --chart-dirs deploy/charts
@@ -613,6 +612,7 @@ jobs:
       - name: Run chart-releaser
         env:
           ARTIFACTHUB_CHANGELOG: ${{ env.ARTIFACTHUB_CHANGELOG }}
+          CR_TOKEN: ${{ secrets.CHARTSREPO_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           eval "${HELPERS}"
@@ -661,10 +661,14 @@ jobs:
           cp -r ** "${chart_path}"
           cd "${chart_path}"
 
+          step "create the chart package"
           cr package "${chart_path}"
           #ls -la ./ .cr-release-packages/
 
+          step "upload the chart"
           cr upload --skip-existing --owner enix --git-repo helm-charts
+
+          step "update repository index"
           cr index --push -i index.yaml --owner enix --git-repo helm-charts
 
   cleanup:

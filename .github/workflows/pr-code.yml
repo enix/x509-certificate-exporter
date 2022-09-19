@@ -29,7 +29,7 @@ jobs:
         with:
           version: latest
           only-new-issues: true
-          #args: --timeout 3m --verbose
+          args: --timeout 3m --verbose
           #args: --issues-exit-code=0
           #skip-cache: true
           #skip-build-cache: true

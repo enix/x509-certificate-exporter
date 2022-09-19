@@ -311,6 +311,7 @@ in the container namespace.
 | image.registry | string | `"docker.io"` | x509-certificate-exporter image registry |
 | image.repository | string | `"enix/x509-certificate-exporter"` | x509-certificate-exporter image repository |
 | image.tag | string | `nil` | x509-certificate-exporter image tag (defaults to Chart appVersion) |
+| image.tagSuffix | string | `nil` | Suffix added to image tags for container flavor selection (could be `-busybox`, `-alpine`, or `-scratch`) |
 | image.pullPolicy | string | `"IfNotPresent"` | x509-certificate-exporter image pull policy |
 | psp.create | bool | `false` | Should Pod Security Policy resources be created |
 | rbac.create | bool | `true` | Should RBAC resources be created |

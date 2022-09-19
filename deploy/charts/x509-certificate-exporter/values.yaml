@@ -30,6 +30,8 @@ image:
   repository: enix/x509-certificate-exporter
   # -- x509-certificate-exporter image tag (defaults to Chart appVersion)
   tag:
+  # -- Suffix added to image tags for container flavor selection (could be `-busybox`, `-alpine`, or `-scratch`)
+  tagSuffix:
   # -- x509-certificate-exporter image pull policy
   pullPolicy: IfNotPresent
 

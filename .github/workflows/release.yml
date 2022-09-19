@@ -94,8 +94,10 @@ jobs:
 
       - name: Run chart-testing (lint)
         run: |
-          ct lint --chart-dirs deploy/charts --target-branch ${{ github.base_ref }} \
-            --validate-maintainers=false --check-version-increment=false 
+          ct lint \
+            --charts deploy/charts/x509-certificate-exporter \
+            --validate-maintainers=false --check-version-increment=false
+
 
       # FIXME
       #- name: Run chart-testing (install)

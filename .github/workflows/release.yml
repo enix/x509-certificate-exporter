@@ -437,7 +437,7 @@ jobs:
                 --os "${container_os}" \
                 --arch "${container_arch}" \
                 --workingdir "/" \
-                --entrypoint "/x509-certificate-exporter" \
+                --entrypoint '["/x509-certificate-exporter"]' \
                 --cmd "" \
                 --port "9793/tcp" \
                 "${container_name}"

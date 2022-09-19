@@ -574,19 +574,19 @@ jobs:
                       scope = None
 
                   kind = mapping.get('kind')
-                  if mapping.get('kind') == 'fixed' and scope == 'security':
-                      kind = 'security'
-                  
                   description = match.group('description')
+
                   desc_prefix = mapping.get('prefix')
                   if desc_prefix:
                       if scope:
-                        description = '{}({}): {}'.format(desc_prefix, scope, description)
+                          description = '{}({}): {}'.format(desc_prefix, scope, description)
                       else:
-                        description = '{}: {}'.format(desc_prefix, description)
+                          description = '{}: {}'.format(desc_prefix, description)
                   else:
-                    if scope:
-                      description = '{}: {}'.format(scope, description)
+                      if scope == 'security':
+                          kind = 'security'
+                      elif scope:
+                          description = '{}: {}'.format(scope, description)
 
                   links = []
                   commit_url = match.group('commit')

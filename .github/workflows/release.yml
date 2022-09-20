@@ -12,6 +12,35 @@ env:
   COMMIT_EMAIL: monkeynator@enix.io
 
 jobs:
+  tooling:
+    name: "Workflow helpers"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up bash helpers
+        run: |
+          set -euo pipefail
+
+          echo "HELPERS<<EOF" >>$GITHUB_ENV
+          cat <<EOF >>$GITHUB_ENV
+          export PATH=${{ github.workspace }}/bin/:\${PATH}
+          function job {
+            printf "\n\033[1;35m[#] \${1}\033[0m\n"
+          }
+          function step {
+            printf "\033[1;36m[*] \${1}\033[0m\n"
+          }
+          function info {
+            printf "\033[0;33m[-] \${1}\033[0m\n"
+          }
+          function json {
+            \$@ | jq -C
+          }
+          function yaml {
+            \$@ | yq -C
+          }
+          EOF
+          echo "EOF" >>$GITHUB_ENV
+
   semver:
     name: Semantic Version
     runs-on: ubuntu-latest
@@ -235,7 +264,9 @@ jobs:
 
   containers:
     name: Containers
-    needs: [release]
+    needs:
+      - tooling
+      - release
     # TODO restore ubuntu-latest when Github bumps the tag
     # It was set to 22.04 to get a more recent version of buildah and avoid warnings
     runs-on: ubuntu-22.04

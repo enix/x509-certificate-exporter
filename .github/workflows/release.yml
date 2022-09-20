@@ -682,7 +682,7 @@ jobs:
           set -euo pipefail
           eval "${HELPERS}"
 
-          export PATH=${{ github.workspace }}/bin/:\${PATH}
+          export PATH=${{ github.workspace }}/bin/:${PATH}
           
           cd ${{ github.workspace }}/repository/deploy/charts/x509-certificate-exporter/
 

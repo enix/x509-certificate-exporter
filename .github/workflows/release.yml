@@ -297,9 +297,8 @@ jobs:
 
           job "sanity checks"
 
-          [[ "${versionComponents[0]}" == "${{ steps.release.outputs.new_release_major_version }}"
-                                          ".${{ steps.release.outputs.new_release_minor_version }}"
-                                          ".${{ steps.release.outputs.new_release_patch_version }}" ]]
+          [[ "${versionComponents[0]}" == \
+             "${{ steps.release.outputs.new_release_major_version }}.${{ steps.release.outputs.new_release_minor_version }}.${{ steps.release.outputs.new_release_patch_version }}" ]]
 
           job "detect whether it's a prerelease version"
 

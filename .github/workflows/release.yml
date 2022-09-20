@@ -672,7 +672,7 @@ jobs:
 
           output = yaml.dump(entries)
           print(output)
-          with open(os.environ['GITHUB_ENV'], 'w') as outfile:
+          with open(os.environ['GITHUB_ENV'], 'a') as outfile:
               outfile.write('ARTIFACTHUB_CHANGELOG<<EOF\n')
               outfile.write(output)
               outfile.write('EOF\n')

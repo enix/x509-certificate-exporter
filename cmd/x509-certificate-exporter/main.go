@@ -111,5 +111,8 @@ func main() {
 
 	log.Infof("starting %s version %s (%s) (%s)", path.Base(os.Args[0]), internal.Version, internal.Revision, internal.BuildDateTime)
 	rand.Seed(time.Now().UnixNano())
-	exporter.ListenAndServe()
+	err := exporter.ListenAndServe()
+	if err != nil {
+		log.Fatal("failed to start server: ", err)
+	}
 }

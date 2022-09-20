@@ -53,6 +53,7 @@ The following metrics are available:
 - `x509_cert_valid_since_seconds` (optional)
 - `x509_cert_error` (optional)
 - `x509_read_errors`
+- `x509_exporter_build_info`
 
 ### Prometheus Alerts
 

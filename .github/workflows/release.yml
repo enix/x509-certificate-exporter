@@ -241,6 +241,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       published: ${{ steps.release.outputs.new_release_published }}
+      prerelease: ${{ steps.prerelease.outputs.prerelease }}
       version: ${{ steps.release.outputs.new_release_version }}
       major: ${{ steps.release.outputs.new_release_major_version }}
       minor: ${{ steps.release.outputs.new_release_minor_version }}
@@ -289,12 +290,49 @@ jobs:
           info "notes        :
           echo "${{ steps.release.outputs.new_release_notes }}"
 
+      - name: Detect pre-release versions
+        id: prerelease
         run: |
           set -euo pipefail
+          eval "${HELPERS}"
+
+          job "look for components in the version"
+
+          version="${{ steps.release.outputs.new_release_version }}"
+          versionComponents=(${version//-/ })
+          info "version    : ${version}"
+          info "components : "
+          for component in ${versionComponents[@]} ; do
+              info "  ${component}"
+          done
+
+          job "sanity checks"
+
+          [[ "${versionComponents[0]}" == "${{ steps.release.outputs.new_release_major_version }}"
+                                          ".${{ steps.release.outputs.new_release_minor_version }}"
+                                          ".${{ steps.release.outputs.new_release_patch_version }}" ]]
+
+          job "detect whether it's a prerelease version"
+
+          prerelease="false"
+          if [[ "${versionComponents[1]}" != "" ]] ; then
+              prerelease="true"
+          fi
+
+          info "prerelease : ${prerelease}"
+          echo "::set-output name=prerelease::${prerelease}"
+
       - name: Sanity checks 
+        run: |
+          set -euo pipefail
+
+          job "consistency with the dry-run"
           [[ "${{ needs.semver.outputs.published }}" == "${{ steps.release.outputs.new_release_published }}" ]]
           [[ "${{ needs.semver.outputs.channel }}" == "${{ steps.release.outputs.new_release_channel }}" ]]
           [[ "${{ needs.semver.outputs.version }}" == "${{ steps.release.outputs.new_release_version }}" ]]
+
+          job "prerelease detection"
+          [[ "${{ steps.prerelease.outputs.prerelease }}" != "" ]]
 
   containers:
     name: Containers
@@ -307,31 +345,6 @@ jobs:
     env:
       CR_VERSION: "1.4.0"
     steps:
-      - name: Set up bash helpers
-        run: |
-          set -euo pipefail
-
-          echo "HELPERS<<EOF" >>$GITHUB_ENV
-          cat <<EOF >>$GITHUB_ENV
-          export PATH=${{ github.workspace }}/bin/:\${PATH}
-          function job {
-            printf "\n\033[1;35m[#] \${1}\033[0m\n"
-          }
-          function step {
-            printf "\033[1;36m[*] \${1}\033[0m\n"
-          }
-          function info {
-            printf "\033[0;33m[-] \${1}\033[0m\n"
-          }
-          function json {
-            \$@ | jq -C
-          }
-          function yaml {
-            \$@ | yq -C
-          }
-          EOF
-          echo "EOF" >>$GITHUB_ENV
-
       - name: Configure git
         run: |
           set -euo pipefail
@@ -527,15 +540,9 @@ jobs:
 
             tags=()
             tags+=("${{ needs.release.outputs.version }}")
-            if [[ "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]] ; then
-              version="${{ needs.release.outputs.version }}"
-              versionComponents=(${version//-/ })
-              if [[ "${versionComponents[1]}" != "" ]] ; then
-                info "looks like a prerelease, not adding the latest tag"
-              else
-                info "stable version, adding the latest tag"
-                tags+=("latest")
-              fi
+            if [[ "${{ needs.release.outputs.prerelease }}" == "false" ]] ; then
+              info "not a prerelease version, adding the 'latest' tag"
+              tags+=("latest")
             fi
             
             info "tags to push to:"
@@ -687,12 +694,8 @@ jobs:
 
           step "set version information"
 
-          version="${{ needs.release.outputs.version }}"
-          versionComponents=(${version//-/ })
-          prerelease="false"
-          if [[ "${versionComponents[1]}" != "" ]] ; then
-            prerelease="true"
-          fi
+          prerelease="${{ needs.release.outputs.prerelease }}"
+          # FIXME
           containsSecurityUpdates="false"
 
           info "  version      = ${version}"

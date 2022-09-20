@@ -72,8 +72,13 @@ func main() {
 	}
 
 	if *profile {
-		log.Infoln("pprof server listening on :6060")
-		go http.ListenAndServe(":6060", nil)
+		go func() {
+			log.Infoln("pprof server listening on :6060")
+			err := http.ListenAndServe(":6060", nil)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
 	}
 
 	exporter := internal.Exporter{

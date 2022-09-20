@@ -311,8 +311,11 @@ jobs:
           echo "::set-output name=prerelease::${prerelease}"
 
       - name: Sanity checks 
+        env:
+          HELPERS: ${{ env.SHELL_HELPERS }}
         run: |
           set -euo pipefail
+          eval "${HELPERS}"
 
           job "consistency with the dry-run"
           [[ "${{ needs.semver.outputs.published }}" == "${{ steps.release.outputs.new_release_published }}" ]]

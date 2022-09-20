@@ -59,7 +59,6 @@ type certificateRef struct {
 	path          string
 	format        certificateFormat
 	certificates  []*parsedCertificate
-	userIDs       []string
 	yamlPaths     []YAMLCertRef
 	kubeSecret    v1.Secret
 	kubeSecretKey string

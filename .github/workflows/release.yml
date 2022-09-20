@@ -69,7 +69,7 @@ jobs:
           info "major        : ${{ steps.dry-run.outputs.new_release_major_version }}"
           info "minor        : ${{ steps.dry-run.outputs.new_release_minor_version }}"
           info "patch        : ${{ steps.dry-run.outputs.new_release_patch_version }}"
-          info "notes        :
+          info "notes        :"
           echo "${{ steps.dry-run.outputs.new_release_notes }}"
 
       - name: Sanity checks
@@ -274,7 +274,7 @@ jobs:
           info "major        : ${{ steps.release.outputs.new_release_major_version }}"
           info "minor        : ${{ steps.release.outputs.new_release_minor_version }}"
           info "patch        : ${{ steps.release.outputs.new_release_patch_version }}"
-          info "notes        :
+          info "notes        :"
           echo "${{ steps.release.outputs.new_release_notes }}"
 
       - name: Detect pre-release versions

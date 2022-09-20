@@ -49,6 +49,9 @@ The following metrics are available:
 - `x509_cert_not_before`
 - `x509_cert_not_after`
 - `x509_cert_expired`
+- `x509_cert_expires_in_seconds` (optional)
+- `x509_cert_valid_since_seconds` (optional)
+- `x509_cert_error` (optional)
 - `x509_read_errors`
 
 ### Prometheus Alerts

@@ -112,35 +112,21 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        #goos: [linux]
-        #goarch: [amd64, arm64, riscv64]
         goos: [linux, darwin, freebsd, illumos, netbsd, openbsd, solaris, windows]
         goarch: [amd64, arm64, riscv64, "386"]
         exclude:
-          - goos: darwin
-            goarch: riscv64
-          - goos: darwin
-            goarch: "386"
-          - goos: freebsd
-            goarch: riscv64
-          - goos: illumos
-            goarch: arm64
-          - goos: illumos
-            goarch: riscv64
-          - goos: illumos
-            goarch: "386"
-          - goos: netbsd
-            goarch: riscv64
-          - goos: openbsd
-            goarch: riscv64
-          - goos: solaris
-            goarch: arm64
-          - goos: solaris
-            goarch: riscv64
-          - goos: solaris
-            goarch: "386"
-          - goos: windows
-            goarch: riscv64
+          - { goos: darwin,  goarch: riscv64 }
+          - { goos: darwin,  goarch: "386" }
+          - { goos: freebsd, goarch: riscv64 }
+          - { goos: illumos, goarch: arm64 }
+          - { goos: illumos, goarch: riscv64 }
+          - { goos: illumos, goarch: "386" }
+          - { goos: netbsd,  goarch: riscv64 }
+          - { goos: openbsd, goarch: riscv64 }
+          - { goos: solaris, goarch: arm64 }
+          - { goos: solaris, goarch: riscv64 }
+          - { goos: solaris, goarch: "386" }
+          - { goos: windows, goarch: riscv64 }
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3

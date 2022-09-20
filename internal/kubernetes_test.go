@@ -69,8 +69,14 @@ func TestMain(m *testing.M) {
 	}
 	cleanup(false)
 
-	addKubeSecrets(10, "default")
-	addKubeSecrets(10, "kube-system")
+	err = addKubeSecrets(10, "default")
+	if err != nil {
+		panic(err)
+	}
+	err = addKubeSecrets(10, "kube-system")
+	if err != nil {
+		panic(err)
+	}
 	addCustomKubeSecret()
 	addBrokenKubeSecret()
 	addBrokenKubeSecret2()
@@ -453,7 +459,10 @@ func addCustomKubeSecret() {
 }
 
 func removeCustomKubeSecret() {
-	sharedKubeClient.CoreV1().Secrets("default").Delete(context.Background(), "test-custom-type", metav1.DeleteOptions{})
+	err := sharedKubeClient.CoreV1().Secrets("default").Delete(context.Background(), "test-custom-type", metav1.DeleteOptions{})
+	if err != nil {
+		panic(err)
+	}
 }
 
 func addBrokenKubeSecret() {
@@ -506,11 +515,17 @@ func addBrokenKubeSecret2() {
 }
 
 func removeBrokenKubeSecret() {
-	sharedKubeClient.CoreV1().Secrets("default").Delete(context.TODO(), "corrupted-pem-data", metav1.DeleteOptions{})
+	err := sharedKubeClient.CoreV1().Secrets("default").Delete(context.TODO(), "corrupted-pem-data", metav1.DeleteOptions{})
+	if err != nil {
+		panic(err)
+	}
 }
 
 func removeBrokenKubeSecret2() {
-	sharedKubeClient.CoreV1().Secrets("default").Delete(context.TODO(), "empty-pem-data", metav1.DeleteOptions{})
+	err := sharedKubeClient.CoreV1().Secrets("default").Delete(context.TODO(), "empty-pem-data", metav1.DeleteOptions{})
+	if err != nil {
+		panic(err)
+	}
 }
 
 func removeAllKubeSecrets(count int, ns string, failOnError bool) {

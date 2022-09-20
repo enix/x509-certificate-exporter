@@ -43,6 +43,7 @@ jobs:
 
   semver:
     name: Semantic Version
+    needs: [tooling]
     runs-on: ubuntu-latest
     outputs:
       published: ${{ steps.dry-run.outputs.new_release_published }}
@@ -66,6 +67,22 @@ jobs:
           dry_run: true
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+
+      - name: Inspect semantic-release outcome
+        run: |
+          set -euo pipefail
+          eval "${HELPERS}"
+
+          job "semantic-release job outputs"
+          info "last version : ${{ steps.dry-run.outputs.last_release_version }}"
+          info "published    : ${{ steps.dry-run.outputs.new_release_published }}"
+          info "channel      : ${{ steps.dry-run.outputs.new_release_channel }}"
+          info "version      : ${{ steps.dry-run.outputs.new_release_version }}"
+          info "major        : ${{ steps.dry-run.outputs.new_release_major_version }}"
+          info "minor        : ${{ steps.dry-run.outputs.new_release_minor_version }}"
+          info "patch        : ${{ steps.dry-run.outputs.new_release_patch_version }}"
+          info "notes        :
+          echo "${{ steps.dry-run.outputs.new_release_notes }}"
 
       - name: Sanity checks
         run: |
@@ -218,6 +235,7 @@ jobs:
   release:
     name: Release
     needs:
+      - tooling
       - semver
       - build
     runs-on: ubuntu-latest
@@ -255,9 +273,25 @@ jobs:
           GIT_AUTHOR_NAME: ${{ env.COMMIT_NAME }}
           GIT_AUTHOR_EMAIL: ${{ env.COMMIT_EMAIL }}
 
-      - name: Sanity checks (consistency with the dry-run)
+      - name: Inspect semantic-release outcome
         run: |
           set -euo pipefail
+          eval "${HELPERS}"
+
+          job "semantic-release job outputs"
+          info "last version : ${{ steps.release.outputs.last_release_version }}"
+          info "published    : ${{ steps.release.outputs.new_release_published }}"
+          info "channel      : ${{ steps.release.outputs.new_release_channel }}"
+          info "version      : ${{ steps.release.outputs.new_release_version }}"
+          info "major        : ${{ steps.release.outputs.new_release_major_version }}"
+          info "minor        : ${{ steps.release.outputs.new_release_minor_version }}"
+          info "patch        : ${{ steps.release.outputs.new_release_patch_version }}"
+          info "notes        :
+          echo "${{ steps.release.outputs.new_release_notes }}"
+
+        run: |
+          set -euo pipefail
+      - name: Sanity checks 
           [[ "${{ needs.semver.outputs.published }}" == "${{ steps.release.outputs.new_release_published }}" ]]
           [[ "${{ needs.semver.outputs.channel }}" == "${{ steps.release.outputs.new_release_channel }}" ]]
           [[ "${{ needs.semver.outputs.version }}" == "${{ steps.release.outputs.new_release_version }}" ]]

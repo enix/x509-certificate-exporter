@@ -39,6 +39,7 @@ func TestRegularStartup(t *testing.T) {
 		Files:         []string{path.Join(filepath.Dir(filename), "../test/basic.pem")},
 	}
 
+	//nolint:errcheck
 	go e.ListenAndServe()
 	time.Sleep(3 * time.Second)
 
@@ -48,6 +49,7 @@ func TestRegularStartup(t *testing.T) {
 		return
 	}
 
+	//nolint:errcheck
 	e.Shutdown()
 }
 
@@ -783,8 +785,10 @@ func testRequest(t *testing.T, exporter *Exporter, cb func(metrics []model.Metri
 		}
 
 		cb(metrics)
+		//nolint:errcheck
 		exporter.Shutdown()
 	}()
+	//nolint:errcheck
 	exporter.Serve()
 }
 
@@ -837,11 +841,15 @@ func generateCertificate(path string, notBefore time.Time) {
 		log.Fatalf("Failed to create certificate: %s", err)
 	}
 	out := &bytes.Buffer{}
+	//nolint:errcheck
 	pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	//nolint:errcheck
 	os.WriteFile(path, out.Bytes(), 00644)
 	out.Reset()
 
+	//nolint:errcheck
 	pem.Encode(out, getPEMBlockForKey(priv))
+	//nolint:errcheck
 	os.WriteFile(path+".key", out.Bytes(), 00644)
 }
 

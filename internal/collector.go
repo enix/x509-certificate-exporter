@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -39,6 +40,18 @@ var (
 	certErrorsMetric = "x509_read_errors"
 	certErrorsHelp   = "Indicates the number of read failure(s)"
 	certErrorsDesc   = prometheus.NewDesc(certErrorsMetric, certErrorsHelp, nil, nil)
+
+	infoMetric      = "x509_exporter_build_info"
+	infoHelp        = "A metric with a constant '1' value labeled with version, revision, build date, Go version, Go OS, and Go architecture"
+	infoConstLabels = prometheus.Labels{
+		"version":   Version,
+		"revision":  Revision,
+		"built":     BuildDateTime,
+		"goversion": runtime.Version(),
+		"goos":      runtime.GOOS,
+		"goarch":    runtime.GOARCH,
+	}
+	infoDesc = prometheus.NewDesc(infoMetric, infoHelp, nil, infoConstLabels)
 )
 
 func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
@@ -46,6 +59,7 @@ func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- certNotBeforeDesc
 	ch <- certNotAfterDesc
 	ch <- certErrorsDesc
+	ch <- infoDesc
 
 	if collector.exporter.ExposeRelativeMetrics {
 		ch <- certExpiresInDesc
@@ -101,6 +115,12 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 		certErrorsDesc,
 		prometheus.GaugeValue,
 		float64(len(certErrors)),
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		infoDesc,
+		prometheus.GaugeValue,
+		float64(1),
 	)
 }
 

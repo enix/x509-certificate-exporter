@@ -690,6 +690,7 @@ jobs:
 
           step "set version information"
 
+          version="${{ needs.release.outputs.version }}"
           prerelease="${{ needs.release.outputs.prerelease }}"
           # FIXME
           containsSecurityUpdates="false"

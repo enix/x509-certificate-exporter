@@ -206,7 +206,7 @@ jobs:
 
           ldflags=()
           ldflags+=("-X github.com/enix/x509-certificate-exporter/v3/internal.Version=${{ needs.semver.outputs.version }}")
-          ldflags+=("-X github.com/enix/x509-certificate-exporter/v3/internal.CommitHash=${{ github.sha }}")
+          ldflags+=("-X github.com/enix/x509-certificate-exporter/v3/internal.Revision=${{ github.sha }}")
           ldflags+=("-X github.com/enix/x509-certificate-exporter/v3/internal.BuildDateTime=$(date --utc --iso-8601=seconds)")
 
           cd ${{ github.workspace }}/repository

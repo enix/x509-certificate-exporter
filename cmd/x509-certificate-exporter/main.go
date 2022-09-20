@@ -109,7 +109,7 @@ func main() {
 		}
 	}
 
-	log.Infof("starting %s version %s (%s) (%s)", path.Base(os.Args[0]), internal.Version, internal.CommitHash, internal.BuildDateTime)
+	log.Infof("starting %s version %s (%s) (%s)", path.Base(os.Args[0]), internal.Version, internal.Revision, internal.BuildDateTime)
 	rand.Seed(time.Now().UnixNano())
 	exporter.ListenAndServe()
 }

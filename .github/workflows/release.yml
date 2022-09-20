@@ -10,40 +10,26 @@ concurrency:
 env:
   COMMIT_NAME: Monkeynator
   COMMIT_EMAIL: monkeynator@enix.io
+  SHELL_HELPERS: |
+    function job {
+      printf "\n\033[1;35m[#] ${1}\033[0m\n"
+    }
+    function step {
+      printf "\033[1;36m[*] ${1}\033[0m\n"
+    }
+    function info {
+      printf "\033[0;33m[-] ${1}\033[0m\n"
+    }
+    function json {
+      $@ | jq -C
+    }
+    function yaml {
+      $@ | yq -C
+    }
 
 jobs:
-  tooling:
-    name: "Workflow helpers"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up bash helpers
-        run: |
-          set -euo pipefail
-
-          echo "HELPERS<<EOF" >>$GITHUB_ENV
-          cat <<EOF >>$GITHUB_ENV
-          export PATH=${{ github.workspace }}/bin/:\${PATH}
-          function job {
-            printf "\n\033[1;35m[#] \${1}\033[0m\n"
-          }
-          function step {
-            printf "\033[1;36m[*] \${1}\033[0m\n"
-          }
-          function info {
-            printf "\033[0;33m[-] \${1}\033[0m\n"
-          }
-          function json {
-            \$@ | jq -C
-          }
-          function yaml {
-            \$@ | yq -C
-          }
-          EOF
-          echo "EOF" >>$GITHUB_ENV
-
   semver:
     name: Semantic Version
-    needs: [tooling]
     runs-on: ubuntu-latest
     outputs:
       published: ${{ steps.dry-run.outputs.new_release_published }}
@@ -69,6 +55,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
 
       - name: Inspect semantic-release outcome
+        env:
+          HELPERS: ${{ env.SHELL_HELPERS }}
         run: |
           set -euo pipefail
           eval "${HELPERS}"
@@ -233,7 +221,6 @@ jobs:
   release:
     name: Release
     needs:
-      - tooling
       - semver
       - build
     runs-on: ubuntu-latest
@@ -273,6 +260,8 @@ jobs:
           GIT_AUTHOR_EMAIL: ${{ env.COMMIT_EMAIL }}
 
       - name: Inspect semantic-release outcome
+        env:
+          HELPERS: ${{ env.SHELL_HELPERS }}
         run: |
           set -euo pipefail
           eval "${HELPERS}"
@@ -289,6 +278,8 @@ jobs:
           echo "${{ steps.release.outputs.new_release_notes }}"
 
       - name: Detect pre-release versions
+        env:
+          HELPERS: ${{ env.SHELL_HELPERS }}
         id: prerelease
         run: |
           set -euo pipefail
@@ -335,7 +326,6 @@ jobs:
   containers:
     name: Containers
     needs:
-      - tooling
       - release
     # TODO restore ubuntu-latest when Github bumps the tag
     # It was set to 22.04 to get a more recent version of buildah and avoid warnings
@@ -397,6 +387,8 @@ jobs:
           path: assets
 
       - name: Set up buildah
+        env:
+          HELPERS: ${{ env.SHELL_HELPERS }}
         run: |
           set -euo pipefail
           eval "${HELPERS}"
@@ -413,6 +405,7 @@ jobs:
       - name: Build container images from binary assets
         id: build-oci
         env:
+          HELPERS: ${{ env.SHELL_HELPERS }}
           BUILDAH_HISTORY: "true"
         run: |
           set -euo pipefail
@@ -680,11 +673,14 @@ jobs:
       # - signing?
       - name: Run chart-releaser
         env:
+          HELPERS: ${{ env.SHELL_HELPERS }}
           ARTIFACTHUB_CHANGELOG: ${{ env.ARTIFACTHUB_CHANGELOG }}
           CR_TOKEN: ${{ secrets.CHARTSREPO_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           eval "${HELPERS}"
+
+          export PATH=${{ github.workspace }}/bin/:\${PATH}
           
           cd ${{ github.workspace }}/repository/deploy/charts/x509-certificate-exporter/
 

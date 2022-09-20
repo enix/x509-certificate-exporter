@@ -39,7 +39,6 @@ type Exporter struct {
 
 	kubeClient   *kubernetes.Clientset
 	listener     net.Listener
-	handler      *http.Handler
 	server       *http.Server
 	isDiscovery  bool
 	secretsCache *cache.Cache

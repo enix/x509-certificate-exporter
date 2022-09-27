@@ -65,6 +65,7 @@ jobs:
 
       - name: Run unit tests
         run: |
+          set -euo pipefail
           kubectl cluster-info
           go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal
           go tool cover -html=coverage.cov -o coverage.html

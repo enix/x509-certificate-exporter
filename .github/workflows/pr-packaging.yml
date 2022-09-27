@@ -22,6 +22,7 @@ jobs:
       #- name: Run chart-testing (list-changed)
       #  id: list-changed
       #  run: |
+      #    set -euo pipefail
       #    changed=$(ct list-changed --chart-dirs deploy/charts --target-branch ${{ github.base_ref }})
       #    if [[ -n "$changed" ]]; then
       #      echo "::set-output name=changed::true"
@@ -29,6 +30,7 @@ jobs:
 
       - name: Run chart-testing (lint)
         run: |
+          set -euo pipefail
           ct lint --chart-dirs deploy/charts --target-branch ${{ github.base_ref }} \
             --validate-maintainers=false --check-version-increment=false 
 
@@ -41,4 +43,6 @@ jobs:
 
       # FIXME
       #- name: Run chart-testing (install)
-      #  run: ct install --chart-dirs deploy/charts
+      #  run: |
+      #    set -euo pipefail
+      #    ct install --chart-dirs deploy/charts

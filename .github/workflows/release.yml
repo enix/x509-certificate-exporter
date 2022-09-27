@@ -10,36 +10,20 @@ concurrency:
 env:
   COMMIT_NAME: Monkeynator
   COMMIT_EMAIL: monkeynator@enix.io
-  SHELL_HELPERS: |
-    function job {
-      printf "\n\033[1;35m[#] ${1}\033[0m\n"
-    }
-    function step {
-      printf "\033[1;36m[*] ${1}\033[0m\n"
-    }
-    function info {
-      printf "\033[0;33m[-] ${1}\033[0m\n"
-    }
-    function json {
-      $@ | jq -C
-    }
-    function yaml {
-      $@ | yq -C
-    }
 
 jobs:
   semver:
     name: Semantic Version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
+      last: ${{ steps.dry-run.outputs.last_release_version }}
       published: ${{ steps.dry-run.outputs.new_release_published }}
+      channel: ${{ steps.dry-run.outputs.new_release_channel }}
       version: ${{ steps.dry-run.outputs.new_release_version }}
       major: ${{ steps.dry-run.outputs.new_release_major_version }}
       minor: ${{ steps.dry-run.outputs.new_release_minor_version }}
       patch: ${{ steps.dry-run.outputs.new_release_patch_version }}
-      channel: ${{ steps.dry-run.outputs.new_release_channel }}
       notes: ${{ steps.dry-run.outputs.new_release_notes }}
-      last: ${{ steps.dry-run.outputs.last_release_version }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -54,32 +38,41 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
 
-      - name: Inspect semantic-release outcome
+      - name: Inspect semantic-release (dry-run) outcome
+        shell: python
         env:
-          HELPERS: ${{ env.SHELL_HELPERS }}
+          PYTHONPATH: ${{ github.workspace }}/.github
+          SR_LAST: ${{ steps.dry-run.outputs.last_release_version }}
+          SR_PUBLISHED: ${{ steps.dry-run.outputs.new_release_published }}
+          SR_CHANNEL: ${{ steps.dry-run.outputs.new_release_channel }}
+          SR_VERSION: ${{ steps.dry-run.outputs.new_release_version }}
+          SR_MAJOR: ${{ steps.dry-run.outputs.new_release_major_version }}
+          SR_MINOR: ${{ steps.dry-run.outputs.new_release_minor_version }}
+          SR_PATCH: ${{ steps.dry-run.outputs.new_release_patch_version }}
+          SR_NOTES: ${{ steps.dry-run.outputs.new_release_notes }}
         run: |
-          set -euo pipefail
-          eval "${HELPERS}"
+          from lib import *
+          import os
 
-          job "semantic-release job outputs"
-          info "last version : ${{ steps.dry-run.outputs.last_release_version }}"
-          info "published    : ${{ steps.dry-run.outputs.new_release_published }}"
-          info "channel      : ${{ steps.dry-run.outputs.new_release_channel }}"
-          info "version      : ${{ steps.dry-run.outputs.new_release_version }}"
-          info "major        : ${{ steps.dry-run.outputs.new_release_major_version }}"
-          info "minor        : ${{ steps.dry-run.outputs.new_release_minor_version }}"
-          info "patch        : ${{ steps.dry-run.outputs.new_release_patch_version }}"
-          info "notes        :"
-          echo "${{ steps.dry-run.outputs.new_release_notes }}"
+          header('semantic-release job outputs')
+          info('last      = {}'.format(os.environ['SR_LAST']))
+          info('published = {}'.format(os.environ['SR_PUBLISHED']))
+          info('channel   = {}'.format(os.environ['SR_CHANNEL']))
+          info('version   = {}'.format(os.environ['SR_VERSION']))
+          info('major     = {}'.format(os.environ['SR_MAJOR']))
+          info('minor     = {}'.format(os.environ['SR_MINOR']))
+          info('patch     = {}'.format(os.environ['SR_PATCH']))
+          info('notes ⏎\n{}'.format(os.environ['SR_NOTES']))
 
-      - name: Sanity checks
-        run: |
-          set -euo pipefail
-          [[ "${{ steps.dry-run.outputs.new_release_published }}" == "true" ]]
+          header('sanity checks')
+          action('should be published')
+          assert_equality((
+              (os.environ['SR_PUBLISHED'], 'true'),
+          ))
 
   tests:
     name: Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Create KinD cluster
         uses: engineerd/setup-kind@v0.5.0
@@ -95,16 +88,6 @@ jobs:
           go-version-file: go.mod
           check-latest: true
 
-      - name: Set up Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: v3.9.4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ~3.10
-
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.3.0
 
@@ -116,6 +99,7 @@ jobs:
 
       - name: Run unit tests
         run: |
+          set -euo pipefail
           kubectl cluster-info
           go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal
           go tool cover -html=coverage.cov -o coverage.html
@@ -126,24 +110,27 @@ jobs:
 
       - name: Run chart-testing (lint)
         run: |
+          set -euo pipefail
           ct lint \
             --charts deploy/charts/x509-certificate-exporter \
             --validate-maintainers=false --check-version-increment=false
 
       # FIXME
       #- name: Run chart-testing (install)
-      #  run: ct install --chart-dirs deploy/charts
+      #  run: |
+      #    set -euo pipefail
+      #    ct install --chart-dirs deploy/charts
 
-  # TODO
-  # - check whether Mage is a good fit
   build:
     name: Build
     needs: 
       - semver
       - tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
+        #goos: [linux]
+        #goarch: [amd64, arm64, riscv64]
         goos: [linux, darwin, freebsd, illumos, netbsd, openbsd, solaris, windows]
         goarch: [amd64, arm64, riscv64, "386"]
         exclude:
@@ -171,45 +158,94 @@ jobs:
           go-version: "1.18.6"
 
       - name: Build binaries and prepare assets
+        shell: python
+        env:
+          PYTHONPATH: ${{ github.workspace }}/repository/.github
+          WORKSPACE: ${{ github.workspace }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ needs.semver.outputs.version }}
+          REVISION: ${{ github.sha }}
         run: |
-          set -euxo pipefail
+          from lib import *
+          from datetime import datetime
+          from zipfile import ZipFile, ZIP_DEFLATED
+          from hashlib import sha256
+          import os, tarfile
 
-          mkdir build assets
+          header('prepare build environment')
+          
+          build_output_dir = os.path.join(os.environ['WORKSPACE'], 'build')
+          release_assets_dir = os.path.join(os.environ['WORKSPACE'], 'assets')
+          os.mkdir(build_output_dir)
+          os.mkdir(release_assets_dir)
 
-          ext=""
-          asset_packer="tar cvfz"
-          asset_ext=".tar.gz"
-          if [[ "${{ matrix.goos }}" == "windows" ]] ; then
-            ext=".exe"
-            asset_packer="zip -vr"
-            asset_ext=".zip"
-          fi
+          header('set build parameters')
+          
+          if os.environ['GOOS'] == 'windows':
+              binary_extension='.exe'
+              asset_extension='.zip'
+              zip_archive=True
+          else:
+              binary_extension=''
+              asset_extension='.tar.gz'
+              zip_archive=False
+          
+          base_name='x509-certificate-exporter'
+          binary_name='{}{}'.format(base_name, binary_extension)
+          asset_name='{}-{}-{}{}'.format(base_name, os.environ['GOOS'], os.environ['GOARCH'], asset_extension)
+          sum_name='{}.sha256'.format(asset_name)
+          build_time = datetime.utcnow().isoformat(timespec='seconds')
+          ldflags=[
+              '-X github.com/enix/x509-certificate-exporter/v3/internal.Version={}'.format(os.environ['VERSION']),
+              '-X github.com/enix/x509-certificate-exporter/v3/internal.Revision={}'.format(os.environ['REVISION']),
+              '-X github.com/enix/x509-certificate-exporter/v3/internal.BuildDateTime={}'.format(build_time),
+          ]
 
-          base_name="x509-certificate-exporter"
-          binary_name="${base_name}${ext}"
-          asset_name="${base_name}-${{ matrix.goos }}-${{ matrix.goarch }}${asset_ext}"
-          sum_name="${asset_name}.sha256"
+          info('build output directory   = {}'.format(build_output_dir))
+          info('release assets directory = {}'.format(release_assets_dir))
+          info('output binary filename   = {}'.format(binary_name))
+          info('release asset filename   = {}'.format(asset_name))
+          info('release asset sum file   = {}'.format(sum_name))
+          info('build time               = {}'.format(build_time))
+          info('ldflags')
+          for ldflag in ldflags:
+              info('  {}'.format(ldflag))
+  
+          header('build project')
 
-          ldflags=()
-          ldflags+=("-X github.com/enix/x509-certificate-exporter/v3/internal.Version=${{ needs.semver.outputs.version }}")
-          ldflags+=("-X github.com/enix/x509-certificate-exporter/v3/internal.Revision=${{ github.sha }}")
-          ldflags+=("-X github.com/enix/x509-certificate-exporter/v3/internal.BuildDateTime=$(date --utc --iso-8601=seconds)")
+          binary_output_path = os.path.join(build_output_dir, binary_name)
+          run('go', 'build',
+                '-tags', 'netgo,osusergo',
+                '-ldflags', ' '.join(ldflags),
+                '-o', binary_output_path,
+                './cmd/x509-certificate-exporter',
+              cwd=os.path.join(os.environ['WORKSPACE'], 'repository'),
+              env=os.environ)
 
-          cd ${{ github.workspace }}/repository
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            go build -v \
-              -tags netgo,osusergo \
-              -ldflags "${ldflags[*]}" \
-              -o ${{ github.workspace }}/build/${binary_name} \
-              ./cmd/x509-certificate-exporter
+          header('generate release asset')
 
-          cd ${{ github.workspace }}/build
-          file ${binary_name}
-          ( shopt -s dotglob; eval ${asset_packer} ${{ github.workspace }}/assets/${asset_name} * )
+          action('create archive')
+          asset_path = os.path.join(release_assets_dir, asset_name)
+          if zip_archive:
+              with ZipFile(asset_path, 'x', ZIP_DEFLATED) as zipfile:
+                  zipfile.write(binary_output_path, arcname=base_name)
+          else:
+              def reset(tarinfo):
+                  tarinfo.uid = tarinfo.gid = 1000
+                  tarinfo.uname = tarinfo.gname = 'user'
+                  return tarinfo
+              with tarfile.open(asset_path, 'x:gz') as tarfile:
+                  tarfile.add(binary_output_path, arcname=base_name, filter=reset)
 
-          cd ${{ github.workspace }}/assets
-          sha256sum ${asset_name} | cut -d ' ' -f 1 | tee ${sum_name}
-          ls -la
+          action('compute archive checksums')          
+          hex_sum = sha256(open(asset_path, 'rb').read()).hexdigest()
+          info('SHA-256 = {}'.format(hex_sum))
+          assert_length((
+              (hex_sum, 64),
+          ))
+          sum_path = os.path.join(release_assets_dir, sum_name)
+          open(sum_path, 'x').write(hex_sum)
 
       - name: Upload assets to artifact
         uses: actions/upload-artifact@v3
@@ -223,17 +259,17 @@ jobs:
     needs:
       - semver
       - build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
+      last: ${{ steps.release.outputs.last_release_version }}
       published: ${{ steps.release.outputs.new_release_published }}
-      prerelease: ${{ steps.prerelease.outputs.prerelease }}
+      channel: ${{ steps.release.outputs.new_release_channel }}
       version: ${{ steps.release.outputs.new_release_version }}
       major: ${{ steps.release.outputs.new_release_major_version }}
       minor: ${{ steps.release.outputs.new_release_minor_version }}
       patch: ${{ steps.release.outputs.new_release_patch_version }}
-      channel: ${{ steps.release.outputs.new_release_channel }}
       notes: ${{ steps.release.outputs.new_release_notes }}
-      last: ${{ steps.release.outputs.last_release_version }}
+      prerelease: ${{ steps.inspect.outputs.prerelease }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -260,77 +296,54 @@ jobs:
           GIT_AUTHOR_EMAIL: ${{ env.COMMIT_EMAIL }}
 
       - name: Inspect semantic-release outcome
+        id: inspect
+        shell: python
         env:
-          HELPERS: ${{ env.SHELL_HELPERS }}
+          PYTHONPATH: ${{ github.workspace }}/repository/.github
+          SRDRY_CHANNEL: ${{ needs.semver.outputs.channel }}
+          SRDRY_VERSION: ${{ needs.semver.outputs.version }}
+          SR_LAST: ${{ steps.release.outputs.last_release_version }}
+          SR_PUBLISHED: ${{ steps.release.outputs.new_release_published }}
+          SR_CHANNEL: ${{ steps.release.outputs.new_release_channel }}
+          SR_VERSION: ${{ steps.release.outputs.new_release_version }}
+          SR_MAJOR: ${{ steps.release.outputs.new_release_major_version }}
+          SR_MINOR: ${{ steps.release.outputs.new_release_minor_version }}
+          SR_PATCH: ${{ steps.release.outputs.new_release_patch_version }}
+          SR_NOTES: ${{ steps.release.outputs.new_release_notes }}
         run: |
-          set -euo pipefail
-          eval "${HELPERS}"
+          from lib import *
+          import os
+          
+          header('semantic-release job outputs')
+          info('last      = {}'.format(os.environ['SR_LAST']))
+          info('published = {}'.format(os.environ['SR_PUBLISHED']))
+          info('channel   = {}'.format(os.environ['SR_CHANNEL']))
+          info('version   = {}'.format(os.environ['SR_VERSION']))
+          info('major     = {}'.format(os.environ['SR_MAJOR']))
+          info('minor     = {}'.format(os.environ['SR_MINOR']))
+          info('patch     = {}'.format(os.environ['SR_PATCH']))
+          info('notes ⏎\n{}'.format(os.environ['SR_NOTES']))
 
-          job "semantic-release job outputs"
-          info "last version : ${{ steps.release.outputs.last_release_version }}"
-          info "published    : ${{ steps.release.outputs.new_release_published }}"
-          info "channel      : ${{ steps.release.outputs.new_release_channel }}"
-          info "version      : ${{ steps.release.outputs.new_release_version }}"
-          info "major        : ${{ steps.release.outputs.new_release_major_version }}"
-          info "minor        : ${{ steps.release.outputs.new_release_minor_version }}"
-          info "patch        : ${{ steps.release.outputs.new_release_patch_version }}"
-          info "notes        :"
-          echo "${{ steps.release.outputs.new_release_notes }}"
+          header('sanity checks')
+          action('should be published')
+          assert_equality((
+              (os.environ['SR_PUBLISHED'], 'true'),
+          ))
+          action('consistency with the dry-run')
+          assert_equality((
+              (os.environ['SR_CHANNEL'], os.environ['SRDRY_CHANNEL']),
+              (os.environ['SR_VERSION'], os.environ['SRDRY_VERSION']),
+          ))
 
-      - name: Detect pre-release versions
-        env:
-          HELPERS: ${{ env.SHELL_HELPERS }}
-        id: prerelease
-        run: |
-          set -euo pipefail
-          eval "${HELPERS}"
-
-          job "look for components in the version"
-
-          version="${{ steps.release.outputs.new_release_version }}"
-          versionComponents=(${version//-/ })
-          info "version    : ${version}"
-          info "components : "
-          for component in ${versionComponents[@]} ; do
-              info "  ${component}"
-          done
-
-          job "sanity checks"
-
-          [[ "${versionComponents[0]}" == \
-             "${{ steps.release.outputs.new_release_major_version }}.${{ steps.release.outputs.new_release_minor_version }}.${{ steps.release.outputs.new_release_patch_version }}" ]]
-
-          job "detect whether it's a prerelease version"
-
-          prerelease="false"
-          if [[ "${versionComponents[1]}" != "" ]] ; then
-              prerelease="true"
-          fi
-
-          info "prerelease : ${prerelease}"
-          echo "::set-output name=prerelease::${prerelease}"
-
-      - name: Sanity checks 
-        env:
-          HELPERS: ${{ env.SHELL_HELPERS }}
-        run: |
-          set -euo pipefail
-          eval "${HELPERS}"
-
-          job "consistency with the dry-run"
-          [[ "${{ needs.semver.outputs.published }}" == "${{ steps.release.outputs.new_release_published }}" ]]
-          [[ "${{ needs.semver.outputs.channel }}" == "${{ steps.release.outputs.new_release_channel }}" ]]
-          [[ "${{ needs.semver.outputs.version }}" == "${{ steps.release.outputs.new_release_version }}" ]]
-
-          job "prerelease detection"
-          [[ "${{ steps.prerelease.outputs.prerelease }}" != "" ]]
+          header('set the prerelease status')
+          is_prerelease = '-' in os.environ['SR_VERSION']
+          info('pre-release = {}'.format(is_prerelease))
+          print('::set-output name=prerelease::{}'.format(str(is_prerelease).lower()))
 
   containers:
     name: Containers
     needs:
       - release
-    # TODO restore ubuntu-latest when Github bumps the tag
-    # It was set to 22.04 to get a more recent version of buildah and avoid warnings
     runs-on: ubuntu-22.04
     env:
       CR_VERSION: "1.4.0"
@@ -338,18 +351,13 @@ jobs:
       - name: Configure git
         run: |
           set -euo pipefail
-          git config --global user.name "${{ env.COMMIT_NAME }}"
-          git config --global user.email "${{ env.COMMIT_EMAIL }}"
+          git config --global user.name '${{ env.COMMIT_NAME }}'
+          git config --global user.email '${{ env.COMMIT_EMAIL }}'
 
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
           path: repository
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: v3.9.4
       
       - name: Cache for chart-releaser
         id: cache-cr
@@ -358,15 +366,12 @@ jobs:
           path: bin/cr
           key: ${{ runner.os }}-cr-${{ env.CR_VERSION }}
 
-      # TODO check asset signature
       - name: Set up chart-releaser
         if: steps.cache-cr.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-
           [ -d bin ] || mkdir bin
-          
-          URL="https://github.com/helm/chart-releaser/releases/download/v${{ env.CR_VERSION }}/chart-releaser_${{ env.CR_VERSION }}_linux_amd64.tar.gz"
+          URL='https://github.com/helm/chart-releaser/releases/download/v${{ env.CR_VERSION }}/chart-releaser_${{ env.CR_VERSION }}_linux_amd64.tar.gz'
           curl -sSL "${URL}" | tar xz -C bin cr
 
       - name: Login to Docker Hub
@@ -388,195 +393,165 @@ jobs:
           name: binaries
           path: assets
 
-      - name: Set up buildah
-        env:
-          HELPERS: ${{ env.SHELL_HELPERS }}
-        run: |
-          set -euo pipefail
-          eval "${HELPERS}"
-
-          job "buildah status"
-          json buildah info
-
-          job "purge images and containers"
-          buildah rm --all
-          buildah rmi --all --force
-
-      # TODO
-      # - get base images versions from env
       - name: Build container images from binary assets
         id: build-oci
+        shell: python
         env:
-          HELPERS: ${{ env.SHELL_HELPERS }}
-          BUILDAH_HISTORY: "true"
+          PYTHONPATH: ${{ github.workspace }}/repository/.github
+          WORKSPACE: ${{ github.workspace }}
+          REPOSITORY: ${{ github.repository }}
+          OCI_ALPINE_VERSION: '3.16.2'
+          OCI_BUSYBOX_VERSION: '1.35.0-uclibc'
+          VERSION: ${{ needs.release.outputs.version }}
+          PRERELEASE: ${{ needs.release.outputs.prerelease }}
+          REVISION: ${{ github.sha }}
         run: |
-          set -euo pipefail
-          eval "${HELPERS}"
+          from lib import *
+          from datetime import datetime
+          import os, tarfile
 
-          job "preparing the build matrix"
+          header('preparing the build matrix')
 
-          declare -A base_images
-          base_images["alpine"]="3.16.2"
-          base_images["busybox"]="1.35.0-uclibc"
-          base_images["scratch"]=""
+          base_images = {
+              'alpine': os.environ['OCI_ALPINE_VERSION'],
+              'scratch': None,
+              'busybox': os.environ['OCI_BUSYBOX_VERSION'],
+          }
+          info('base images to build from:')
+          for image, tag in base_images.items():
+              info('  {}{}'.format(image, ':{}'.format(tag) if tag else ''))
 
-          info "base images to build from:"
-          for base_image in ${!base_images[@]} ; do
-            base_tag="${base_images[${base_image}]}"
-            if [[ "${base_tag}" != "" ]] ; then
-              info "  ${base_image}:${base_tag}"
-            else
-              info "  ${base_image}"
-            fi
-          done
-
-          for base_image in ${!base_images[@]} ; do
-            base_tag="${base_images[${base_image}]}"
+          base_archs = ('amd64', 'arm64', 'riscv64')
+          info('architectures to build for:')
+          for arch in base_archs:
+              info('  {}'.format(arch))
           
-            job "${base_image}: create the multi-platform manifest"
+          version = os.environ['VERSION']
+          prerelease = os.environ['PRERELEASE']
+          assert_length_above((
+              (version, 0),
+              (prerelease, 0),
+          ))
+          prerelease = bool(prerelease)
 
-            manifest_name="x509-certificate-exporter-${base_image}"
-            manifest_id="$(buildah manifest create "${manifest_name}")"
-            info "name = ${manifest_name}"
-            info "id   = ${manifest_id}"
+          for base_image, base_tag in base_images.items():
+              header('{}: create the multi-platform manifest'.format(base_image))
 
-            json buildah inspect --type manifest "${manifest_name}"
+              manifest_name = 'x509-certificate-exporter-{}'.format(base_image)
+              manifest_id = run('buildah', 'manifest', 'create', manifest_name, capture_output=True).strip()
+              info('name = {}'.format(manifest_name))
+              info('id   = {}'.format(manifest_id))
+              run('buildah', 'inspect', '--type', 'manifest', manifest_name)
 
-            base_archs=()
-            base_archs+=(amd64)
-            base_archs+=(arm64)
-            base_archs+=(riscv64)
+              for container_arch in base_archs:
+                  header('{}: assembling image for: {}'.format(base_image, container_arch))
 
-            for container_arch in ${base_archs[@]} ; do
-              job "${base_image}: assembling image for: ${container_arch}"
+                  if base_tag:
+                      # FIXME exceptions for RISC-V
+                      if container_arch == 'riscv64' and base_image == 'alpine':
+                          # use 'edge' waiting for version 3.17
+                          container_base = 'docker://{}:edge'.format(base_image)
+                      else:
+                          container_base = 'docker://{}:{}'.format(base_image, base_tag)
+                  else:
+                      container_base = base_image
 
-              if [[ "${base_tag}" != "" ]] ; then
-                # FIXME exceptions for RISC-V
-                if [[ "${container_arch}" == "riscv64" && "${base_image}" == "alpine" ]] ; then
-                  # use 'edge' waiting for version 3.17
-                  container_base="docker://${base_image}:edge"
-                else
-                  container_base="docker://${base_image}:${base_tag}"
-                fi
-              else
-                container_base="${base_image}"
-              fi
+                  action('create a working container')
+                  container_os = 'linux'
+                  info('os   = {}'.format(container_os))
+                  info('arch = {}'.format(container_arch))
+                  info('base = {}'.format(container_base))
+                  container_id = run('buildah', 'from', '--arch', container_arch,
+                                     '--os', container_os, container_base, capture_output=True).strip()
+                  info('container id = {}'.format(container_id))
 
-              container_name="${base_image}-${container_arch}"
-              info "container = ${container_name}"
+                  action('update image configuration')
+                  build_time = datetime.utcnow().isoformat(timespec='seconds')
+                  info('build time = {}'.format(build_time))
+                  run('buildah', 'config', '--add-history',
+                      '--author', 'Enix <contact@enix.fr>',
+                      '--label', 'org.opencontainers.image.title=X.509 Certificate Exporter',
+                      '--label', 'org.opencontainers.image.description=A Prometheus exporter for certificates focusing on expiration monitoring.',
+                      '--label', 'org.opencontainers.image.url=https://github.com/enix/x509-certificate-exporter',
+                      '--label', 'org.opencontainers.image.documentation=https://github.com/enix/x509-certificate-exporter#readme',
+                      '--label', 'org.opencontainers.image.sources=https://github.com/enix/sandbox-x509-certificate-exporter/blob/test-github-actions/.github/workflows/release.yml',
+                      '--label', 'org.opencontainers.image.authors=Enix <contact@enix.fr>',
+                      '--label', 'org.opencontainers.image.licenses=MIT',
+                      '--label', 'org.opencontainers.image.version={}'.format(version),
+                      '--label', 'org.opencontainers.image.revision={}'.format(os.environ['REVISION']),
+                      '--label', 'org.opencontainers.image.created={}'.format(build_time),
+                      '--os', container_os,
+                      '--arch', container_arch,
+                      '--workingdir', '/',
+                      '--entrypoint', '["/x509-certificate-exporter"]',
+                      '--cmd', '',
+                      '--port', '9793/tcp',
+                      container_id)
 
-              step "create a working container"
+                  action('extract binary from assets')
+                  asset_path = os.path.join(os.environ['WORKSPACE'], 'assets',
+                          'x509-certificate-exporter-{}-{}.tar.gz'.format(container_os, container_arch))
+                  binary_path = os.path.join(os.environ['WORKSPACE'], 'x509-certificate-exporter')
+                  with tarfile.open(asset_path, 'r:gz') as tarfile:
+                      with open(binary_path, 'xb') as binfile:
+                          bin_data = tarfile.extractfile('x509-certificate-exporter')
+                          binfile.write(bin_data.read())
 
-              container_os="linux"
-              info "arch = ${container_arch}"
-              info "os   = ${container_os}"
-              info "base = ${container_base}"
+                  action('copy binary and delete source')
+                  run('buildah', 'copy', '--add-history', '--chmod', '0555', '--chown', '0:0',
+                      container_id, binary_path, '/x509-certificate-exporter')
+                  os.unlink(binary_path)
+
+                  action('commit image')
+                  image_id = run('buildah', 'commit', '--rm', '--format', 'docker',
+                      '--manifest', manifest_name, container_id, capture_output=True).strip()
+                  info('image id = {}'.format(image_id))
+
+              header('{}: inspect the multi-platform manifest'.format(base_image))
+              run('buildah', 'inspect', '--type', 'manifest', manifest_name)
+
+              header('{}: preparing push parameters'.format(base_image))
+            
+              repositories = (
+                  'docker.io/{}'.format(os.environ['REPOSITORY']),
+                  'quay.io/{}'.format(os.environ['REPOSITORY']),
+              )
+              tags = [ version ]
+              if not prerelease:
+                  info('not a prerelease version, adding the "latest" tag')
+                  tags.append('latest')
+            
+              info('tags to push to:')
+              destinations = []
+              for repo in repositories:
+                  for tag in tags:
+                      destinations.append('{}:{}-{}'.format(repo, tag, base_image))
+                      # use Busybox as default image
+                      if base_image == 'busybox':
+                          destinations.append('{}:{}'.format(repo, tag))
+              for destination in destinations:
+                  info('  {}'.format(destination))
+
+              header('{}: push manifest and images'.format(base_image))
+              for destination in destinations:
+                  action('pushing: {}'.format(destination))
+                  run('buildah', 'manifest', 'push', '--all', manifest_name, 'docker://{}'.format(destination))
               
-              buildah from \
-                --name "${container_name}" \
-                --arch="${container_arch}" \
-                --os="${container_os}" \
-                "${container_base}"
+              header('{}: removing manifest'.format(base_image))
+              run('buildah', 'manifest', 'rm', manifest_name)
 
-              step "update image configuration"
-              buildah config \
-                --author "Enix <contact@enix.fr>" \
-                --label org.opencontainers.image.title="X.509 Certificate Exporter" \
-                --label org.opencontainers.image.description="A Prometheus exporter for certificates focusing on expiration monitoring." \
-                --label org.opencontainers.image.url="https://github.com/enix/x509-certificate-exporter" \
-                --label org.opencontainers.image.documentation="https://github.com/enix/x509-certificate-exporter#readme" \
-                --label org.opencontainers.image.sources="https://github.com/enix/sandbox-x509-certificate-exporter/blob/test-github-actions/.github/workflows/release.yml" \
-                --label org.opencontainers.image.authors="Enix <contact@enix.fr>" \
-                --label org.opencontainers.image.licenses="MIT" \
-                --label org.opencontainers.image.version="${{ needs.release.outputs.version }}" \
-                --label org.opencontainers.image.revision="${{ github.sha }}" \
-                --label org.opencontainers.image.created="$(date --utc --iso-8601=seconds)" \
-                --os "${container_os}" \
-                --arch "${container_arch}" \
-                --workingdir "/" \
-                --entrypoint '["/x509-certificate-exporter"]' \
-                --cmd "" \
-                --port "9793/tcp" \
-                "${container_name}"
-
-              step "extract binary from assets"
-              tar xfz ${{ github.workspace }}/assets/x509-certificate-exporter-${container_os}-${container_arch}.tar.gz \
-                -C ${{ github.workspace }} x509-certificate-exporter
-
-              step "copy binary"
-              buildah copy \
-                --chmod 0555 \
-                --chown 0:0 \
-                "${container_name}" \
-                "${{ github.workspace }}/x509-certificate-exporter" \
-                "/x509-certificate-exporter"
-
-              step "commit image"
-              image_id="$(buildah commit \
-                --rm \
-                --format docker \
-                --manifest "${manifest_name}" \
-                "${container_name}")"
-
-              #step "inspect image"
-              #json buildah inspect --type image "${image_id}"
-            done
-
-            job "${base_image}: inspect the multi-platform manifest"
-            json buildah inspect --type manifest "${manifest_name}"
-
-            job "${base_image}: preparing push parameters"
-            
-            repositories=()
-            repositories+=("docker.io/${{ github.repository }}")
-            repositories+=("quay.io/${{ github.repository }}")
-
-            tags=()
-            tags+=("${{ needs.release.outputs.version }}")
-            if [[ "${{ needs.release.outputs.prerelease }}" == "false" ]] ; then
-              info "not a prerelease version, adding the 'latest' tag"
-              tags+=("latest")
-            fi
-            
-            info "tags to push to:"
-            destinations=()
-            for repo in ${repositories[@]} ; do
-              for tag in ${tags[@]} ; do
-                destinations+=("${repo}:${tag}-${base_image}")
-                # use Busybox as default image
-                if [[ "${base_image}" == "busybox" ]] ; then
-                  destinations+=("${repo}:${tag}")
-                fi
-              done
-            done
-            for destination in ${destinations[@]} ; do
-              info "  ${destination}"
-            done
-
-            job "${base_image}: push manifest and images"
-            for destination in ${destinations[@]} ; do
-              step "destination: ${destination}"
-              buildah manifest push \
-                --all \
-                "${manifest_name}" \
-                "docker://${destination}"
-            done
-          done
-
-          job "purge all containers"
-          buildah rm --all
-
-          job "purge all images"
-          buildah rmi --all --force
+          header('housekeeping')
+          action('purge all containers')
+          run('buildah', 'rm', '--all')
+          action('purge all images')
+          run('buildah', 'rmi', '--all', '--force')
 
       - name: Convert Github changelog for Artifacthub
         shell: python
         env:
           GITHUB_CHANGELOG: ${{ needs.release.outputs.notes }}
         run: |
-          import os
-          import yaml
-          import re
+          import os, yaml, re
 
           # Based on:
           # - https://github.com/conventional-changelog/conventional-changelog/blob/master/packages/conventional-changelog-angular/writer-opts.js
@@ -674,73 +649,86 @@ jobs:
       # - OCI releases?
       # - signing?
       - name: Run chart-releaser
+        shell: python
         env:
-          HELPERS: ${{ env.SHELL_HELPERS }}
-          ARTIFACTHUB_CHANGELOG: ${{ env.ARTIFACTHUB_CHANGELOG }}
+          WORKSPACE: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}/repository/.github
+          CR_PATH: ${{ github.workspace }}/bin/cr
           CR_TOKEN: ${{ secrets.CHARTSREPO_GITHUB_TOKEN }}
+          CHART_NAME: x509-certificate-exporter
+          VERSION: ${{ needs.release.outputs.version }}
+          PRERELEASE: ${{ needs.release.outputs.prerelease }}
+          ARTIFACTHUB_CHANGELOG: ${{ env.ARTIFACTHUB_CHANGELOG }}
         run: |
-          set -euo pipefail
-          eval "${HELPERS}"
-
-          export PATH=${{ github.workspace }}/bin/:${PATH}
+          from lib import *
+          import os, yaml, shutil
           
-          cd ${{ github.workspace }}/repository/deploy/charts/x509-certificate-exporter/
+          chart_path = os.path.join(os.environ['WORKSPACE'], 'repository', 'deploy', 'charts', os.environ['CHART_NAME'])
+          os.chdir(chart_path)
 
-          job "chart manifest preparation"
+          header('prepare chart manifest')
 
-          step "set version information"
+          version = os.environ['VERSION']
+          assert_length_above((
+              (version, 0),
+          ))
+          is_prerelease = os.environ['PRERELEASE']
+          is_security_update = 'false' # FIXME
+          assert_in((
+            (is_prerelease,      ('true', 'false')),
+            (is_security_update, ('true', 'false')),
+          ))
+          is_prerelease = bool(is_prerelease)
+          is_security_update = bool(is_security_update)
 
-          version="${{ needs.release.outputs.version }}"
-          prerelease="${{ needs.release.outputs.prerelease }}"
-          # FIXME
-          containsSecurityUpdates="false"
+          info('version      = {}'.format(version))
+          info('prerelease   = {}'.format(is_prerelease))
+          info('security fix = {}'.format(is_security_update))
 
-          info "  version      = ${version}"
-          info "  prerelease   = ${prerelease}"
-          info "  security fix = ${containsSecurityUpdates}"
+          manifest_file = 'Chart.yaml'
+          manifest = yaml.safe_load(open(manifest_file, 'r'))
+          manifest.update({
+              'version': version,
+              'appVersion': version,
+          })
+          manifest['annotations'].update({
+              'artifacthub.io/prerelease': str(is_prerelease).lower(),
+              'artifacthub.io/containsSecurityUpdates': str(is_security_update).lower(),
+              'artifacthub.io/changes': os.environ['ARTIFACTHUB_CHANGELOG'],
+          })
+          open(manifest_file, 'w').write(yaml.dump(manifest))
 
-          yq -i ".version = \"${version}\"" Chart.yaml
-          yq -i ".appVersion = \"${version}\"" Chart.yaml
-          yq -i ".annotations[\"artifacthub.io/prerelease\"] = \"${prerelease}\"" Chart.yaml
-          yq -i ".annotations[\"artifacthub.io/containsSecurityUpdates\"] = \"${containsSecurityUpdates}\"" Chart.yaml
+          header('inspect files to be released')
 
-          step "set release changes for Artifacthub"
-          yq -i ".annotations[\"artifacthub.io/changes\"] = strenv(ARTIFACTHUB_CHANGELOG)" Chart.yaml
+          for yaml_file in (manifest_file,):
+              action('YAML: {}'.format(yaml_file))
+              print(yaml.safe_load(open(yaml_file, 'r')))
 
-          job "inspect files to be released"
-
-          for yaml_file in Chart.yaml ; do
-            step "${yaml_file}"
-            yaml cat "${yaml_file}"
-          done
-
-          job "release the chart"
+          header('release the chart')
           
-          step "clone helm charts repository"
-          charts_repo="${{ github.workspace }}/enix_charts"
-          git clone https://github.com/enix/helm-charts "${charts_repo}"
+          action('clone helm charts repository')
+          charts_repo = os.path.join(os.environ['WORKSPACE'], 'enix-charts')
+          run('git', 'clone', 'https://github.com/enix/helm-charts', charts_repo)
 
-          chart_path="${charts_repo}/charts/x509-certificate-exporter/"
-          mkdir -p "${chart_path}"
-          cp -r ** "${chart_path}"
-          cd "${chart_path}"
+          action('copy chart files')
+          repo_chart_path = os.path.join(charts_repo, 'charts', os.environ['CHART_NAME'])
+          shutil.copytree(chart_path, repo_chart_path, symlinks=True, dirs_exist_ok=False)
 
-          step "create the chart package"
-          cr package "${chart_path}"
-          #ls -la ./ .cr-release-packages/
+          action('create the chart package')
+          run(os.environ['CR_PATH'], 'package', repo_chart_path)
 
-          step "upload the chart"
-          cr upload --skip-existing --owner enix --git-repo helm-charts
+          action('upload the chart')
+          # run(os.environ['CR_PATH'], 'upload', '--skip-existing', '--owner', 'enix', '--git-repo', 'helm-charts')
 
-          step "update repository index"
-          cr index --push -i index.yaml --owner enix --git-repo helm-charts
+          action('update repository index')
+          # run(os.environ['CR_PATH'], 'index', '--push', '-i', 'index.yaml', '--owner', 'enix', '--git-repo', 'helm-charts')
 
   cleanup:
     name: Cleanup
     needs:
       - release
       - containers
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Delete assets artifact
         uses: geekyeggo/delete-artifact@v1

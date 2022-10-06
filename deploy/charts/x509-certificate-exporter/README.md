@@ -401,6 +401,7 @@ in the container namespace.
 | prometheusRules.criticalDaysLeft | int | `14` | Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue) |
 | prometheusRules.extraLabels | object | `{}` | Extra labels to add on PrometheusRule ressources |
 | prometheusRules.alertExtraLabels | object | `{}` | Extra labels to add on PrometheusRule rules |
+| prometheusRules.alertExtraAnnotations | object | `{}` | Extra annotations to add on PrometheusRule rules |
 | prometheusRules.rulePrefix | string | `""` | Extra rulePrefix to PrometheusRule rules |
 | prometheusRules.disableBuiltinAlertGroup | bool | `false` | Skip all built-in alerts when using extraAlertGroups |
 | prometheusRules.extraAlertGroups | list | `[]` | Additional alert groups for custom configuration (example in `values.yaml`) |

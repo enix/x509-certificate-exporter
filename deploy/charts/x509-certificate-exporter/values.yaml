@@ -287,6 +287,8 @@ prometheusRules:
   extraLabels: {}
   # -- Extra labels to add on PrometheusRule rules
   alertExtraLabels: {}
+  # -- Extra annotations to add on PrometheusRule rules
+  alertExtraAnnotations: {}
   # -- Extra rulePrefix to PrometheusRule rules
   rulePrefix: ""
   # -- Skip all built-in alerts when using extraAlertGroups

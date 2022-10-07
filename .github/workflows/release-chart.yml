@@ -182,8 +182,8 @@ jobs:
             (is_prerelease,      ('true', 'false')),
             (is_security_update, ('true', 'false')),
           ))
-          is_prerelease = bool(is_prerelease)
-          is_security_update = bool(is_security_update)
+          is_prerelease = is_prerelease == 'true'
+          is_security_update = is_security_update == 'true'
 
           info('version      = {}'.format(version))
           info('prerelease   = {}'.format(is_prerelease))

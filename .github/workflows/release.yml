@@ -715,13 +715,13 @@ jobs:
           shutil.copytree(chart_path, repo_chart_path, symlinks=True, dirs_exist_ok=False)
 
           action('create the chart package')
-          run(os.environ['CR_PATH'], 'package', repo_chart_path)
+          run(os.environ['CR_PATH'], 'package', repo_chart_path, cwd=charts_repo)
 
           action('upload the chart')
-          run(os.environ['CR_PATH'], 'upload', '--skip-existing', '--owner', 'enix', '--git-repo', 'helm-charts')
+          run(os.environ['CR_PATH'], 'upload', '--skip-existing', '--owner', 'enix', '--git-repo', 'helm-charts', cwd=charts_repo)
 
           action('update repository index')
-          run(os.environ['CR_PATH'], 'index', '--push', '-i', 'index.yaml', '--owner', 'enix', '--git-repo', 'helm-charts')
+          run(os.environ['CR_PATH'], 'index', '--push', '-i', 'index.yaml', '--owner', 'enix', '--git-repo', 'helm-charts', cwd=charts_repo)
 
   cleanup:
     name: Cleanup

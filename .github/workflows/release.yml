@@ -692,8 +692,8 @@ jobs:
               'appVersion': version,
           })
           manifest['annotations'].update({
-              'artifacthub.io/prerelease': str(is_prerelease).lower(),
-              'artifacthub.io/containsSecurityUpdates': str(is_security_update).lower(),
+              'artifacthub.io/prerelease': is_prerelease,
+              'artifacthub.io/containsSecurityUpdates': is_security_update,
               'artifacthub.io/changes': os.environ['ARTIFACTHUB_CHANGELOG'],
           })
           open(manifest_file, 'w').write(yaml.dump(manifest))

@@ -16,7 +16,7 @@ jobs:
     name: Containers
     runs-on: ubuntu-22.04
     env:
-      CR_VERSION: "1.4.0"
+      CR_VERSION: "1.4.1"
     steps:
       - name: Configure git
         run: |

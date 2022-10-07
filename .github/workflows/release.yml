@@ -638,7 +638,11 @@ jobs:
 
                   entries.append(entry)
 
-          output = yaml.dump(entries)
+          if len(entries):
+            output = yaml.dump(entries)
+          else:
+            output = ''
+
           print(output)
           with open(os.environ['GITHUB_ENV'], 'a') as outfile:
               outfile.write('ARTIFACTHUB_CHANGELOG<<EOF\n')
@@ -678,8 +682,6 @@ jobs:
             (is_prerelease,      ('true', 'false')),
             (is_security_update, ('true', 'false')),
           ))
-          is_prerelease = is_prerelease == 'true'
-          is_security_update = is_security_update == 'true'
 
           info('version      = {}'.format(version))
           info('prerelease   = {}'.format(is_prerelease))
@@ -694,8 +696,12 @@ jobs:
           manifest['annotations'].update({
               'artifacthub.io/prerelease': is_prerelease,
               'artifacthub.io/containsSecurityUpdates': is_security_update,
-              'artifacthub.io/changes': os.environ['ARTIFACTHUB_CHANGELOG'],
           })
+          changelog = os.environ['ARTIFACTHUB_CHANGELOG']
+          if len(changelog):
+            manifest['annotations'].update({
+              'artifacthub.io/changes': changelog,
+            })
           open(manifest_file, 'w').write(yaml.dump(manifest))
 
           header('inspect files to be released')

@@ -38,7 +38,7 @@ func main() {
 	yamls := stringArrayFlag{}
 	getopt.FlagLong(&yamls, "watch-kubeconf", 'k', "watch one or more Kubernetes client configuration (kind Config) which contains embedded x509 certificates or PEM file paths")
 
-	kubeEnabled := getopt.BoolLong("watch-kube-secrets", 0, "scrape kubernetes.io/tls secrets and monitor them")
+	kubeEnabled := getopt.BoolLong("watch-kube-secrets", 0, "scrape kubernetes secrets and monitor them")
 
 	kubeSecretTypes := stringArrayFlag{}
 	getopt.FlagLong(&kubeSecretTypes, "secret-type", 's', "one or more kubernetes secret type & key to watch (e.g. \"kubernetes.io/tls:tls.crt\"")

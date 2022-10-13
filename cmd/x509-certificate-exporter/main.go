@@ -67,6 +67,8 @@ func main() {
 		return
 	}
 
+	log.Infof("starting %s version %s (%s) (%s)", path.Base(os.Args[0]), internal.Version, internal.Revision, internal.BuildDateTime)
+
 	if *debug {
 		log.SetLevel(log.DebugLevel)
 	}
@@ -118,7 +120,6 @@ func main() {
 		}
 	}
 
-	log.Infof("starting %s version %s (%s) (%s)", path.Base(os.Args[0]), internal.Version, internal.Revision, internal.BuildDateTime)
 	rand.Seed(time.Now().UnixNano())
 	err := exporter.ListenAndServe()
 	if err != nil {

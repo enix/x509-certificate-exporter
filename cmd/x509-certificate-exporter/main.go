@@ -40,6 +40,8 @@ func main() {
 
 	kubeEnabled := getopt.BoolLong("watch-kube-secrets", 0, "scrape kubernetes secrets and monitor them")
 
+	kubeConfig := getopt.StringLong("kubeconfig", 0, "", "Path to the kubeconfig file to use for requests. Takes precedence over the KUBECONFIG environment variable, and default path (~/.kube/config).", "path")
+
 	kubeSecretTypes := stringArrayFlag{}
 	getopt.FlagLong(&kubeSecretTypes, "secret-type", 's', "one or more kubernetes secret type & key to watch (e.g. \"kubernetes.io/tls:tls.crt\"")
 
@@ -105,18 +107,21 @@ func main() {
 	}
 
 	if *kubeEnabled {
-		err := exporter.ConnectToKubernetesCluster("")
-		if err != nil {
-			log.Warn(err)
+		defaultKubeConfig := path.Join(os.Getenv("HOME"), ".kube", "config")
+		kubeConfigEnv := os.Getenv("KUBECONFIG")
 
-			configpath := os.Getenv("KUBECONFIG")
-			if len(configpath) == 0 {
-				configpath = path.Join(os.Getenv("HOME"), ".kube/config")
-			}
-			err = exporter.ConnectToKubernetesCluster(configpath)
-			if err != nil {
-				log.Fatal(err)
-			}
+		configpath := ""
+		if len(*kubeConfig) > 0 {
+			configpath = *kubeConfig
+		} else if len(kubeConfigEnv) > 0 {
+			configpath = kubeConfigEnv
+		} else if _, err := os.Stat(defaultKubeConfig); err == nil {
+			configpath = defaultKubeConfig
+		}
+
+		err := exporter.ConnectToKubernetesCluster(configpath)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}
 

@@ -251,10 +251,10 @@ func parseKubeConfig(kubeconfigPath string) (*rest.Config, error) {
 	var err error
 
 	if len(kubeconfigPath) > 0 {
-		log.Infof("reading config from %s", kubeconfigPath)
+		log.Infof("using kubeconfig file: %s", kubeconfigPath)
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	} else {
-		log.Info("fetching configuration from within the cluster")
+		log.Info("no kubeconfig file provided, attempting to load in-cluster configuration")
 		config, err = rest.InClusterConfig()
 	}
 

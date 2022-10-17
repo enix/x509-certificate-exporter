@@ -737,6 +737,6 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Delete assets artifact
-        uses: geekyeggo/delete-artifact@v1
+        uses: geekyeggo/delete-artifact@v2
         with:
           name: binaries

@@ -18,7 +18,7 @@ jobs:
 
       - name: Run hadolint
         id: hadolint
-        uses: hadolint/hadolint-action@v2.1.0
+        uses: hadolint/hadolint-action@v3.0.0
 
       - name: Update Pull Request
         uses: actions/github-script@v6

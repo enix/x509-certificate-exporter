@@ -7,6 +7,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -18,7 +19,14 @@ import (
 func main() {
 	help := getopt.BoolLong("help", 'h', "show this help message and exit")
 	version := getopt.BoolLong("version", 'v', "show version info and exit")
+
 	listenAddress := getopt.StringLong("listen-address", 'b', ":9793", "address on which to bind and expose metrics")
+	systemdSocket := func() *bool { b := false; return &b }() // Socket activation only available on Linux
+	if runtime.GOOS == "linux" {
+		systemdSocket = getopt.BoolLong("web.systemd-socket", 0, "use systemd socket activation listeners instead of port listeners (Linux only)")
+	}
+	configFile := getopt.StringLong("web.config.file", 0, "", "[EXPERIMENTAL] path to configuration file that can enable TLS or authentication")
+
 	debug := getopt.BoolLong("debug", 0, "enable debug mode")
 	trimPathComponents := getopt.IntLong("trim-path-components", 0, 0, "remove <n> leading component(s) from path(s) in label(s)")
 	exposeRelativeMetrics := getopt.BoolLong("expose-relative-metrics", 0, "expose additionnal metrics with relative durations instead of absolute timestamps")
@@ -87,6 +95,8 @@ func main() {
 
 	exporter := internal.Exporter{
 		ListenAddress:         *listenAddress,
+		SystemdSocket:         systemdSocket,
+		ConfigFile:            configFile,
 		Files:                 files,
 		Directories:           directories,
 		YAMLs:                 yamls,

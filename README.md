@@ -100,7 +100,7 @@ rules:
 For advanced configuration, see the program's `--help`:
 
 ```
-Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [--expose-per-cert-error-metrics] [--expose-relative-metrics] [-f value] [--include-label value] [--include-namespace value] [-k value] [-l value] [--max-cache-duration value] [-s value] [--trim-path-components value] [--watch-kube-secrets] [parameters ...]
+Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [--expose-per-cert-error-metrics] [--expose-relative-metrics] [-f value] [--include-label value] [--include-namespace value] [--kubeconfig path] [-k value] [-l value] [--max-cache-duration value] [--profile] [-s value] [--trim-path-components value] [--watch-kube-secrets] [--web.config.file value] [--web.systemd-socket] [parameters ...]
  -b, --listen-address=value
                 address on which to bind and expose metrics [:9793]
      --debug    enable debug mode
@@ -130,6 +130,10 @@ Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclud
      --include-namespace=value
                 add the given kube namespace to the watch list (when used,
                 all namespaces are excluded by default)
+     --kubeconfig=path
+                Path to the kubeconfig file to use for requests. Takes
+                precedence over the KUBECONFIG environment variable, and
+                default path (~/.kube/config).
  -k, --watch-kubeconf=value
                 watch one or more Kubernetes client configuration (kind
                 Config) which contains embedded x509 certificates or PEM
@@ -138,6 +142,8 @@ Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclud
      --max-cache-duration=value
                 maximum cache duration for kube secrets. cache is per
                 namespace and randomized to avoid massive requests.
+     --profile  optionally enable a pprof server to monitor cpu and memory
+                usage at runtime
  -s, --secret-type=value
                 one or more kubernetes secret type & key to watch (e.g.
                 "kubernetes.io/tls:tls.crt"
@@ -145,7 +151,13 @@ Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclud
                 remove <n> leading component(s) from path(s) in label(s)
  -v, --version  show version info and exit
      --watch-kube-secrets
-                scrape kubernetes.io/tls secrets and monitor them
+                scrape kubernetes secrets and monitor them
+     --web.config.file=value
+                [EXPERIMENTAL] path to configuration file that can enable
+                TLS or authentication
+     --web.systemd-socket
+                use systemd socket activation listeners instead of port
+                listeners (Linux only)
 ```
 
 ## Development

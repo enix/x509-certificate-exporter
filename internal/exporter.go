@@ -25,8 +25,8 @@ import (
 // Exporter : Configuration (from command-line)
 type Exporter struct {
 	ListenAddress         string
-	SystemdSocket         *bool
-	ConfigFile            *string
+	SystemdSocket         bool
+	ConfigFile            string
 	Files                 []string
 	Directories           []string
 	YAMLs                 []string
@@ -92,8 +92,8 @@ func (exporter *Exporter) Serve() error {
 
 	toolkitFlags := web.FlagConfig{
 		WebListenAddresses: &[]string{exporter.ListenAddress},
-		WebSystemdSocket:   exporter.SystemdSocket,
-		WebConfigFile:      exporter.ConfigFile,
+		WebSystemdSocket:   &exporter.SystemdSocket,
+		WebConfigFile:      &exporter.ConfigFile,
 	}
 
 	promlogConfig := &promlog.Config{}

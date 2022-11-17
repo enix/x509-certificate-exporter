@@ -95,8 +95,8 @@ func main() {
 
 	exporter := internal.Exporter{
 		ListenAddress:         *listenAddress,
-		SystemdSocket:         systemdSocket,
-		ConfigFile:            configFile,
+		SystemdSocket:         *systemdSocket,
+		ConfigFile:            *configFile,
 		Files:                 files,
 		Directories:           directories,
 		YAMLs:                 yamls,

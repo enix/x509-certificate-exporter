@@ -15,6 +15,9 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/prometheus/common/promlog"
+	"github.com/prometheus/exporter-toolkit/web"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
@@ -22,6 +25,8 @@ import (
 // Exporter : Configuration (from command-line)
 type Exporter struct {
 	ListenAddress         string
+	SystemdSocket         *bool
+	ConfigFile            *string
 	Files                 []string
 	Directories           []string
 	YAMLs                 []string
@@ -67,8 +72,6 @@ func (exporter *Exporter) Listen() error {
 		}
 	}
 
-	log.Infof("listening on %s", exporter.ListenAddress)
-
 	listener, err := net.Listen("tcp", exporter.ListenAddress)
 	if err != nil {
 		return err
@@ -87,7 +90,16 @@ func (exporter *Exporter) Serve() error {
 		Handler: mux,
 	}
 
-	return exporter.server.Serve(exporter.listener)
+	toolkitFlags := web.FlagConfig{
+		WebListenAddresses: &[]string{exporter.ListenAddress},
+		WebSystemdSocket:   exporter.SystemdSocket,
+		WebConfigFile:      exporter.ConfigFile,
+	}
+
+	promlogConfig := &promlog.Config{}
+	logger := promlog.New(promlogConfig)
+
+	return web.Serve(exporter.listener, exporter.server, &toolkitFlags, logger)
 }
 
 // Shutdown : Properly tear down server

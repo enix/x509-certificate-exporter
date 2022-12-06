@@ -198,9 +198,9 @@ rbacProxy:
     # -- kube-rbac-proxy image registry
     registry: quay.io
     # -- kube-rbac-proxy image repository
-    repository: coreos/kube-rbac-proxy
+    repository: brancz/kube-rbac-proxy
     # -- kube-rbac-proxy image version
-    tag: v0.5.0
+    tag: v0.13.1
     # -- kube-rbac-proxy image pull policy
     pullPolicy: IfNotPresent
   # -- Listen port for the exporter running inside kube-rbac-proxy exposed Pods

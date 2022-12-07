@@ -10,12 +10,13 @@
 
 # -- Partially override x509-certificate-exporter.fullname template (will prepend the release name)
 nameOverride: ""
-
 # -- Fully override x509-certificate-exporter.fullname template
 fullnameOverride: ""
 
 # -- Additional objects to deploy with the release
 extraDeploy: []
+# -- Same as `extraDeploy` but objects won't go through the templating engine
+extraDeployVerbatim: []
 
 # -- Specify docker-registry secret names as an array
 imagePullSecrets: []

@@ -309,6 +309,7 @@ in the container namespace.
 | nameOverride | string | `""` | Partially override x509-certificate-exporter.fullname template (will prepend the release name) |
 | fullnameOverride | string | `""` | Fully override x509-certificate-exporter.fullname template |
 | extraDeploy | list | `[]` | Additional objects to deploy with the release |
+| extraDeployVerbatim | list | `[]` | Same as `extraDeploy` but objects won't go through the templating engine |
 | imagePullSecrets | list | `[]` | Specify docker-registry secret names as an array |
 | image.registry | string | `"docker.io"` | x509-certificate-exporter image registry |
 | image.repository | string | `"enix/x509-certificate-exporter"` | x509-certificate-exporter image repository |

@@ -8,17 +8,14 @@
 # So please use this command if you run it:
 #  $ helm-docs --sort-values-order file
 
-# -- Override Kubernetes version detection ; usefull with "helm template"
-kubeVersion: ""
-
-# -- Extra labels to add on chart resources
-extraLabels: {}
-
 # -- Partially override x509-certificate-exporter.fullname template (will prepend the release name)
 nameOverride: ""
 
 # -- Fully override x509-certificate-exporter.fullname template
 fullnameOverride: ""
+
+# -- Additional objects to deploy with the release
+extraDeploy: []
 
 # -- Specify docker-registry secret names as an array
 imagePullSecrets: []
@@ -34,42 +31,6 @@ image:
   tagSuffix: ""
   # -- x509-certificate-exporter image pull policy
   pullPolicy: IfNotPresent
-
-psp:
-  # -- Should Pod Security Policy resources be created
-  create: false
-
-rbac:
-  # -- Should RBAC resources be created
-  create: true
-
-  secretsExporter:
-    # -- Name of the ServiceAccount for the Secrets exporter (required if `rbac.create=false`)
-    serviceAccountName:
-    # -- Annotations added to the ServiceAccount for the Secrets exporter
-    serviceAccountAnnotations: {}
-    # -- Annotations added to the ClusterRole for the Secrets exporter
-    clusterRoleAnnotations: {}
-    # -- Annotations added to the ClusterRoleBinding for the Secrets exporter
-    clusterRoleBindingAnnotations: {}
-
-  hostPathsExporter:
-    # -- Name of the ServiceAccount for hostPath exporters (required if `rbac.create=false`)
-    serviceAccountName:
-    # -- Annotations added to the ServiceAccount for the hostPath exporters
-    serviceAccountAnnotations: {}
-    # -- Annotations added to the ClusterRole for the hostPath exporters
-    clusterRoleAnnotations: {}
-    # -- Annotations added to the ClusterRoleBinding for the hostPath exporters
-    clusterRoleBindingAnnotations: {}
-
-# -- Extra labels added to all Pods
-podExtraLabels: {}
-
-# -- Annotations added to all Pods
-podAnnotations: {}
-#  prometheus.io/port: "9793"
-#  prometheus.io/scrape: "true"
 
 # -- Enable additional metrics to report per-certificate errors ; helps with identifying read errors origin not having to look at exporter logs, at the expense of additional storage on Prometheus
 exposePerCertificateErrorMetrics: false
@@ -106,7 +67,7 @@ secretsExporter:
   tolerations: []
   # -- Affinity for Pods of the TLS Secrets exporter
   affinity: {}
-  # -- Extra labels added to Pods of the TLS Secrets exporter
+  # -- Additional labels added to Pods of the TLS Secrets exporter
   podExtraLabels: {}
   # -- Annotations added to Pods of the TLS Secrets exporter
   podAnnotations: {}
@@ -138,9 +99,9 @@ secretsExporter:
   excludeLabels: []
 
   cache:
-    # -- Enable caching of Kubernetes resources to prevent scraping timeouts
+    # -- Enable caching of Kubernetes objects to prevent scraping timeouts
     enabled: true
-    # -- Maximum time a resource can stay in cache unrefreshed (seconds) - it will be at least half of that
+    # -- Maximum time an object can stay in cache unrefreshed (seconds) - it will be at least half of that
     maxDuration: 300
 
 hostPathsExporter:
@@ -165,7 +126,7 @@ hostPathsExporter:
   tolerations: []
   # -- Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   affinity: {}
-  # -- Extra labels added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
+  # -- Additional labels added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   podExtraLabels: {}
   # -- Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   podAnnotations: {}
@@ -190,6 +151,127 @@ hostPathsExporter:
 
   # -- [SEE README] Map to define one or many DaemonSets running hostPath exporters. Key is used as a name ; value is a map to override all default settings set by `hostPathsExporter.*`.
   daemonSets: {}
+
+# -- TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not)
+podListenPort: 9793
+
+# -- Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster
+hostNetwork: false
+
+service:
+  # -- Should a headless Service be installed, targets all instances Deployment and DaemonSets (required for ServiceMonitor)
+  create: true
+  # -- TCP port to expose the Service on
+  port: 9793
+  # -- Annotations to add to the Service
+  annotations: {}
+  # -- Additional labels to add to the Service
+  extraLabels: {}
+
+prometheusServiceMonitor:
+  # -- Should a ServiceMonitor object be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
+  create: true
+  # -- Target scrape interval set in the ServiceMonitor
+  scrapeInterval: 60s
+  # -- Target scrape timeout set in the ServiceMonitor
+  scrapeTimeout: 30s
+  # -- Additional labels to add to ServiceMonitor objects
+  extraLabels: {}
+  # -- Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig
+  relabelings: []
+
+prometheusPodMonitor:
+  # -- Should a PodMonitor object be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
+  create: false
+  # -- Target scrape interval set in the PodMonitor
+  scrapeInterval: 60s
+  # -- Target scrape timeout set in the PodMonitor
+  scrapeTimeout: 30s
+  # -- Additional labels to add to PodMonitor objects
+  extraLabels: {}
+  # -- Relabel config for the PodMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig
+  relabelings: []
+
+prometheusRules:
+  # -- Should a PrometheusRule object be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users.
+  create: true
+  # -- Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions.
+  alertOnReadErrors: true
+  # -- Severity for the X509ExporterReadErrors alerting rule
+  readErrorsSeverity: warning
+  # -- Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too.
+  alertOnCertificateErrors: true
+  # -- Severity for the CertificateError alerting rule
+  certificateErrorsSeverity: warning
+  # -- Severity for the CertificateRenewal alerting rule
+  certificateRenewalsSeverity: warning
+  # -- Severity for the CertificateExpiration alerting rule
+  certificateExpirationsSeverity: critical
+  # -- Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)
+  warningDaysLeft: 28
+  # -- Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)
+  criticalDaysLeft: 14
+  # -- Additional labels to add to PrometheusRule objects
+  extraLabels: {}
+  # -- Additional labels to add to PrometheusRule rules
+  alertExtraLabels: {}
+  # -- Additional annotations to add to PrometheusRule rules
+  alertExtraAnnotations: {}
+  # -- Additional rulePrefix to PrometheusRule rules
+  rulePrefix: ""
+  # -- Skip all built-in alerts when using extraAlertGroups
+  disableBuiltinAlertGroup: false
+  # -- Additional alert groups for custom configuration (example in `values.yaml`)
+  extraAlertGroups: []
+  # - name: custom.rules
+  #   rules:
+  #   - alert: X509ExporterReadErrorsCustom
+  #     expr: x509_read_errors > 0
+  #     for: 30m
+  #     labels:
+  #       severity: warning
+  #     annotations:
+  #       summary: Error events exist for this x509-certificate-exporter
+  #       description: This x509-certificate-exporter instance has experienced parse errors in the past.
+
+# -- Additional labels added to all chart objects
+extraLabels: {}
+
+# -- Additional labels added to all Pods
+podExtraLabels: {}
+
+# -- Annotations added to all Pods
+podAnnotations: {}
+#  prometheus.io/port: "9793"
+#  prometheus.io/scrape: "true"
+
+psp:
+  # -- Should Pod Security Policy objects be created
+  create: false
+
+rbac:
+  # -- Should RBAC objects be created
+  create: true
+
+  secretsExporter:
+    # -- Name of the ServiceAccount for the Secrets exporter (required if `rbac.create=false`)
+    serviceAccountName:
+    # -- Annotations added to the ServiceAccount for the Secrets exporter
+    serviceAccountAnnotations: {}
+    # -- Annotations added to the ClusterRole for the Secrets exporter
+    clusterRoleAnnotations: {}
+    # -- Annotations added to the ClusterRoleBinding for the Secrets exporter
+    clusterRoleBindingAnnotations: {}
+
+  hostPathsExporter:
+    # -- Name of the ServiceAccount for hostPath exporters (required if `rbac.create=false`)
+    serviceAccountName:
+    # -- Annotations added to the ServiceAccount for the hostPath exporters
+    serviceAccountAnnotations: {}
+    # -- Annotations added to the ClusterRole for the hostPath exporters
+    clusterRoleAnnotations: {}
+    # -- Annotations added to the ClusterRoleBinding for the hostPath exporters
+    clusterRoleBindingAnnotations: {}
 
 rbacProxy:
   # -- Should kube-rbac-proxy be used to expose exporters
@@ -224,87 +306,5 @@ rbacProxy:
       drop:
       - ALL
 
-# -- TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not)
-podListenPort: 9793
-
-# -- Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster
-hostNetwork: false
-
-service:
-  # -- Should a headless Service be installed, targets all instances Deployment and DaemonSets (required for ServiceMonitor)
-  create: true
-  # -- TCP port to expose the Service on
-  port: 9793
-  # -- Annotations to add to the Service
-  annotations: {}
-  # -- Extra labels to add to the Service
-  extraLabels: {}
-
-prometheusServiceMonitor:
-  # -- Should a ServiceMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
-  create: true
-  # -- Target scrape interval set in the ServiceMonitor
-  scrapeInterval: 60s
-  # -- Target scrape timeout set in the ServiceMonitor
-  scrapeTimeout: 30s
-  # -- Extra labels to add on ServiceMonitor ressources
-  extraLabels: {}
-  # -- Relabel config for the ServiceMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig
-  relabelings: []
-
-prometheusPodMonitor:
-  # -- Should a PodMonitor ressource be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
-  create: false
-  # -- Target scrape interval set in the PodMonitor
-  scrapeInterval: 60s
-  # -- Target scrape timeout set in the PodMonitor
-  scrapeTimeout: 30s
-  # -- Extra labels to add on PodMonitor ressources
-  extraLabels: {}
-  # -- Relabel config for the PodMonitor, see: https://coreos.com/operators/prometheus/docs/latest/api.html#relabelconfig
-  relabelings: []
-
-prometheusRules:
-  # -- Should a PrometheusRule ressource be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users.
-  create: true
-  # -- Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions.
-  alertOnReadErrors: true
-  # -- Severity for the X509ExporterReadErrors alerting rule
-  readErrorsSeverity: warning
-  # -- Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too.
-  alertOnCertificateErrors: true
-  # -- Severity for the CertificateError alerting rule
-  certificateErrorsSeverity: warning
-  # -- Severity for the CertificateRenewal alerting rule
-  certificateRenewalsSeverity: warning
-  # -- Severity for the CertificateExpiration alerting rule
-  certificateExpirationsSeverity: critical
-  # -- Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)
-  warningDaysLeft: 28
-  # -- Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)
-  criticalDaysLeft: 14
-  # -- Extra labels to add on PrometheusRule ressources
-  extraLabels: {}
-  # -- Extra labels to add on PrometheusRule rules
-  alertExtraLabels: {}
-  # -- Extra annotations to add on PrometheusRule rules
-  alertExtraAnnotations: {}
-  # -- Extra rulePrefix to PrometheusRule rules
-  rulePrefix: ""
-  # -- Skip all built-in alerts when using extraAlertGroups
-  disableBuiltinAlertGroup: false
-  # -- Additional alert groups for custom configuration (example in `values.yaml`)
-  extraAlertGroups: []
-  # - name: custom.rules
-  #   rules:
-  #   - alert: X509ExporterReadErrorsCustom
-  #     expr: x509_read_errors > 0
-  #     for: 30m
-  #     labels:
-  #       severity: warning
-  #     annotations:
-  #       summary: Error events exist for this x509-certificate-exporter
-  #       description: This x509-certificate-exporter instance has experienced parse errors in the past.
-
-# -- Extra objects to deploy with the release
-extraDeploy: []
+# -- Override Kubernetes version detection ; usefull with "helm template"
+kubeVersion: ""

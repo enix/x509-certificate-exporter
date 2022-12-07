@@ -6,3 +6,11 @@
         {{- tpl (. | toYaml) $ }}
     {{- end }}
 {{- end }}
+{{- range .Values.extraDeployVerbatim }}
+---
+    {{- if typeIs "string" . }}
+        {{- . }}
+    {{- else }}
+        {{- . | toYaml }}
+    {{- end }}
+{{- end }}

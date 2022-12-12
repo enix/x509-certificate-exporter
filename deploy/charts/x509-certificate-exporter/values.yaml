@@ -83,6 +83,11 @@ secretsExporter:
     capabilities:
       drop:
       - ALL
+  # -- Additionnal volumes added to Pods of the TLS Secrets exporter (combined with global `extraVolumes`)
+  extraVolumes: []
+  # -- Additionnal volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`)
+  extraVolumeMounts: []
+
 
   # -- Which type of Secrets should be watched ; "key" is the map key in the secret data
   # @default -- check `values.yaml`
@@ -142,6 +147,10 @@ hostPathsExporter:
     capabilities:
       drop:
       - ALL
+  # -- Additionnal volumes added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`)
+  extraVolumes: []
+  # -- Additionnal volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`)
+  extraVolumeMounts: []
 
   # -- [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep)
   watchDirectories: []
@@ -245,6 +254,11 @@ podExtraLabels: {}
 podAnnotations: {}
 #  prometheus.io/port: "9793"
 #  prometheus.io/scrape: "true"
+
+# -- Additionnal volumes added to all Pods (see also the `secretsExporter` and `hostPathsExporter` variants)
+extraVolumes: []
+# -- Additionnal volume mounts added to all Pod containers (see also the `secretsExporter` and `hostPathsExporter` variants)
+extraVolumeMounts: []
 
 psp:
   # -- Should Pod Security Policy objects be created

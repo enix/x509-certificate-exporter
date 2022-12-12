@@ -1,3 +1,5 @@
+{{- $extraVolumes := concat .Values.secretsExporter.extraVolumes .Values.extraVolumes }}
+{{- $extraVolumeMounts := concat .Values.secretsExporter.extraVolumeMounts .Values.extraVolumeMounts }}
 {{- if .Values.secretsExporter.enabled }}
 apiVersion: {{ include "capabilities.deployment.apiVersion" . }}
 kind: Deployment
@@ -70,6 +72,12 @@ spec:
         {{- end }}
         image: {{ include "x509-certificate-exporter.image" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with $extraVolumeMounts }}
+        volumeMounts:
+        {{- range $extraVolumeMounts }}
+        - {{ tpl (. | toYaml) $ | indent 10 | trim }}
+        {{- end }}
+        {{- end }}
         args:
         {{- if .Values.secretsExporter.debugMode }}
         - --debug
@@ -135,5 +143,11 @@ spec:
         resources:
         {{- . | toYaml | trim | nindent 10 }}
         {{- end }}
+      {{- end }}
+      {{- with $extraVolumes }}
+      volumes:
+      {{- range $extraVolumes }}
+      - {{ tpl (. | toYaml) $ | indent 8 | trim }}
+      {{- end }}
       {{- end }}
 {{- end }}

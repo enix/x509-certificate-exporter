@@ -1,5 +1,7 @@
 {{- with .Values.hostPathsExporter.daemonSets }}
 {{- range $dsName, $dsDef := . }}
+{{- $extraVolumes := concat ( default $.Values.hostPathsExporter.extraVolumes $dsDef.extraVolumes ) $.Values.extraVolumes }}
+{{- $extraVolumeMounts := concat ( default $.Values.hostPathsExporter.extraVolumeMounts $dsDef.extraVolumeMounts ) $.Values.extraVolumeMounts }}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -115,6 +117,9 @@ spec:
           #subPath: {{ . | base }}
           readOnly: true
         {{- end }}
+        {{- range $extraVolumeMounts }}
+        - {{ tpl (. | toYaml) $ | indent 10 | trim }}
+        {{- end }}
       {{- if not $.Values.rbacProxy.enabled }}
         ports:
         - name: metrics
@@ -164,6 +169,9 @@ spec:
         hostPath:
           path: {{ . | clean | dir }}
           type: Directory
+      {{- end }}
+      {{- range $extraVolumes }}
+      - {{ tpl (. | toYaml) $ | indent 8 | trim }}
       {{- end }}
 {{- end }}
 {{- end }}

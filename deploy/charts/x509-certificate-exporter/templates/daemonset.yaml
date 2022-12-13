@@ -108,13 +108,11 @@ spec:
         {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
         - name: file-{{ . | clean | sha1sum }}
           mountPath: /mnt/watch/file-{{ . | clean | sha1sum }}/{{ . | clean | dir }}
-          #subPath: {{ . | base }}
           readOnly: true
         {{- end }}
         {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
         - name: kube-{{ . | clean | sha1sum }}
           mountPath: /mnt/watch/kube-{{ . | clean | sha1sum }}/{{ . | clean | dir }}
-          #subPath: {{ . | base }}
           readOnly: true
         {{- end }}
         {{- range $extraVolumeMounts }}

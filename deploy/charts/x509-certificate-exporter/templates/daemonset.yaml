@@ -99,6 +99,9 @@ spec:
         {{- if $.Values.exposePerCertificateErrorMetrics }}
         - --expose-per-cert-error-metrics
         {{- end }}
+        {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
+        - --web.config.file=/mnt/webconfig.yaml
+        {{- end }}
         volumeMounts:
         {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
         - name: dir-{{ . | clean | sha1sum }}
@@ -113,6 +116,11 @@ spec:
         {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
         - name: kube-{{ . | clean | sha1sum }}
           mountPath: /mnt/watch/kube-{{ . | clean | sha1sum }}/{{ . | clean | dir }}
+          readOnly: true
+        {{- end }}
+        {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
+        - name: web-configuration
+          mountPath: /mnt/
           readOnly: true
         {{- end }}
         {{- range $extraVolumeMounts }}
@@ -167,6 +175,14 @@ spec:
         hostPath:
           path: {{ . | clean | dir }}
           type: Directory
+      {{- end }}
+      {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
+      - name: web-configuration
+        secret:
+          secretName: "{{ default (include "x509-certificate-exporter.webConfigurationSecretName" $) $.Values.webConfigurationExistingSecret }}"
+          items:
+          - key: webconfig.yaml
+            path: webconfig.yaml
       {{- end }}
       {{- range $extraVolumes }}
       - {{ tpl (. | toYaml) $ | indent 8 | trim }}

@@ -155,3 +155,10 @@ Secrets exporter Deployment
 {{- define "x509-certificate-exporter.secretsExporterName" -}}
 {{ include "x509-certificate-exporter.fullname" . }}
 {{- end -}}
+
+{{/*
+Web configuration Secret name
+*/}}
+{{- define "x509-certificate-exporter.webConfigurationSecretName" -}}
+{{ include "x509-certificate-exporter.fullname" . }}-webconf
+{{- end -}}

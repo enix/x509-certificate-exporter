@@ -88,7 +88,6 @@ secretsExporter:
   # -- Additionnal volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`)
   extraVolumeMounts: []
 
-
   # -- Which type of Secrets should be watched ; "key" is the map key in the secret data
   # @default -- check `values.yaml`
   secretTypes:
@@ -167,6 +166,12 @@ podListenPort: 9793
 
 # -- Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster
 hostNetwork: false
+
+# -- HTTP server configuration for enabling TLS and authentication (password, mTLS) ; see [documentation at Exporter Toolkit](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md)
+webConfiguration: ""
+
+# -- Load the HTTP server configuration from an existing Secret instead of `webConfiguration`. Key must `webconfig.yaml`.
+webConfigurationExistingSecret: ""
 
 service:
   # -- Should a headless Service be installed, targets all instances Deployment and DaemonSets (required for ServiceMonitor)
@@ -257,6 +262,7 @@ podAnnotations: {}
 
 # -- Additionnal volumes added to all Pods (see also the `secretsExporter` and `hostPathsExporter` variants)
 extraVolumes: []
+
 # -- Additionnal volume mounts added to all Pod containers (see also the `secretsExporter` and `hostPathsExporter` variants)
 extraVolumeMounts: []
 

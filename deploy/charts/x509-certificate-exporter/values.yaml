@@ -133,6 +133,8 @@ hostPathsExporter:
   tolerations: []
   # -- Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   affinity: {}
+  # -- PriorityClassName for Pods of hostPath exporters
+  priorityClassName: ""
   # -- Additional labels added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   podExtraLabels: {}
   # -- Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
@@ -261,6 +263,9 @@ podExtraLabels: {}
 podAnnotations: {}
 #  prometheus.io/port: "9793"
 #  prometheus.io/scrape: "true"
+
+# -- PriorityClassName set for all Pods by default (could be overrided with `secretsExporter` and `hostPathsExporter` specific values)
+priorityClassName: ""
 
 # -- Additionnal volumes added to all Pods (see also the `secretsExporter` and `hostPathsExporter` variants)
 extraVolumes: []

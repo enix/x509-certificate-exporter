@@ -63,8 +63,8 @@ spec:
       {{- end }}
       restartPolicy: {{ .Values.secretsExporter.restartPolicy }}
       serviceAccountName: {{ include "x509-certificate-exporter.secretsExporterServiceAccountName" . }}
-      {{- if (ne "" .Values.secretsExporter.priorityClassName) }}
-      priorityClassName: {{ .Values.secretsExporter.priorityClassName }}
+      {{- with default .Values.priorityClassName .Values.secretsExporter.priorityClassName }}
+      priorityClassName: {{ . | quote }}
       {{- end }}
       containers:
       - name: {{ .Chart.Name }}

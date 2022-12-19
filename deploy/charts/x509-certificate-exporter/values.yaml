@@ -68,6 +68,8 @@ secretsExporter:
   tolerations: []
   # -- Affinity for Pods of the TLS Secrets exporter
   affinity: {}
+  # -- PriorityClassName for Pods of the TLS Secrets exporter
+  priorityClassName: ""
   # -- Additional labels added to Pods of the TLS Secrets exporter
   podExtraLabels: {}
   # -- Annotations added to Pods of the TLS Secrets exporter

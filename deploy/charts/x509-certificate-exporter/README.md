@@ -329,6 +329,7 @@ in the container namespace.
 | secretsExporter.tolerations | list | `[]` | Toleration for Pods of the TLS Secrets exporter |
 | secretsExporter.affinity | object | `{}` | Affinity for Pods of the TLS Secrets exporter |
 | secretsExporter.podExtraLabels | object | `{}` | Additional labels added to Pods of the TLS Secrets exporter |
+| secretsExporter.priorityClassName | object | `""` | priorityClassName for Pods of the TLS Secrets exporter |
 | secretsExporter.podAnnotations | object | `{}` | Annotations added to Pods of the TLS Secrets exporter |
 | secretsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of the TLS Secrets exporter |
 | secretsExporter.securityContext | object | check `values.yaml` | SecurityContext for containers of the TLS Secrets exporter |

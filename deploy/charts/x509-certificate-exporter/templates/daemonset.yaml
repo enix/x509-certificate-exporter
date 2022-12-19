@@ -54,6 +54,9 @@ spec:
         {{- . | toYaml | trim | nindent 8 }}
       {{- end }}
       restartPolicy: {{ default $.Values.hostPathsExporter.restartPolicy $dsDef.restartPolicy }}
+      {{- with default $.Values.priorityClassName (default $.Values.hostPathsExporter.priorityClassName $dsDef.priorityClassName) }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
       containers:
       - name: {{ $.Chart.Name }}
         {{- with default $.Values.hostPathsExporter.securityContext $dsDef.securityContext }}

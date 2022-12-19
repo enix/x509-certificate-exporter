@@ -349,6 +349,7 @@ in the container namespace.
 | hostPathsExporter.nodeSelector | object | `{}` | Node selector for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.tolerations | list | `[]` | Toleration for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.affinity | object | `{}` | Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.priorityClassName | string | `""` | PriorityClassName for Pods of hostPath exporters |
 | hostPathsExporter.podExtraLabels | object | `{}` | Additional labels added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.podAnnotations | object | `{}` | Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
@@ -395,6 +396,7 @@ in the container namespace.
 | extraLabels | object | `{}` | Additional labels added to all chart objects |
 | podExtraLabels | object | `{}` | Additional labels added to all Pods |
 | podAnnotations | object | `{}` | Annotations added to all Pods |
+| priorityClassName | string | `""` | PriorityClassName set for all Pods by default (could be overrided with `secretsExporter` and `hostPathsExporter` specific values) |
 | extraVolumes | list | `[]` | Additionnal volumes added to all Pods (see also the `secretsExporter` and `hostPathsExporter` variants) |
 | extraVolumeMounts | list | `[]` | Additionnal volume mounts added to all Pod containers (see also the `secretsExporter` and `hostPathsExporter` variants) |
 | psp.create | bool | `false` | Should Pod Security Policy objects be created |

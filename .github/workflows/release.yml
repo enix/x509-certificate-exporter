@@ -447,7 +447,12 @@ jobs:
                   header('{}: assembling image for: {}'.format(base_image, container_arch))
 
                   if base_tag:
-                      container_base = 'docker://{}:{}'.format(base_image, base_tag)
+                      # FIXME exceptions for RISC-V
+                      if container_arch == 'riscv64' and base_image == 'alpine':
+                          # use 'edge' waiting for version 3.17
+                          container_base = 'docker://{}:edge'.format(base_image)
+                      else:
+                          container_base = 'docker://{}:{}'.format(base_image, base_tag)
                   else:
                       container_base = base_image
 

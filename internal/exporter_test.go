@@ -131,13 +131,13 @@ func TestFolder(t *testing.T) {
 		Directories: []string{path.Join(filepath.Dir(filename), "../test")},
 	}, func(metrics []model.MetricFamily) {
 		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
-		assert.Len(t, foundMetrics, 5, "missing x509_cert_expired metric(s)")
+		assert.Len(t, foundMetrics, 4, "missing x509_cert_expired metric(s)")
 
 		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
-		assert.Len(t, foundNbMetrics, 5, "missing x509_cert_not_before metric(s)")
+		assert.Len(t, foundNbMetrics, 4, "missing x509_cert_not_before metric(s)")
 
 		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
-		assert.Len(t, foundNaMetrics, 5, "missing x509_cert_not_after metric(s)")
+		assert.Len(t, foundNaMetrics, 4, "missing x509_cert_not_after metric(s)")
 	})
 }
 

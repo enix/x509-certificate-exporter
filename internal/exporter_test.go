@@ -81,7 +81,16 @@ func TestSinglePEMBehindSymlink(t *testing.T) {
 		Files: []string{path.Join(filepath.Dir(filename), "../test/badlink.pem")},
 	}, func(metrics []model.MetricFamily) {
 		metric := getMetricsForName(metrics, "x509_cert_expired")
-		assert.Len(t, metric, 1, "missing x509_cert_expired metric(s)")
+		assert.Len(t, metric, 0, "missing x509_cert_expired metric(s)")
+		assert.Len(t, getMetricsForName(metrics, "x509_read_errors"), 1)
+	})
+
+	testRequest(t, &Exporter{
+		Files: []string{path.Join(filepath.Dir(filename), "../test/badlink-relative.pem")},
+	}, func(metrics []model.MetricFamily) {
+		metric := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, metric, 0, "missing x509_cert_expired metric(s)")
+		assert.Len(t, getMetricsForName(metrics, "x509_read_errors"), 1)
 	})
 }
 
@@ -343,15 +352,15 @@ func TestErrorMetrics(t *testing.T) {
 					}
 				}
 
-				assert.Len(t, errorMetric, 21, "missing x509_read_error metrics")
-				assert.Equal(t, 17, errors, "missing x509_read_error metrics")
+				assert.Len(t, errorMetric, 22, "missing x509_read_error metrics")
+				assert.Equal(t, 19, errors, "missing x509_read_error metrics")
 			} else {
 				assert.Len(t, errorMetric, 0, "unexpected x509_read_error metrics")
 			}
 
 			errorsMetric := getMetricsForName(metrics, "x509_read_errors")
 			assert.Len(t, errorsMetric, 1, "missing x509_read_errors metric")
-			assert.Equal(t, errorsMetric[0].GetGauge().GetValue(), 17., "invalid x509_read_errors value")
+			assert.Equal(t, errorsMetric[0].GetGauge().GetValue(), 19., "invalid x509_read_errors value")
 		})
 	}
 
@@ -669,6 +678,16 @@ func TestListenError(t *testing.T) {
 	err = exporter.Listen()
 	assert.Error(t, err)
 	err = exporter.listener.Close()
+	assert.NoError(t, err)
+}
+
+func TestMultipleShutdown(t *testing.T) {
+	exporter := &Exporter{ListenAddress: "127.0.0.1:4242"}
+	err := exporter.Listen()
+	assert.NoError(t, err)
+	err = exporter.Shutdown()
+	assert.NoError(t, err)
+	err = exporter.Shutdown()
 	assert.NoError(t, err)
 }
 

@@ -14,8 +14,10 @@ Use this shell snippet for evaluation or a quick-and-dirty deployment.
 VERSION=3.X.X
 
 TMP=$(mktemp)
-curl -L -o ${TMP} https://github.com/enix/x509-certificate-exporter/releases/download/v${VERSION}/x509-certificate-exporter-linux-amd64
-sudo install -o root -g root -m 755 ${TMP} /usr/local/bin/x509-certificate-exporter
+curl -L -o ${TMP} https://github.com/enix/x509-certificate-exporter/releases/download/v${VERSION}/x509-certificate-exporter-linux-amd64.tar.gz
+sudo tar xvfz ${TMP} -C /usr/local/bin/ x509-certificate-exporter
+sudo chown root:root /usr/local/bin/x509-certificate-exporter
+sudo chmod 755 /usr/local/bin/x509-certificate-exporter
 curl -L -o ${TMP} https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/deploy/linux/x509-certificate-exporter.service
 sudo install -o root -g root -m 644 ${TMP} /etc/systemd/system/x509-certificate-exporter.service
 rm -f ${TMP}

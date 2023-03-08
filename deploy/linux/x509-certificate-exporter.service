@@ -8,8 +8,7 @@ Type=exec
 Restart=on-failure
 ExecStart=/usr/local/bin/x509-certificate-exporter --watch-file=/etc/my-ca.pem --watch-dir=/etc/my-certificates/
 MemoryAccounting=true
-MemoryHigh=8M
-MemoryMax=16M
+MemoryMax=32M
 
 [Install]
 WantedBy=multi-user.target

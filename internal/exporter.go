@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509/pkix"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/exporter-toolkit/web"
 	log "github.com/sirupsen/logrus"
@@ -137,10 +139,15 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	}
 
 	for _, file := range exporter.Files {
-		output = append(output, &certificateRef{
-			path:   path.Clean(file),
-			format: certificateFormatPEM,
-		})
+		refs, err := exporter.getAllMatchingCertificates(file)
+
+		if err != nil {
+			raiseError(&certificateError{
+				err: fmt.Errorf("failed to parse \"%s\": %s", file, err.Error()),
+			})
+		}
+
+		output = append(output, refs...)
 	}
 
 	for _, file := range exporter.YAMLs {
@@ -231,6 +238,39 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	}
 
 	return output, outputErrors
+}
+
+func (exporter *Exporter) getAllMatchingCertificates(pattern string) ([]*certificateRef, error) {
+	output := []*certificateRef{}
+	basepath, match := doublestar.SplitPattern(pattern)
+
+	walk := func(filepath string, entry fs.DirEntry) error {
+		output = append(output, &certificateRef{
+			path:   path.Clean(path.Join(basepath, filepath)),
+			format: certificateFormatPEM,
+		})
+
+		return nil
+	}
+
+	err := doublestar.GlobWalk(
+		os.DirFS(basepath),
+		match,
+		walk,
+		doublestar.WithFilesOnly(),
+		doublestar.WithFailOnIOErrors(),
+		// doublestar.WithNoFollow(),
+		// doublestar.WithFailOnPatternNotExist(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(output) == 0 {
+		log.Warnln("no files match pattern \"" + pattern + "\"")
+	}
+
+	return output, nil
 }
 
 func (exporter *Exporter) compareCertificates(

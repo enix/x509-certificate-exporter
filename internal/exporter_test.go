@@ -671,6 +671,78 @@ func TestExposeLabels(t *testing.T) {
 	removeGeneratedCertificate(certPath)
 }
 
+func TestGlobbing(t *testing.T) {
+	// no matches
+	testRequest(t, &Exporter{
+		Files: []string{"does-not-exist/**"},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0)
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0)
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0)
+		errMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 0., errMetric[0].GetGauge().GetValue())
+	})
+
+	// single star match
+	testRequest(t, &Exporter{
+		Files: []string{"../tes*/basic.pem"},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 1)
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 1)
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 1)
+		errMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 0., errMetric[0].GetGauge().GetValue())
+	})
+
+	// double star match
+	testRequest(t, &Exporter{
+		Files: []string{"../test/**/basic.pem"},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 2)
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 2)
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 2)
+		errMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 0., errMetric[0].GetGauge().GetValue())
+	})
+
+	// combined
+	testRequest(t, &Exporter{
+		Files: []string{"../test/**/*.pem"},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 6)
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 6)
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 6)
+		errMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 4., errMetric[0].GetGauge().GetValue())
+	})
+
+	// invalid pattern
+	testRequest(t, &Exporter{
+		Files: []string{"toto["},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0)
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0)
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0)
+		errMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 1., errMetric[0].GetGauge().GetValue())
+	})
+}
+
 func TestListenError(t *testing.T) {
 	exporter := &Exporter{ListenAddress: "127.0.0.1:4242"}
 	err := exporter.Listen()

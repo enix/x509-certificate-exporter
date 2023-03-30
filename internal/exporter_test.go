@@ -671,7 +671,7 @@ func TestExposeLabels(t *testing.T) {
 	removeGeneratedCertificate(certPath)
 }
 
-func TestGlobbing(t *testing.T) {
+func TestFileGlobbing(t *testing.T) {
 	// no pattern at all
 	testRequest(t, &Exporter{
 		Files: []string{"does-not-exist/toto"},
@@ -754,6 +754,53 @@ func TestGlobbing(t *testing.T) {
 		assert.Len(t, foundNaMetrics, 0)
 		errMetric := getMetricsForName(metrics, "x509_read_errors")
 		assert.Equal(t, 1., errMetric[0].GetGauge().GetValue())
+	})
+}
+
+func TestYamlGlobbing(t *testing.T) {
+	// single star match
+	testRequest(t, &Exporter{
+		YAMLs:     []string{"../tes*/yaml-embedded.conf"},
+		YAMLPaths: DefaultYamlPaths,
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 2)
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 2)
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 2)
+		errMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 0., errMetric[0].GetGauge().GetValue())
+	})
+
+	// double star match
+	testRequest(t, &Exporter{
+		YAMLs:     []string{"../test/**/yaml-embedded.conf"},
+		YAMLPaths: DefaultYamlPaths,
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 2)
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 2)
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 2)
+		errMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 0., errMetric[0].GetGauge().GetValue())
+	})
+
+	// combined
+	testRequest(t, &Exporter{
+		YAMLs:     []string{"../test/**/*.conf"},
+		YAMLPaths: DefaultYamlPaths,
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 7)
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 7)
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 7)
+		errMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 7., errMetric[0].GetGauge().GetValue())
 	})
 }
 

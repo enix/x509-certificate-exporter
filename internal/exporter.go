@@ -140,7 +140,7 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	}
 
 	for _, file := range exporter.Files {
-		refs, err := exporter.getAllMatchingCertificates(file)
+		refs, err := exporter.collectMatchingCertificates(file, certificateFormatPEM)
 
 		if err != nil {
 			raiseError(&certificateError{
@@ -152,11 +152,15 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	}
 
 	for _, file := range exporter.YAMLs {
-		output = append(output, &certificateRef{
-			path:      path.Clean(file),
-			format:    certificateFormatYAML,
-			yamlPaths: exporter.YAMLPaths,
-		})
+		refs, err := exporter.collectMatchingCertificates(file, certificateFormatYAML)
+
+		if err != nil {
+			raiseError(&certificateError{
+				err: fmt.Errorf("failed to parse \"%s\": %s", file, err.Error()),
+			})
+		}
+
+		output = append(output, refs...)
 	}
 
 	for _, dir := range exporter.Directories {
@@ -241,14 +245,15 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	return output, outputErrors
 }
 
-func (exporter *Exporter) getAllMatchingCertificates(pattern string) ([]*certificateRef, error) {
+func (exporter *Exporter) collectMatchingCertificates(pattern string, format certificateFormat) ([]*certificateRef, error) {
 	output := []*certificateRef{}
 	basepath, match := doublestar.SplitPattern(pattern)
 
 	walk := func(filepath string, entry fs.DirEntry) error {
 		output = append(output, &certificateRef{
-			path:   path.Clean(path.Join(basepath, filepath)),
-			format: certificateFormatPEM,
+			path:      path.Clean(path.Join(basepath, filepath)),
+			format:    format,
+			yamlPaths: exporter.YAMLPaths,
 		})
 
 		return nil

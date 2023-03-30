@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net"
@@ -259,15 +260,15 @@ func (exporter *Exporter) getAllMatchingCertificates(pattern string) ([]*certifi
 		walk,
 		doublestar.WithFilesOnly(),
 		doublestar.WithFailOnIOErrors(),
+		doublestar.WithFailOnPatternNotExist(),
 		// doublestar.WithNoFollow(),
-		// doublestar.WithFailOnPatternNotExist(),
 	)
 	if err != nil {
-		return nil, err
-	}
+		if errors.Is(err, doublestar.ErrPatternNotExist) {
+			return nil, errors.New("no files match \"" + pattern + "\"")
+		}
 
-	if len(output) == 0 {
-		log.Warnln("no files match pattern \"" + pattern + "\"")
+		return nil, err
 	}
 
 	return output, nil

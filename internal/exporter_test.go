@@ -672,6 +672,20 @@ func TestExposeLabels(t *testing.T) {
 }
 
 func TestGlobbing(t *testing.T) {
+	// no pattern at all
+	testRequest(t, &Exporter{
+		Files: []string{"does-not-exist/toto"},
+	}, func(metrics []model.MetricFamily) {
+		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, foundMetrics, 0)
+		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
+		assert.Len(t, foundNbMetrics, 0)
+		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
+		assert.Len(t, foundNaMetrics, 0)
+		errMetric := getMetricsForName(metrics, "x509_read_errors")
+		assert.Equal(t, 1., errMetric[0].GetGauge().GetValue())
+	})
+
 	// no matches
 	testRequest(t, &Exporter{
 		Files: []string{"does-not-exist/**"},
@@ -683,7 +697,7 @@ func TestGlobbing(t *testing.T) {
 		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
 		assert.Len(t, foundNaMetrics, 0)
 		errMetric := getMetricsForName(metrics, "x509_read_errors")
-		assert.Equal(t, 0., errMetric[0].GetGauge().GetValue())
+		assert.Equal(t, 1., errMetric[0].GetGauge().GetValue())
 	})
 
 	// single star match

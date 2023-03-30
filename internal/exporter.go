@@ -140,9 +140,9 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	}
 
 	for _, file := range exporter.Files {
-		refs, err := exporter.collectMatchingCertificates(file, certificateFormatPEM)
+		refs, errs := exporter.collectMatchingPaths(file, certificateFormatPEM, false)
 
-		if err != nil {
+		for _, err := range errs {
 			raiseError(&certificateError{
 				err: fmt.Errorf("failed to parse \"%s\": %s", file, err.Error()),
 			})
@@ -152,9 +152,9 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	}
 
 	for _, file := range exporter.YAMLs {
-		refs, err := exporter.collectMatchingCertificates(file, certificateFormatYAML)
+		refs, errs := exporter.collectMatchingPaths(file, certificateFormatYAML, false)
 
-		if err != nil {
+		for _, err := range errs {
 			raiseError(&certificateError{
 				err: fmt.Errorf("failed to parse \"%s\": %s", file, err.Error()),
 			})
@@ -164,25 +164,15 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	}
 
 	for _, dir := range exporter.Directories {
-		files, err := os.ReadDir(dir)
-		if err != nil {
+		refs, errs := exporter.collectMatchingPaths(dir, certificateFormatYAML, true)
+
+		for _, err := range errs {
 			raiseError(&certificateError{
-				err: fmt.Errorf("failed to open directory \"%s\", %s", dir, err.Error()),
-			})
-
-			continue
-		}
-
-		for _, file := range files {
-			if file.IsDir() {
-				continue
-			}
-
-			output = append(output, &certificateRef{
-				path:   path.Clean(path.Join(dir, file.Name())),
-				format: certificateFormatPEM,
+				err: fmt.Errorf("failed to parse \"%s\": %s", dir, err.Error()),
 			})
 		}
+
+		output = append(output, refs...)
 	}
 
 	if exporter.kubeClient != nil {
@@ -245,38 +235,70 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	return output, outputErrors
 }
 
-func (exporter *Exporter) collectMatchingCertificates(pattern string, format certificateFormat) ([]*certificateRef, error) {
+func (exporter *Exporter) collectMatchingPaths(pattern string, format certificateFormat, directories bool) ([]*certificateRef, []error) {
 	output := []*certificateRef{}
+	outputErrors := []error{}
 	basepath, match := doublestar.SplitPattern(pattern)
 
 	walk := func(filepath string, entry fs.DirEntry) error {
-		output = append(output, &certificateRef{
-			path:      path.Clean(path.Join(basepath, filepath)),
-			format:    format,
-			yamlPaths: exporter.YAMLPaths,
-		})
+		if directories {
+			if !entry.IsDir() {
+				return nil
+			}
+
+			dir := path.Clean(path.Join(basepath, filepath))
+			files, err := os.ReadDir(dir)
+			if err != nil {
+				outputErrors = append(outputErrors, err)
+				return nil
+			}
+
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+
+				output = append(output, &certificateRef{
+					path:   path.Clean(path.Join(dir, file.Name())),
+					format: certificateFormatPEM,
+				})
+			}
+		} else {
+			output = append(output, &certificateRef{
+				path:      path.Clean(path.Join(basepath, filepath)),
+				format:    format,
+				yamlPaths: exporter.YAMLPaths,
+			})
+		}
 
 		return nil
+	}
+
+	options := []doublestar.GlobOption{
+		doublestar.WithFailOnIOErrors(),
+		doublestar.WithFailOnPatternNotExist(),
+		// doublestar.WithNoFollow(),
+	}
+
+	if !directories {
+		options = append(options, doublestar.WithFilesOnly())
 	}
 
 	err := doublestar.GlobWalk(
 		os.DirFS(basepath),
 		match,
 		walk,
-		doublestar.WithFilesOnly(),
-		doublestar.WithFailOnIOErrors(),
-		doublestar.WithFailOnPatternNotExist(),
-		// doublestar.WithNoFollow(),
+		options...,
 	)
 	if err != nil {
 		if errors.Is(err, doublestar.ErrPatternNotExist) {
-			return nil, errors.New("no files match \"" + pattern + "\"")
+			return nil, []error{errors.New("no files match \"" + pattern + "\"")}
 		}
 
-		return nil, err
+		return nil, []error{err}
 	}
 
-	return output, nil
+	return output, outputErrors
 }
 
 func (exporter *Exporter) compareCertificates(

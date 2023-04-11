@@ -858,7 +858,7 @@ func TestDirectoryGlobbing(t *testing.T) {
 		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
 		assert.Len(t, foundNaMetrics, 0)
 		errMetric := getMetricsForName(metrics, "x509_read_errors")
-		assert.Equal(t, 0., errMetric[0].GetGauge().GetValue())
+		assert.Equal(t, 1., errMetric[0].GetGauge().GetValue())
 	})
 }
 

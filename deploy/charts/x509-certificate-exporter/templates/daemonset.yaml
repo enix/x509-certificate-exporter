@@ -27,9 +27,9 @@ spec:
         {{- with default $.Values.hostPathsExporter.podExtraLabels $dsDef.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
         {{- end }}
-      {{- with default $.Values.hostPathsExporter.podAnnotations $dsDef.podAnnotations }}
+      {{- with mustMerge (default $.Values.hostPathsExporter.podAnnotations $dsDef.podAnnotations) $.Values.podAnnotations }}
       annotations:
-        {{- . | toYaml | trim | nindent 8 }}
+        {{- toYaml . | trim | nindent 8 }}
       {{- end }}
     spec:
       serviceAccountName: {{ include "x509-certificate-exporter.hostPathsExporterServiceAccountName" $ }}

@@ -305,7 +305,7 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 		if directories {
 			return nil, []error{errors.New("no directory match \"" + pattern + "\"")}
 		} else {
-			return nil, []error{errors.New("no file match \"" + pattern + "\"")}
+			return nil, []error{errors.New("no files match \"" + pattern + "\"")}
 		}
 	}
 

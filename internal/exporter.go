@@ -298,10 +298,15 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 		return nil, []error{err}
 	}
 
-	// we can get there with no errors and no output if `directories` == true
-	// and the pattern only evaluates to files
-	if directories && len(output) == 0 && len(outputErrors) == 0 {
-		return nil, []error{errors.New("no directory match \"" + pattern + "\"")}
+	if len(output) == 0 && len(outputErrors) == 0 {
+		// the pattern evaluated to the opposite of what we want
+		// i.e. we wanted files but the pattern only matched directories
+
+		if directories {
+			return nil, []error{errors.New("no directory match \"" + pattern + "\"")}
+		} else {
+			return nil, []error{errors.New("no file match \"" + pattern + "\"")}
+		}
 	}
 
 	return output, outputErrors

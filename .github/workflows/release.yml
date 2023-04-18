@@ -208,6 +208,7 @@ jobs:
           info('release asset filename   = {}'.format(asset_name))
           info('release asset sum file   = {}'.format(sum_name))
           info('build time               = {}'.format(build_time))
+          info('golang version           = {}'.format(run('go', 'version', capture_output=True)))
           info('ldflags')
           for ldflag in ldflags:
               info('  {}'.format(ldflag))

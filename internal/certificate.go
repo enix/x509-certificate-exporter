@@ -255,6 +255,8 @@ func readFile(file string) ([]byte, error) {
 		return nil, err
 	}
 
+	// only resolve the symlink filename, and not its full path, to stay compatible with k8s volume mounts
+	// see https://github.com/enix/x509-certificate-exporter/tree/main/deploy/charts/x509-certificate-exporter#watching-symbolic-links
 	return os.ReadFile(path.Join(path.Dir(file), path.Base(realPath)))
 }
 

@@ -255,11 +255,7 @@ func readFile(file string) ([]byte, error) {
 		return nil, err
 	}
 
-	if !filepath.IsAbs(realPath) {
-		realPath = path.Join(path.Dir(file), realPath)
-	}
-
-	return os.ReadFile(filepath.Clean(realPath))
+	return os.ReadFile(path.Join(path.Dir(file), path.Base(realPath)))
 }
 
 func parsePEM(data []byte) ([]*x509.Certificate, error) {

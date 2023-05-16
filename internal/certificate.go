@@ -17,9 +17,10 @@ import (
 
 // YAMLCertRef : Contains information to access certificates in yaml files
 type YAMLCertRef struct {
-	CertMatchExpr string
-	IDMatchExpr   string
-	Format        YAMLCertFormat
+	BasePathMatchExpr string
+	CertMatchSubExpr  string
+	IDMatchSubExpr    string
+	Format            YAMLCertFormat
 }
 
 // YAMLCertFormat : Type of cert encoding in YAML files
@@ -34,24 +35,28 @@ const (
 // DefaultYamlPaths : Pre-written paths for some k8s config files
 var DefaultYamlPaths = []YAMLCertRef{
 	{
-		CertMatchExpr: "$.clusters[:].cluster[\"certificate-authority-data\"]",
-		IDMatchExpr:   "$.clusters[:].name",
-		Format:        YAMLCertFormatBase64,
+		BasePathMatchExpr: "$.clusters",
+		CertMatchSubExpr:  "$.cluster[\"certificate-authority-data\"]",
+		IDMatchSubExpr:    "$.name",
+		Format:            YAMLCertFormatBase64,
 	},
 	{
-		CertMatchExpr: "$.clusters[:].cluster[\"certificate-authority\"]",
-		IDMatchExpr:   "$.clusters[:].name",
-		Format:        YAMLCertFormatFile,
+		BasePathMatchExpr: "$.clusters",
+		CertMatchSubExpr:  "$.cluster[\"certificate-authority\"]",
+		IDMatchSubExpr:    "$.name",
+		Format:            YAMLCertFormatFile,
 	},
 	{
-		CertMatchExpr: "$.users[:].user[\"client-certificate-data\"]",
-		IDMatchExpr:   "$.users[:].name",
-		Format:        YAMLCertFormatBase64,
+		BasePathMatchExpr: "$.users",
+		CertMatchSubExpr:  "$.user[\"client-certificate-data\"]",
+		IDMatchSubExpr:    "$.name",
+		Format:            YAMLCertFormatBase64,
 	},
 	{
-		CertMatchExpr: "$.users[:].user[\"client-certificate\"]",
-		IDMatchExpr:   "$.users[:].name",
-		Format:        YAMLCertFormatFile,
+		BasePathMatchExpr: "$.users",
+		CertMatchSubExpr:  "$.user[\"client-certificate\"]",
+		IDMatchSubExpr:    "$.name",
+		Format:            YAMLCertFormatFile,
 	},
 }
 
@@ -121,71 +126,83 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 	output := []*parsedCertificate{}
 
 	for _, exprs := range yamlPaths {
-		rawCerts, err := searchYAMLFile(filePath, exprs.CertMatchExpr)
+		file, err := os.Open(filePath)
 		if err != nil {
 			return nil, err
 		}
-		if len(rawCerts) == 0 {
-			continue
-		}
+		defer file.Close()
 
-		var decodedCerts []byte
-		if exprs.Format == YAMLCertFormatBase64 {
-			decodedCerts = []byte{}
-			encodedCerts := strings.Split(rawCerts, "\n")
-
-			for _, encodedCert := range encodedCerts {
-				decodedCert, err := base64.StdEncoding.DecodeString(encodedCert)
-				if err != nil {
-					return nil, err
-				}
-
-				decodedCerts = append(decodedCerts, decodedCert...)
-				decodedCerts = append(decodedCerts, '\n')
-			}
-		} else if exprs.Format == YAMLCertFormatFile {
-			rawCertPaths := strings.TrimRight(string(rawCerts), "\n")
-
-			for _, certPath := range strings.Split(rawCertPaths, "\n") {
-				if !path.IsAbs(certPath) {
-					certPath = path.Join(filepath.Dir(filePath), rawCertPaths)
-				}
-
-				data, err := readFile(certPath)
-				if err != nil {
-					return nil, err
-				}
-
-				decodedCerts = append(decodedCerts, data...)
-			}
-		}
-
-		certs, err := parsePEM(decodedCerts)
+		var raw interface{}
+		err = yaml.NewDecoder(file).Decode(&raw)
 		if err != nil {
 			return nil, err
 		}
 
-		rawUserIDs, err := searchYAMLFile(filePath, exprs.IDMatchExpr)
+		entries, err := jsonpath.Read(raw, exprs.BasePathMatchExpr)
 		if err != nil {
 			return nil, err
 		}
-
-		userIDs := []string{}
-		for _, userID := range strings.Split(string(rawUserIDs), "\n") {
-			if userID != "" {
-				userIDs = append(userIDs, userID)
+		for _, entry := range entries.([]interface{}) {
+			line, err := jsonpath.Read(entry, exprs.CertMatchSubExpr)
+			if err != nil {
+				continue
 			}
-		}
-		if len(userIDs) != len(certs) {
-			return nil, fmt.Errorf("failed to parse some labels in %s (got %d IDs but %d certs for \"%s\")", filePath, len(userIDs), len(certs), exprs.IDMatchExpr)
-		}
+			id, err := jsonpath.Read(entry, exprs.IDMatchSubExpr)
+			if err != nil {
+				continue
+			}
+			rawCerts, ok := line.(string)
+			if !ok {
+				return nil, err
+			}
 
-		for index, cert := range certs {
-			output = append(output, &parsedCertificate{
-				cert:        cert,
-				userID:      userIDs[index],
-				yqMatchExpr: exprs.CertMatchExpr,
-			})
+			var decodedCerts []byte
+			if exprs.Format == YAMLCertFormatBase64 {
+				decodedCerts = []byte{}
+				encodedCerts := strings.Split(rawCerts, "\n")
+
+				for _, encodedCert := range encodedCerts {
+					decodedCert, err := base64.StdEncoding.DecodeString(encodedCert)
+					if err != nil {
+						return nil, err
+					}
+
+					decodedCerts = append(decodedCerts, decodedCert...)
+					decodedCerts = append(decodedCerts, '\n')
+				}
+			} else if exprs.Format == YAMLCertFormatFile {
+				rawCertPaths := strings.TrimRight(string(rawCerts), "\n")
+
+				for _, certPath := range strings.Split(rawCertPaths, "\n") {
+					if !path.IsAbs(certPath) {
+						certPath = path.Join(filepath.Dir(filePath), rawCertPaths)
+					}
+
+					data, err := readFile(certPath)
+					if err != nil {
+						return nil, err
+					}
+
+					decodedCerts = append(decodedCerts, data...)
+				}
+			}
+
+			certs, err := parsePEM(decodedCerts)
+			if err != nil {
+				return nil, err
+			}
+
+			for index, cert := range certs {
+				displayName := id.(string)
+				if len(certs) > 1 {
+					displayName = fmt.Sprintf("%s(%d)", id, index)
+				}
+				output = append(output, &parsedCertificate{
+					cert:        cert,
+					userID:      displayName,
+					yqMatchExpr: fmt.Sprintf("%s[:]%s", exprs.BasePathMatchExpr, exprs.CertMatchSubExpr[1:]),
+				})
+			}
 		}
 	}
 

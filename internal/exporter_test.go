@@ -353,14 +353,14 @@ func TestErrorMetrics(t *testing.T) {
 				}
 
 				assert.Len(t, errorMetric, 22, "missing x509_read_error metrics")
-				assert.Equal(t, 17, errors, "missing x509_read_error metrics")
+				assert.Equal(t, 19, errors, "missing x509_read_error metrics")
 			} else {
 				assert.Len(t, errorMetric, 0, "unexpected x509_read_error metrics")
 			}
 
 			errorsMetric := getMetricsForName(metrics, "x509_read_errors")
 			assert.Len(t, errorsMetric, 1, "missing x509_read_errors metric")
-			assert.Equal(t, errorsMetric[0].GetGauge().GetValue(), 17., "invalid x509_read_errors value")
+			assert.Equal(t, errorsMetric[0].GetGauge().GetValue(), 19., "invalid x509_read_errors value")
 		})
 	}
 

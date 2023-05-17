@@ -443,9 +443,10 @@ func TestInvalidYAML(t *testing.T) {
 		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/invalid-yaml.conf")},
 		YAMLPaths: []YAMLCertRef{
 			{
-				CertMatchExpr: "$.badstring",
-				IDMatchExpr:   "$.clusters[].name",
-				Format:        YAMLCertFormatBase64,
+				BasePathMatchExpr: "$.clusters",
+				CertMatchSubExpr:  "$.badstring",
+				IDMatchSubExpr:    "$.name",
+				Format:            YAMLCertFormatBase64,
 			},
 		},
 	}, func(metrics []model.MetricFamily) {
@@ -467,9 +468,10 @@ func TestInvalidYAML(t *testing.T) {
 		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/invalid-yaml.conf")},
 		YAMLPaths: []YAMLCertRef{
 			{
-				CertMatchExpr: "$.badarrayelem",
-				IDMatchExpr:   "$.clusters[].name",
-				Format:        YAMLCertFormatBase64,
+				BasePathMatchExpr: "$.clusters",
+				CertMatchSubExpr:  "$.badarrayelem",
+				IDMatchSubExpr:    "$.name",
+				Format:            YAMLCertFormatBase64,
 			},
 		},
 	}, func(metrics []model.MetricFamily) {
@@ -495,9 +497,10 @@ func TestInvalidYAMLMatchExpr(t *testing.T) {
 		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-embedded.conf")},
 		YAMLPaths: []YAMLCertRef{
 			{
-				CertMatchExpr: "invalid",
-				IDMatchExpr:   "$.clusters[].name",
-				Format:        YAMLCertFormatBase64,
+				BasePathMatchExpr: "invalid",
+				CertMatchSubExpr:  "invalid",
+				IDMatchSubExpr:    "$.clusters[].name",
+				Format:            YAMLCertFormatBase64,
 			},
 		},
 	}, func(metrics []model.MetricFamily) {
@@ -519,9 +522,10 @@ func TestInvalidYAMLMatchExpr(t *testing.T) {
 		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-embedded.conf")},
 		YAMLPaths: []YAMLCertRef{
 			{
-				CertMatchExpr: "$.clusters[:].cluster[\"certificate-authority-data\"]",
-				IDMatchExpr:   "$.clusters[0]",
-				Format:        YAMLCertFormatBase64,
+				BasePathMatchExpr: "$.clusters",
+				CertMatchSubExpr:  "$.cluster[\"certificate-authority-data\"]",
+				IDMatchSubExpr:    "$[0]",
+				Format:            YAMLCertFormatBase64,
 			},
 		},
 	}, func(metrics []model.MetricFamily) {
@@ -543,9 +547,10 @@ func TestInvalidYAMLMatchExpr(t *testing.T) {
 		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-inconsistent.conf")},
 		YAMLPaths: []YAMLCertRef{
 			{
-				CertMatchExpr: "$.clusters[:].cluster[\"certificate-authority-data\"]",
-				IDMatchExpr:   "$.clusters[:].name",
-				Format:        YAMLCertFormatBase64,
+				BasePathMatchExpr: "$.clusters",
+				CertMatchSubExpr:  "$.cluster[\"certificate-authority-data\"]",
+				IDMatchSubExpr:    "$.name",
+				Format:            YAMLCertFormatBase64,
 			},
 		},
 	}, func(metrics []model.MetricFamily) {

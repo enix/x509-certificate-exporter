@@ -81,16 +81,16 @@ func TestSinglePEMBehindSymlink(t *testing.T) {
 		Files: []string{path.Join(filepath.Dir(filename), "../test/badlink.pem")},
 	}, func(metrics []model.MetricFamily) {
 		metric := getMetricsForName(metrics, "x509_cert_expired")
-		assert.Len(t, metric, 1, "missing x509_cert_expired metric(s)")
-		assert.Len(t, getMetricsForName(metrics, "x509_read_errors"), 0)
+		assert.Len(t, metric, 0, "missing x509_cert_expired metric(s)")
+		assert.Len(t, getMetricsForName(metrics, "x509_read_errors"), 1)
 	})
 
 	testRequest(t, &Exporter{
 		Files: []string{path.Join(filepath.Dir(filename), "../test/badlink-relative.pem")},
 	}, func(metrics []model.MetricFamily) {
 		metric := getMetricsForName(metrics, "x509_cert_expired")
-		assert.Len(t, metric, 1, "missing x509_cert_expired metric(s)")
-		assert.Len(t, getMetricsForName(metrics, "x509_read_errors"), 0)
+		assert.Len(t, metric, 0, "missing x509_cert_expired metric(s)")
+		assert.Len(t, getMetricsForName(metrics, "x509_read_errors"), 1)
 	})
 }
 

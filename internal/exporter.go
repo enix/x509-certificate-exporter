@@ -277,7 +277,8 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 	options := []doublestar.GlobOption{
 		doublestar.WithFailOnIOErrors(),
 		doublestar.WithFailOnPatternNotExist(),
-		// doublestar.WithNoFollow(),
+		doublestar.WithNoFollow(),
+		doublestar.WithStatFunc(stat),
 	}
 
 	if !directories {
@@ -422,4 +423,29 @@ func fillLabelsFromName(name *pkix.Name, prefix string, output map[string]string
 	if len(name.CommonName) > 0 {
 		output[fmt.Sprintf("%s_CN", prefix)] = name.CommonName
 	}
+}
+
+func stat(fsys fs.FS, name string, beforeMeta bool) (fs.FileInfo, bool, error) {
+	// name might end in a slash, but Stat doesn't like that
+	namelen := len(name)
+	if namelen > 1 && name[namelen-1] == '/' {
+		name = name[:namelen-1]
+	}
+
+	info, err := fs.Stat(fsys, name)
+	if errors.Is(err, fs.ErrNotExist) {
+		realPath, err := resolveSymlink(name)
+		if err != nil {
+			return nil, false, err
+		}
+
+		info, err := fs.Stat(fsys, realPath)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, false, doublestar.ErrPatternNotExist
+		}
+
+		return info, err == nil, err
+	}
+
+	return info, err == nil, err
 }

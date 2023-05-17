@@ -250,14 +250,23 @@ func readFile(file string) ([]byte, error) {
 		return contents, err
 	}
 
-	realPath, err := os.Readlink(file)
+	realPath, err := resolveSymlink(file)
 	if err != nil {
 		return nil, err
 	}
 
+	return os.ReadFile(realPath)
+}
+
+func resolveSymlink(link string) (string, error) {
+	realPath, err := os.Readlink(link)
+	if err != nil {
+		return "", err
+	}
+
 	// only resolve the symlink filename, and not its full path, to stay compatible with k8s volume mounts
 	// see https://github.com/enix/x509-certificate-exporter/tree/main/deploy/charts/x509-certificate-exporter#watching-symbolic-links
-	return os.ReadFile(path.Join(path.Dir(file), path.Base(realPath)))
+	return path.Join(path.Dir(link), path.Base(realPath)), nil
 }
 
 func parsePEM(data []byte) ([]*x509.Certificate, error) {

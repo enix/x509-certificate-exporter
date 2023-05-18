@@ -209,42 +209,6 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 	return output, nil
 }
 
-func searchYAMLFile(filename, expr string) (string, error) {
-	var raw interface{}
-
-	file, err := os.Open(filename)
-	if err != nil {
-		return "", err
-	}
-
-	err = yaml.NewDecoder(file).Decode(&raw)
-	if err != nil {
-		return "", err
-	}
-
-	results, err := jsonpath.Read(raw, expr)
-	if err != nil {
-		return "", nil
-	}
-
-	if texts, ok := results.([]interface{}); ok {
-		var output strings.Builder
-
-		for _, line := range texts {
-			if text, ok := line.(string); ok {
-				output.WriteString(text)
-				output.WriteRune('\n')
-			} else {
-				return "", fmt.Errorf("failed to convert yaml element to string: %T", results)
-			}
-		}
-
-		return output.String(), nil
-	}
-
-	return "", fmt.Errorf("failed to convert yaml element to string: %T", results)
-}
-
 func readAndParseKubeSecret(secret *v1.Secret, key string) ([]*parsedCertificate, error) {
 	certs, err := parsePEM(secret.Data[key])
 	if err != nil {

@@ -542,9 +542,13 @@ func TestInvalidYAMLMatchExpr(t *testing.T) {
 		assert.Len(t, errorMetric, 1, "missing x509_read_errors metric")
 		assert.Equal(t, errorMetric[0].GetGauge().GetValue(), 1., "invalid x509_read_errors value")
 	})
+}
+
+func TestMultipleCerts(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
 
 	testRequest(t, &Exporter{
-		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-inconsistent.conf")},
+		YAMLs: []string{path.Join(filepath.Dir(filename), "../test/yaml-multi-certs.conf")},
 		YAMLPaths: []YAMLCertRef{
 			{
 				BasePathMatchExpr: "$.clusters",
@@ -555,17 +559,17 @@ func TestInvalidYAMLMatchExpr(t *testing.T) {
 		},
 	}, func(metrics []model.MetricFamily) {
 		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
-		assert.Len(t, foundMetrics, 0, "extra x509_cert_expired metric(s)")
+		assert.Len(t, foundMetrics, 2, "extra x509_cert_expired metric(s)")
 
 		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
-		assert.Len(t, foundNbMetrics, 0, "extra x509_cert_not_before metric(s)")
+		assert.Len(t, foundNbMetrics, 2, "extra x509_cert_not_before metric(s)")
 
 		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
-		assert.Len(t, foundNaMetrics, 0, "extra x509_cert_not_after metric(s)")
+		assert.Len(t, foundNaMetrics, 2, "extra x509_cert_not_after metric(s)")
 
 		errorMetric := getMetricsForName(metrics, "x509_read_errors")
 		assert.Len(t, errorMetric, 1, "missing x509_read_errors metric")
-		assert.Equal(t, errorMetric[0].GetGauge().GetValue(), 1., "invalid x509_read_errors value")
+		assert.Equal(t, errorMetric[0].GetGauge().GetValue(), 0., "invalid x509_read_errors value")
 	})
 }
 
@@ -799,13 +803,13 @@ func TestYamlGlobbing(t *testing.T) {
 		YAMLPaths: DefaultYamlPaths,
 	}, func(metrics []model.MetricFamily) {
 		foundMetrics := getMetricsForName(metrics, "x509_cert_expired")
-		assert.Len(t, foundMetrics, 7)
+		assert.Len(t, foundMetrics, 10)
 		foundNbMetrics := getMetricsForName(metrics, "x509_cert_not_before")
-		assert.Len(t, foundNbMetrics, 7)
+		assert.Len(t, foundNbMetrics, 10)
 		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
-		assert.Len(t, foundNaMetrics, 7)
+		assert.Len(t, foundNaMetrics, 10)
 		errMetric := getMetricsForName(metrics, "x509_read_errors")
-		assert.Equal(t, 7., errMetric[0].GetGauge().GetValue())
+		assert.Equal(t, 6., errMetric[0].GetGauge().GetValue())
 	})
 }
 

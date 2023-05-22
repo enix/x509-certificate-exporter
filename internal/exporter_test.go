@@ -1000,6 +1000,7 @@ func testRequest(t *testing.T, exporter *Exporter, cb func(metrics []model.Metri
 				break
 			}
 
+			//nolint:copylocks
 			metrics = append(metrics, metric)
 		}
 
@@ -1012,6 +1013,7 @@ func testRequest(t *testing.T, exporter *Exporter, cb func(metrics []model.Metri
 }
 
 func getMetricsForName(metrics []model.MetricFamily, name string) []*model.Metric {
+	//nolint:copylocks
 	for _, metric := range metrics {
 		if metric.GetName() == name {
 			return metric.GetMetric()

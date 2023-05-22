@@ -319,6 +319,11 @@ in the container namespace.
 | exposePerCertificateErrorMetrics | bool | `false` | Enable additional metrics to report per-certificate errors ; helps with identifying read errors origin not having to look at exporter logs, at the expense of additional storage on Prometheus |
 | exposeRelativeMetrics | bool | `false` | Enable additional metrics with relative durations instead of absolute timestamps ; not recommended with Prometheus |
 | metricLabelsFilterList | list | `nil` | Restrict metric labels to this list if set. **Warning** : use with caution as reducing cardinality may yield metrics collisions and force the exporter to ignore certificates. This will also degrade the usability of the Grafana dashboard. This list should always include at least `filepath`, `secret_namespace` and `secret_name`. Also `subject_CN` is highly recommended for when a file contains multiple certificates. |
+| grafana.createDashboard | bool | `false` | Should the Grafana dashboard be deployed as a ConfigMap (requires Grafana sidecar) |
+| grafana.sidecarLabel | string | `"grafana_dashboard"` | ConfigMap label name the Grafana sidecar is looking for |
+| grafana.sidecarLabelValue | string | `"1"` | ConfigMap label value the Grafana sidecar is looking for |
+| grafana.annotations | object | `{}` | Annotations added to the Grafana dashboard ConfigMap (example in `values.yaml`) |
+| grafana.extraLabels | object | `{}` | Additional labels added to the Grafana dashboard ConfigMap |
 | secretsExporter.enabled | bool | `true` | Should the TLS Secrets exporter be running |
 | secretsExporter.debugMode | bool | `false` | Should debug messages be produced by the TLS Secrets exporter |
 | secretsExporter.replicas | int | `1` | Desired number of TLS Secrets exporter Pod |
@@ -328,8 +333,8 @@ in the container namespace.
 | secretsExporter.nodeSelector | object | `{}` | Node selector for Pods of the TLS Secrets exporter |
 | secretsExporter.tolerations | list | `[]` | Toleration for Pods of the TLS Secrets exporter |
 | secretsExporter.affinity | object | `{}` | Affinity for Pods of the TLS Secrets exporter |
+| secretsExporter.priorityClassName | string | `""` | PriorityClassName for Pods of the TLS Secrets exporter |
 | secretsExporter.podExtraLabels | object | `{}` | Additional labels added to Pods of the TLS Secrets exporter |
-| secretsExporter.priorityClassName | object | `""` | priorityClassName for Pods of the TLS Secrets exporter |
 | secretsExporter.podAnnotations | object | `{}` | Annotations added to Pods of the TLS Secrets exporter |
 | secretsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of the TLS Secrets exporter |
 | secretsExporter.securityContext | object | check `values.yaml` | SecurityContext for containers of the TLS Secrets exporter |

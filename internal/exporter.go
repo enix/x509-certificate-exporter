@@ -434,7 +434,7 @@ func stat(fsys fs.FS, name string, beforeMeta bool) (fs.FileInfo, bool, error) {
 
 	info, err := fs.Stat(fsys, name)
 	if errors.Is(err, fs.ErrNotExist) {
-		realPath, err := resolveSymlink(name)
+		realPath, err := resolveSymlink(fsys, name)
 		if err != nil {
 			return nil, false, err
 		}

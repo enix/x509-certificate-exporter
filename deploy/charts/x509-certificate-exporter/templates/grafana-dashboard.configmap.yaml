@@ -1,0 +1,20 @@
+{{- if .Values.grafana.createDashboard }}
+{{- $path := "grafana-dashboards/x509-certificate-exporter.json" }}
+{{- $dashboardName := regexReplaceAll "(^.*/)(.*)\\.json$" $path "${2}" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) "dashboard" | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
+    {{ .Values.grafana.sidecarLabel | quote }}: {{ .Values.grafana.sidecarLabelValue | quote }}
+    {{- with .Values.grafana.extraLabels }}
+    {{- . | toYaml | trim | nindent 4 }}
+    {{- end }}
+  {{- with .Values.grafana.annotations }}
+  annotations:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
+data:
+  {{ $dashboardName }}.json: {{ .Files.Get $path | toJson }}
+{{- end }}

@@ -42,6 +42,19 @@ exposeRelativeMetrics: false
 # -- (list) Restrict metric labels to this list if set. **Warning** : use with caution as reducing cardinality may yield metrics collisions and force the exporter to ignore certificates. This will also degrade the usability of the Grafana dashboard. This list should always include at least `filepath`, `secret_namespace` and `secret_name`. Also `subject_CN` is highly recommended for when a file contains multiple certificates.
 metricLabelsFilterList: null
 
+grafana:
+  # -- Should the Grafana dashboard be deployed as a ConfigMap (requires Grafana sidecar)
+  createDashboard: false
+  # -- ConfigMap label name the Grafana sidecar is looking for
+  sidecarLabel: grafana_dashboard
+  # -- ConfigMap label value the Grafana sidecar is looking for
+  sidecarLabelValue: "1"
+  # -- Annotations added to the Grafana dashboard ConfigMap (example in `values.yaml`)
+  annotations: {}
+    # k8s-sidecar-target-directory: "/tmp/dashboards/Example"
+  # -- Additional labels added to the Grafana dashboard ConfigMap
+  extraLabels: {}
+
 secretsExporter:
   # -- Should the TLS Secrets exporter be running
   enabled: true

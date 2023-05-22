@@ -95,7 +95,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: latest
-          args: --timeout 3m --verbose
+          args: --timeout 3m --verbose --out-${NO_FUTURE}format colored-line-number
 
       - name: Run unit tests
         run: |
@@ -123,7 +123,7 @@ jobs:
 
   build:
     name: Build
-    needs: 
+    needs:
       - semver
       - tests
     runs-on: ubuntu-22.04
@@ -131,20 +131,21 @@ jobs:
       matrix:
         #goos: [linux]
         #goarch: [amd64, arm64, riscv64]
-        goos: [linux, darwin, freebsd, illumos, netbsd, openbsd, solaris, windows]
-        goarch: [amd64, arm64, riscv64, "386"]
+        goos:
+          [linux, darwin, freebsd, illumos, netbsd, openbsd, solaris, windows]
+        goarch: [amd64, arm64, riscv64, '386']
         exclude:
-          - { goos: darwin,  goarch: riscv64 }
-          - { goos: darwin,  goarch: "386" }
+          - { goos: darwin, goarch: riscv64 }
+          - { goos: darwin, goarch: '386' }
           - { goos: freebsd, goarch: riscv64 }
           - { goos: illumos, goarch: arm64 }
           - { goos: illumos, goarch: riscv64 }
-          - { goos: illumos, goarch: "386" }
-          - { goos: netbsd,  goarch: riscv64 }
+          - { goos: illumos, goarch: '386' }
+          - { goos: netbsd, goarch: riscv64 }
           - { goos: openbsd, goarch: riscv64 }
           - { goos: solaris, goarch: arm64 }
           - { goos: solaris, goarch: riscv64 }
-          - { goos: solaris, goarch: "386" }
+          - { goos: solaris, goarch: '386' }
           - { goos: windows, goarch: riscv64 }
     steps:
       - name: Checkout Repository
@@ -155,7 +156,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.19.8"
+          go-version: '1.19.8'
 
       - name: Build binaries and prepare assets
         shell: python
@@ -174,14 +175,14 @@ jobs:
           import os, tarfile
 
           header('prepare build environment')
-          
+
           build_output_dir = os.path.join(os.environ['WORKSPACE'], 'build')
           release_assets_dir = os.path.join(os.environ['WORKSPACE'], 'assets')
           os.mkdir(build_output_dir)
           os.mkdir(release_assets_dir)
 
           header('set build parameters')
-          
+
           if os.environ['GOOS'] == 'windows':
               binary_extension='.exe'
               asset_extension='.zip'
@@ -190,7 +191,7 @@ jobs:
               binary_extension=''
               asset_extension='.tar.gz'
               zip_archive=False
-          
+
           base_name='x509-certificate-exporter'
           binary_name='{}{}'.format(base_name, binary_extension)
           asset_name='{}-{}-{}{}'.format(base_name, os.environ['GOOS'], os.environ['GOARCH'], asset_extension)
@@ -212,7 +213,7 @@ jobs:
           info('ldflags')
           for ldflag in ldflags:
               info('  {}'.format(ldflag))
-  
+
           header('build project')
 
           binary_output_path = os.path.join(build_output_dir, binary_name)
@@ -239,7 +240,7 @@ jobs:
               with tarfile.open(asset_path, 'x:gz') as tarfile:
                   tarfile.add(binary_output_path, arcname=base_name, filter=reset)
 
-          action('compute archive checksums')          
+          action('compute archive checksums')
           hex_sum = sha256(open(asset_path, 'rb').read()).hexdigest()
           info('SHA-256 = {}'.format(hex_sum))
           assert_length((
@@ -314,7 +315,7 @@ jobs:
         run: |
           from lib import *
           import os
-          
+
           header('semantic-release job outputs')
           info('last      = {}'.format(os.environ['SR_LAST']))
           info('published = {}'.format(os.environ['SR_PUBLISHED']))
@@ -347,7 +348,7 @@ jobs:
       - release
     runs-on: ubuntu-22.04
     env:
-      CR_VERSION: "1.5.0"
+      CR_VERSION: '1.5.0'
     steps:
       - name: Configure git
         run: |
@@ -359,7 +360,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: repository
-      
+
       - name: Cache for chart-releaser
         id: cache-cr
         uses: actions/cache@v3
@@ -426,7 +427,7 @@ jobs:
           info('architectures to build for:')
           for arch in base_archs:
               info('  {}'.format(arch))
-          
+
           version = os.environ['VERSION']
           prerelease = os.environ['PRERELEASE']
           assert_length_above((
@@ -512,7 +513,7 @@ jobs:
               run('buildah', 'inspect', '--type', 'manifest', manifest_name)
 
               header('{}: preparing push parameters'.format(base_image))
-            
+
               repositories = (
                   'docker.io/{}'.format(os.environ['REPOSITORY']),
                   'quay.io/{}'.format(os.environ['REPOSITORY']),
@@ -521,7 +522,7 @@ jobs:
               if not prerelease:
                   info('not a prerelease version, adding the "latest" tag')
                   tags.append('latest')
-            
+
               info('tags to push to:')
               destinations = []
               for repo in repositories:
@@ -537,7 +538,7 @@ jobs:
               for destination in destinations:
                   action('pushing: {}'.format(destination))
                   run('buildah', 'manifest', 'push', '--all', manifest_name, 'docker://{}'.format(destination))
-              
+
               header('{}: removing manifest'.format(base_image))
               run('buildah', 'manifest', 'rm', manifest_name)
 
@@ -628,7 +629,7 @@ jobs:
                           links.append({
                               'name': 'GitHub issue #{}'.format(issue.group('id')),
                               'url': issue.group('url')
-                          })        
+                          })
 
                   entry = {
                       'kind': kind,
@@ -667,7 +668,7 @@ jobs:
         run: |
           from lib import *
           import os, yaml, shutil
-          
+
           chart_path = os.path.join(os.environ['WORKSPACE'], 'repository', 'deploy', 'charts', os.environ['CHART_NAME'])
           os.chdir(chart_path)
 
@@ -712,7 +713,7 @@ jobs:
               print(yaml.safe_load(open(yaml_file, 'r')))
 
           header('release the chart')
-          
+
           action('clone helm charts repository')
           charts_repo = os.path.join(os.environ['WORKSPACE'], 'enix-charts')
           run('git', 'clone', 'https://github.com/enix/helm-charts', charts_repo)

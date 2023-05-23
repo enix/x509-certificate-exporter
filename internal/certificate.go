@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -233,7 +232,12 @@ func readFile(file string) ([]byte, error) {
 		return contents, err
 	}
 
-	realPath, err := resolveSymlink(os.DirFS("/"), file)
+	fsys := os.DirFS(".")
+	if filepath.IsAbs(file) {
+		fsys = os.DirFS("/")
+	}
+
+	realPath, err := resolveSymlink(fsys, file)
 	if err != nil {
 		return nil, err
 	}
@@ -242,24 +246,17 @@ func readFile(file string) ([]byte, error) {
 }
 
 func resolveSymlink(fsys fs.FS, link string) (string, error) {
-	symlink, err := fsys.Open(link)
-	if err != nil {
-		return "", err
-	}
+	directory := fmt.Sprintf("%v", fsys)
+	fmt.Println(directory)
 
-	realPath, err := io.ReadAll(symlink)
-	if err != nil {
-		return "", err
-	}
-
-	err = symlink.Close()
+	symlink, err := os.Readlink(fmt.Sprintf("%s/%s", directory, link))
 	if err != nil {
 		return "", err
 	}
 
 	// only resolve the symlink filename, and not its full path, to stay compatible with k8s volume mounts
 	// see https://github.com/enix/x509-certificate-exporter/tree/main/deploy/charts/x509-certificate-exporter#watching-symbolic-links
-	return path.Join(path.Dir(link), path.Base(string(realPath))), nil
+	return path.Join(path.Dir(link), path.Base(string(symlink))), nil
 }
 
 func parsePEM(data []byte) ([]*x509.Certificate, error) {

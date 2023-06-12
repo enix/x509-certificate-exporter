@@ -247,7 +247,6 @@ func readFile(file string) ([]byte, error) {
 
 func resolveSymlink(fsys fs.FS, link string) (string, error) {
 	directory := fmt.Sprintf("%v", fsys)
-	fmt.Println(directory)
 
 	symlink, err := os.Readlink(fmt.Sprintf("%s/%s", directory, link))
 	if err != nil {

@@ -137,7 +137,6 @@ jobs:
         exclude:
           - { goos: darwin, goarch: riscv64 }
           - { goos: darwin, goarch: '386' }
-          - { goos: freebsd, goarch: riscv64 }
           - { goos: illumos, goarch: arm64 }
           - { goos: illumos, goarch: riscv64 }
           - { goos: illumos, goarch: '386' }

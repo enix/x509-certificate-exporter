@@ -231,14 +231,14 @@ jobs:
           asset_path = os.path.join(release_assets_dir, asset_name)
           if zip_archive:
               with ZipFile(asset_path, 'x', ZIP_DEFLATED) as zipfile:
-                  zipfile.write(binary_output_path, arcname=base_name)
+                  zipfile.write(binary_output_path, arcname=binary_name)
           else:
               def reset(tarinfo):
                   tarinfo.uid = tarinfo.gid = 1000
                   tarinfo.uname = tarinfo.gname = 'user'
                   return tarinfo
               with tarfile.open(asset_path, 'x:gz') as tarfile:
-                  tarfile.add(binary_output_path, arcname=base_name, filter=reset)
+                  tarfile.add(binary_output_path, arcname=binary_name, filter=reset)
 
           action('compute archive checksums')
           hex_sum = sha256(open(asset_path, 'rb').read()).hexdigest()

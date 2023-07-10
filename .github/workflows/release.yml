@@ -348,7 +348,7 @@ jobs:
       - release
     runs-on: ubuntu-22.04
     env:
-      CR_VERSION: '1.5.0'
+      CR_VERSION: '1.6.0'
     steps:
       - name: Configure git
         run: |

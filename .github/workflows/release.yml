@@ -403,7 +403,7 @@ jobs:
           WORKSPACE: ${{ github.workspace }}
           REPOSITORY: ${{ github.repository }}
           OCI_ALPINE_VERSION: '3.18.2'
-          OCI_BUSYBOX_VERSION: '1.36.0-uclibc'
+          OCI_BUSYBOX_VERSION: '1.36.1-uclibc'
           VERSION: ${{ needs.release.outputs.version }}
           PRERELEASE: ${{ needs.release.outputs.prerelease }}
           REVISION: ${{ github.sha }}

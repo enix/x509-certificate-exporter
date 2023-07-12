@@ -5,6 +5,9 @@ on:
     paths:
       - deploy/charts/**
 
+env:
+  VERSION_KIND: v0.20.0
+
 jobs:
   chart-testing:
     name: Chart Testing
@@ -39,7 +42,7 @@ jobs:
       #- name: Create KinD cluster
       #  uses: engineerd/setup-kind@v0.5.0
       #  with:
-      #    version: v0.15.0
+      #    version: ${{ env.VERSION_KIND }}
       #  if: steps.list-changed.outputs.changed == 'true'
 
       # FIXME

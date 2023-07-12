@@ -10,6 +10,11 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  VERSION_KIND: v0.20.0
+  VERSION_GOLANGCILINT: latest
+  VERSION_GOLANG: '1.20.5'
+
 jobs:
   static-analysis:
     name: Static Analysis
@@ -23,13 +28,12 @@ jobs:
       - name: Set up Golang
         uses: actions/setup-go@v4
         with:
-          go-version-file: go.mod
-          check-latest: true
+          go-version: ${{ env.VERSION_GOLANG }}
   
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: latest
+          version: ${{ env.VERSION_GOLANGCILINT }}
           only-new-issues: true
           args: --timeout 3m --verbose
           #args: --issues-exit-code=0
@@ -44,7 +48,7 @@ jobs:
       - name: Create KinD cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
-          version: v0.20.0
+          version: ${{ env.VERSION_KIND }}
 
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -54,8 +58,7 @@ jobs:
       - name: Set up Golang
         uses: actions/setup-go@v4
         with:
-          go-version-file: go.mod
-          check-latest: true
+          go-version: ${{ env.VERSION_GOLANG }}
 
       - name: Restore cached Go modules
         uses: actions/cache@v3
@@ -63,9 +66,9 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go${{ env.VERSION_GOLANG }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-
+            ${{ runner.os }}-go${{ env.VERSION_GOLANG }}-
 
       - name: Run unit tests
         run: |

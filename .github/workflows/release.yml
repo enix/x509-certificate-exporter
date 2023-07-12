@@ -354,8 +354,6 @@ jobs:
     needs:
       - release
     runs-on: ubuntu-22.04
-    env:
-      CR_VERSION: ${{ env.VERSION_CHARTRELEASER }}
     steps:
       - name: Configure git
         run: |
@@ -372,6 +370,8 @@ jobs:
       - name: Cache for chart-releaser
         id: cache-cr
         uses: actions/cache@v3
+        env:
+          CR_VERSION: ${{ env.VERSION_CHARTRELEASER }}    
         with:
           path: bin/cr
           key: ${{ runner.os }}-cr-${{ env.CR_VERSION }}

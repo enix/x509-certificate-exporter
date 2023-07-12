@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          persist-credentials: false
 
       - name: Set up Golang
         uses: actions/setup-go@v4
@@ -46,6 +48,8 @@ jobs:
 
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          persist-credentials: false
 
       - name: Set up Golang
         uses: actions/setup-go@v4

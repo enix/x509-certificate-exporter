@@ -370,18 +370,16 @@ jobs:
       - name: Cache for chart-releaser
         id: cache-cr
         uses: actions/cache@v3
-        env:
-          CR_VERSION: ${{ env.VERSION_CHARTRELEASER }}    
         with:
           path: bin/cr
-          key: ${{ runner.os }}-cr-${{ env.CR_VERSION }}
+          key: ${{ runner.os }}-cr-${{ env.VERSION_CHARTRELEASER }}
 
       - name: Set up chart-releaser
         if: steps.cache-cr.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           [ -d bin ] || mkdir bin
-          URL='https://github.com/helm/chart-releaser/releases/download/v${{ env.CR_VERSION }}/chart-releaser_${{ env.CR_VERSION }}_linux_amd64.tar.gz'
+          URL='https://github.com/helm/chart-releaser/releases/download/v${{ env.VERSION_CHARTRELEASER }}/chart-releaser_${{ env.VERSION_CHARTRELEASER }}_linux_amd64.tar.gz'
           curl -sSL "${URL}" | tar xz -C bin cr
 
       - name: Login to Docker Hub

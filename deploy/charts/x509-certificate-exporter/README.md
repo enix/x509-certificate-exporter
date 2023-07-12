@@ -369,7 +369,8 @@ in the container namespace.
 | hostNetwork | bool | `false` | Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster |
 | webConfiguration | string | `""` | HTTP server configuration for enabling TLS and authentication (password, mTLS) ; see [documentation at Exporter Toolkit](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md) |
 | webConfigurationExistingSecret | string | `""` | Load the HTTP server configuration from an existing Secret instead of `webConfiguration`. Key must `webconfig.yaml`. |
-| service.create | bool | `true` | Should a headless Service be installed, targets all instances Deployment and DaemonSets (required for ServiceMonitor) |
+| service.create | bool | `true` | Should a Service be installed, targets all instances Deployment and DaemonSets (required for ServiceMonitor) |
+| service.headless | bool | `false` | Should the Service be headless |
 | service.port | int | `9793` | TCP port to expose the Service on |
 | service.annotations | object | `{}` | Annotations to add to the Service |
 | service.extraLabels | object | `{}` | Additional labels to add to the Service |

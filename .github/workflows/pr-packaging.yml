@@ -13,7 +13,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          #fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.4.0

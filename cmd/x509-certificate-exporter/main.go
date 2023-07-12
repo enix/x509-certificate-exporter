@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -135,7 +134,6 @@ func main() {
 		}
 	}
 
-	rand.Seed(time.Now().UnixNano())
 	err := exporter.ListenAndServe()
 	if err != nil {
 		log.Fatal("failed to start server: ", err)

@@ -36,11 +36,17 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Node.js for semantic-release
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+
       - name: Run semantic-release (dry-run)
         id: dry-run
         uses: cycjimmy/semantic-release-action@v3
         with:
           dry_run: true
+          semantic_version: 21
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
 
@@ -297,6 +303,7 @@ jobs:
         uses: cycjimmy/semantic-release-action@v3
         with:
           working_directory: repository
+          semantic_version: 21
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
           GIT_COMMITTER_NAME: ${{ env.COMMIT_NAME }}
@@ -354,8 +361,6 @@ jobs:
     needs:
       - release
     runs-on: ubuntu-22.04
-    env:
-      CR_VERSION: ${{ env.VERSION_CHARTRELEASER }}
     steps:
       - name: Configure git
         run: |
@@ -372,6 +377,8 @@ jobs:
       - name: Cache for chart-releaser
         id: cache-cr
         uses: actions/cache@v3
+        env:
+          CR_VERSION: ${{ env.VERSION_CHARTRELEASER }}
         with:
           path: bin/cr
           key: ${{ runner.os }}-cr-${{ env.CR_VERSION }}
@@ -545,7 +552,8 @@ jobs:
               header('{}: push manifest and images'.format(base_image))
               for destination in destinations:
                   action('pushing: {}'.format(destination))
-                  run('buildah', 'manifest', 'push', '--all', manifest_name, 'docker://{}'.format(destination))
+                  # FIXME
+                  #run('buildah', 'manifest', 'push', '--all', manifest_name, 'docker://{}'.format(destination))
 
               header('{}: removing manifest'.format(base_image))
               run('buildah', 'manifest', 'rm', manifest_name)
@@ -663,6 +671,8 @@ jobs:
       # - OCI releases?
       # - signing?
       - name: Run chart-releaser
+        # FIXME
+        if: false
         shell: python
         env:
           WORKSPACE: ${{ github.workspace }}

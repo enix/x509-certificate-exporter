@@ -10,6 +10,12 @@ concurrency:
 env:
   COMMIT_NAME: Monkeynator
   COMMIT_EMAIL: monkeynator@enix.io
+  VERSION_KIND: v0.20.0
+  VERSION_GOLANGCILINT: latest
+  VERSION_GOLANG: '1.20.5'
+  VERSION_CHARTRELEASER: '1.6.0'
+  VERSION_OCI_BUSYBOX: '1.36.1-uclibc'
+  VERSION_OCI_ALPINE: '3.18.2'
 
 jobs:
   semver:
@@ -77,7 +83,7 @@ jobs:
       - name: Create KinD cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
-          version: v0.20.0
+          version: ${{ env.VERSION_KIND }}
 
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -87,8 +93,7 @@ jobs:
       - name: Set up Golang
         uses: actions/setup-go@v4
         with:
-          go-version-file: go.mod
-          check-latest: true
+          go-version: ${{ env.VERSION_GOLANG }}
 
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.4.0
@@ -96,7 +101,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: latest
+          version: ${{ env.VERSION_GOLANGCILINT }}
           args: --timeout 3m --verbose --out-${NO_FUTURE}format colored-line-number
 
       - name: Run unit tests
@@ -158,7 +163,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20.5'
+          go-version: ${{ env.VERSION_GOLANG }}
 
       - name: Build binaries and prepare assets
         shell: python
@@ -350,7 +355,7 @@ jobs:
       - release
     runs-on: ubuntu-22.04
     env:
-      CR_VERSION: '1.6.0'
+      CR_VERSION: ${{ env.VERSION_CHARTRELEASER }}
     steps:
       - name: Configure git
         run: |
@@ -405,8 +410,8 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/repository/.github
           WORKSPACE: ${{ github.workspace }}
           REPOSITORY: ${{ github.repository }}
-          OCI_ALPINE_VERSION: '3.18.2'
-          OCI_BUSYBOX_VERSION: '1.36.1-uclibc'
+          VERSION_OCI_BUSYBOX: ${{ env.VERSION_OCI_BUSYBOX }}
+          VERSION_OCI_ALPINE: ${{ env.VERSION_OCI_ALPINE }}
           VERSION: ${{ needs.release.outputs.version }}
           PRERELEASE: ${{ needs.release.outputs.prerelease }}
           REVISION: ${{ github.sha }}
@@ -418,9 +423,9 @@ jobs:
           header('preparing the build matrix')
 
           base_images = {
-              'alpine': os.environ['OCI_ALPINE_VERSION'],
+              'busybox': os.environ['VERSION_OCI_BUSYBOX'],
+              'alpine': os.environ['VERSION_OCI_ALPINE'],
               'scratch': None,
-              'busybox': os.environ['OCI_BUSYBOX_VERSION'],
           }
           info('base images to build from:')
           for image, tag in base_images.items():

@@ -38,7 +38,7 @@ jobs:
 
       - name: Run semantic-release (dry-run)
         id: dry-run
-        uses: cycjimmy/semantic-release-action@v3
+        uses: cycjimmy/semantic-release-action@v4
         with:
           dry_run: true
         env:
@@ -294,7 +294,7 @@ jobs:
 
       - name: Run semantic-release
         id: release
-        uses: cycjimmy/semantic-release-action@v3
+        uses: cycjimmy/semantic-release-action@v4
         with:
           working_directory: repository
         env:

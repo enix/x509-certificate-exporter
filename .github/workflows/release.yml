@@ -32,7 +32,7 @@ jobs:
       notes: ${{ steps.dry-run.outputs.new_release_notes }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -86,7 +86,7 @@ jobs:
           version: ${{ env.VERSION_KIND }}
 
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -155,7 +155,7 @@ jobs:
           - { goos: windows, goarch: riscv64 }
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: repository
           persist-credentials: false
@@ -281,7 +281,7 @@ jobs:
       prerelease: ${{ steps.inspect.outputs.prerelease }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: repository
           persist-credentials: false
@@ -362,7 +362,7 @@ jobs:
           git config --global user.email '${{ env.COMMIT_EMAIL }}'
 
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: repository
           persist-credentials: false

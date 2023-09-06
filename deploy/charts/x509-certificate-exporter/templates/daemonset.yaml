@@ -161,23 +161,33 @@ spec:
       {{- end }}
       hostNetwork: {{ $.Values.hostNetwork }}
       volumes:
+      {{- $hostPathType := $.Values.hostPathsExporter.hostPathVolumeType }}
+      {{- if hasKey $dsDef "hostPathVolumeType" }}
+        {{- $hostPathType = $dsDef.hostPathVolumeType }}
+      {{- end }}
       {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
       - name: dir-{{ . | clean | sha1sum }}
         hostPath:
           path: {{ . | clean }}
-          type: Directory
+          {{- if $hostPathType }}
+          type: {{ $hostPathType | quote }}
+          {{- end }}
       {{- end }}
       {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
       - name: file-{{ . | clean | sha1sum }}
         hostPath:
           path: {{ . | clean | dir }}
-          type: Directory
+          {{- if $hostPathType }}
+          type: {{ $hostPathType | quote }}
+          {{- end }}
       {{- end }}
       {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
       - name: kube-{{ . | clean | sha1sum }}
         hostPath:
           path: {{ . | clean | dir }}
-          type: Directory
+          {{- if $hostPathType }}
+          type: {{ $hostPathType | quote }}
+          {{- end }}
       {{- end }}
       {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
       - name: web-configuration

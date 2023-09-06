@@ -168,7 +168,7 @@ hostPathsExporter:
   # -- Additionnal volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`)
   extraVolumeMounts: []
 
-  # -- Type for HostPath volumes used with watched paths. Can be set to `""` or null to use Kubernetes defaults.
+  # -- Type for HostPath volumes used with watched paths. Can be set to `""` or null to use Kubernetes defaults. May be required with RKE if Pods don't start.
   hostPathVolumeType: Directory
   # -- [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep)
   watchDirectories: []

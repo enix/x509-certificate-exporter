@@ -302,13 +302,13 @@ Because all client certificates reside in the `pki` directory, the exporter will
 `kubelet-client-current.pem` and it's target properly. Even though the Operating System cannot resolve the link itself
 in the container namespace.
 
-### HostPath types
+### HostPath types and Rancher Kubernetes Engine (RKE)
 
 When file or directory paths are provided for running DaemonSet exporters, Pods will use HostPath volumes with type
 `Directory` by default. This is a safety so that misconfigurations are easily caught at deployment, and also to prevent
 the creation of paths that don't exist already.
 
-However some Kubernetes distributions may not allow the kubelet to probe for volume paths existence or type, raising
+However some Kubernetes distributions such as RKE may not allow the kubelet to probe for volume paths existence or type, raising
 errors such as:
 ```
 MountVolume.SetUp failed for volume "file-f9f012b96b66ef1f9f2c759856d9e752a1691104" :
@@ -403,7 +403,7 @@ hostPathsExporter:
 | hostPathsExporter.securityContext | object | check `values.yaml` | SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.extraVolumes | list | `[]` | Additionnal volumes added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`) |
 | hostPathsExporter.extraVolumeMounts | list | `[]` | Additionnal volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`) |
-| hostPathsExporter.hostPathVolumeType | string | `"Directory"` | Type for HostPath volumes used with watched paths. Can be set to `""` or null to use Kubernetes defaults. |
+| hostPathsExporter.hostPathVolumeType | string | `"Directory"` | Type for HostPath volumes used with watched paths. Can be set to `""` or null to use Kubernetes defaults. May be required with RKE if Pods don't start. |
 | hostPathsExporter.watchDirectories | list | `[]` | [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep) |
 | hostPathsExporter.watchFiles | list | `[]` | [SEE README] List of file paths of the host for PEM encoded certificates to be watched and exported as metrics (one level deep) |
 | hostPathsExporter.watchKubeconfFiles | list | `[]` | [SEE README] List of Kubeconf file paths of the host to scan for embedded certificates to export metrics about |

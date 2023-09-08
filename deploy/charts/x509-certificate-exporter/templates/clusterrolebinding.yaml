@@ -5,7 +5,6 @@ apiVersion: {{ include "capabilities.rbac.apiVersion" . }}
 kind: ClusterRoleBinding
 metadata:
   name: {{ include "x509-certificate-exporter.secretsExporterClusterRoleBindingName" . }}
-  namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
 {{- with .Values.rbac.secretsExporter.clusterRoleBindingAnnotations }}
@@ -19,7 +18,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ include "x509-certificate-exporter.secretsExporterServiceAccountName" . }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
 {{- end }}
 {{- if .Values.hostPathsExporter.daemonSets }}
 ---
@@ -27,7 +26,6 @@ apiVersion: {{ include "capabilities.rbac.apiVersion" . }}
 kind: ClusterRoleBinding
 metadata:
   name: {{ include "x509-certificate-exporter.hostPathsExporterClusterRoleBindingName" . }}
-  namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
   {{- with .Values.rbac.hostPathsExporter.clusterRoleBindingAnnotations }}
@@ -41,6 +39,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ include "x509-certificate-exporter.hostPathsExporterServiceAccountName" . }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
 {{- end }}
 {{- end }}

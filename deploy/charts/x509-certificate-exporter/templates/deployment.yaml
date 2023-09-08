@@ -5,6 +5,7 @@ apiVersion: {{ include "capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
   name: {{ include "x509-certificate-exporter.secretsExporterName" . }}
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
 spec:

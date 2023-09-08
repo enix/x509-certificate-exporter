@@ -3,6 +3,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
   name: {{ include "x509-certificate-exporter.fullname" . }}-podmonitor
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
     {{- with .Values.prometheusPodMonitor.extraLabels }}

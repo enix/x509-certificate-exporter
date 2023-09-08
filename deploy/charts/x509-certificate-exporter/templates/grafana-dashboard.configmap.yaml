@@ -5,6 +5,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) "dashboard" | trunc 63 | trimSuffix "-" }}
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
     {{ .Values.grafana.sidecarLabel | quote }}: {{ .Values.grafana.sidecarLabelValue | quote }}

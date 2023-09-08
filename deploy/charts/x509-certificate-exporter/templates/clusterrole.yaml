@@ -5,6 +5,7 @@ apiVersion: {{ include "capabilities.rbac.apiVersion" . }}
 kind: ClusterRole
 metadata:
   name: {{ include "x509-certificate-exporter.secretsExporterClusterRoleName" . }}
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
   {{- with .Values.rbac.secretsExporter.clusterRoleAnnotations }}
@@ -59,6 +60,7 @@ apiVersion: {{ include "capabilities.rbac.apiVersion" . }}
 kind: ClusterRole
 metadata:
   name: {{ include "x509-certificate-exporter.hostPathsExporterClusterRoleName" . }}
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
   {{- with .Values.rbac.hostPathsExporter.clusterRoleAnnotations }}

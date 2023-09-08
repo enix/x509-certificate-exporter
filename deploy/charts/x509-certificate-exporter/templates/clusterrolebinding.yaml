@@ -5,6 +5,7 @@ apiVersion: {{ include "capabilities.rbac.apiVersion" . }}
 kind: ClusterRoleBinding
 metadata:
   name: {{ include "x509-certificate-exporter.secretsExporterClusterRoleBindingName" . }}
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
 {{- with .Values.rbac.secretsExporter.clusterRoleBindingAnnotations }}
@@ -26,6 +27,7 @@ apiVersion: {{ include "capabilities.rbac.apiVersion" . }}
 kind: ClusterRoleBinding
 metadata:
   name: {{ include "x509-certificate-exporter.hostPathsExporterClusterRoleBindingName" . }}
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
   {{- with .Values.rbac.hostPathsExporter.clusterRoleBindingAnnotations }}

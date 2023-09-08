@@ -13,6 +13,9 @@ nameOverride: ""
 # -- Fully override x509-certificate-exporter.fullname template
 fullnameOverride: ""
 
+# -- Override the deployment namespace
+namespaceOverride: ""
+
 # -- Additional objects to deploy with the release
 extraDeploy: []
 # -- Same as `extraDeploy` but objects won't go through the templating engine

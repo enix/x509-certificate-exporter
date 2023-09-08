@@ -350,6 +350,7 @@ hostPathsExporter:
 |-----|------|---------|-------------|
 | nameOverride | string | `""` | Partially override x509-certificate-exporter.fullname template (will prepend the release name) |
 | fullnameOverride | string | `""` | Fully override x509-certificate-exporter.fullname template |
+| namespaceOverride | string | `""` | Override the deployment namespace |
 | extraDeploy | list | `[]` | Additional objects to deploy with the release |
 | extraDeployVerbatim | list | `[]` | Same as `extraDeploy` but objects won't go through the templating engine |
 | imagePullSecrets | list | `[]` | Specify docker-registry secret names as an array |

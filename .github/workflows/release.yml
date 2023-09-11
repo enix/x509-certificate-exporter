@@ -361,6 +361,7 @@ jobs:
   containers:
     name: Containers
     needs:
+      - draft-release
       - manual-edit-release-notes
     runs-on: ubuntu-22.04
     steps:

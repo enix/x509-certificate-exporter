@@ -567,7 +567,7 @@ jobs:
       - name: Convert Github changelog for Artifacthub
         shell: python
         env:
-          GITHUB_CHANGELOG_URL: https://github.com/${{ env.GITHUB_REPOSITORY }}/releases/download/v${{ needs.draft-release.outputs.version }}/CHANGELOG.md
+          GITHUB_CHANGELOG_URL: https://github.com/enix/x509-certificate-exporter/releases/download/v${{ needs.draft-release.outputs.version }}/CHANGELOG.md
         run: |
           import os, yaml, re, requests
 

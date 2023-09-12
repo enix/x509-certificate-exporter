@@ -7,7 +7,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $dsName }}
-  namespace: {{ include "x509-certificate-exporter.namespace" . }}
+  namespace: {{ include "x509-certificate-exporter.namespace" $ }}
   labels:
     {{- include "x509-certificate-exporter.labels" $ | nindent 4 }}
 spec:

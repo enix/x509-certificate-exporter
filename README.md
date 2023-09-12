@@ -195,7 +195,7 @@ First, Prometheus tends to do better storage consumption when a value stays iden
 Then, it is better to compute the remaining time through a prometheus query as some latency (seconds) can exist
 between this exporter check and your alert or query being run.
 
-Here is an exemple:
+Here is an example:
 
 ```
 x509_cert_not_after - time()

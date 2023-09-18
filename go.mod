@@ -16,11 +16,12 @@ require (
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.28.1
-	k8s.io/apimachinery v0.28.1
+	k8s.io/apimachinery v0.28.2
 	k8s.io/client-go v0.28.1
 )
 
 require (
+	dario.cat/mergo v1.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
@@ -51,7 +52,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
 	golang.org/x/crypto v0.13.0 // indirect
 	golang.org/x/net v0.15.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect

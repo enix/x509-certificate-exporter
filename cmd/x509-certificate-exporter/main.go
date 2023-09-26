@@ -64,6 +64,9 @@ func main() {
 	kubeExcludeLabels := stringArrayFlag{}
 	getopt.FlagLong(&kubeExcludeLabels, "exclude-label", 0, "removes the kube secrets with the given label (or label value if specified) from the watch list (applied after --include-label)")
 
+	var jksPasswordsFile string
+	getopt.FlagLong(&jksPasswordsFile, "keystore-passwords-file", 0, "path to a file containing a list of passwords to try when opening a JKS keystore")
+
 	getopt.Parse()
 
 	if *help {
@@ -109,6 +112,7 @@ func main() {
 		KubeExcludeNamespaces: kubeExcludeNamespaces,
 		KubeIncludeLabels:     kubeIncludeLabels,
 		KubeExcludeLabels:     kubeExcludeLabels,
+		JKSPasswordsFile:      jksPasswordsFile,
 	}
 
 	if getopt.Lookup("expose-labels").Seen() {

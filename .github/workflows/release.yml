@@ -96,7 +96,7 @@ jobs:
           go-version: ${{ env.VERSION_GOLANG }}
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.4.0
+        uses: helm/chart-testing-action@v2.6.1
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3

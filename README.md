@@ -76,7 +76,7 @@ rules:
     - alert: CertificateRenewal
         annotations:
             description: Certificate for "{{ $labels.subject_CN }}" should be renewed
-                {{if $labels.secret_name }}in Kubernets secret "{{ $labels.secret_namespace
+                {{if $labels.secret_name }}in Kubernetes secret "{{ $labels.secret_namespace
                 }}/{{ $labels.secret_name }}"{{else}}at location "{{ $labels.filepath }}"{{end}}
             summary: Certificate should be renewed
         expr: ((x509_cert_not_after - time()) / 86400) < 28
@@ -86,7 +86,7 @@ rules:
     - alert: CertificateExpiration
         annotations:
             description: Certificate for "{{ $labels.subject_CN }}" is about to expire
-                {{if $labels.secret_name }}in Kubernets secret "{{ $labels.secret_namespace
+                {{if $labels.secret_name }}in Kubernetes secret "{{ $labels.secret_namespace
                 }}/{{ $labels.secret_name }}"{{else}}at location "{{ $labels.filepath }}"{{end}}
             summary: Certificate is about to expire
         expr: ((x509_cert_not_after - time()) / 86400) < 14

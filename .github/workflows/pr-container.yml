@@ -23,7 +23,7 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
 
       - name: Update Pull Request
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         if: ${{ github.event_name == 'pull_request' && !success() }}
         with:
           script: |

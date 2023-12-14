@@ -12,7 +12,7 @@ env:
   COMMIT_EMAIL: monkeynator@enix.io
   VERSION_KIND: v0.20.0
   VERSION_GOLANGCILINT: latest
-  VERSION_GOLANG: '1.20.7'
+  VERSION_GOLANG: '1.21.5'
   VERSION_CHARTRELEASER: '1.6.0'
   VERSION_OCI_BUSYBOX: '1.36.1-uclibc'
   VERSION_OCI_ALPINE: '3.18.3'
@@ -602,6 +602,7 @@ jobs:
           entries = []
 
           changelog = requests.get(os.environ['GITHUB_CHANGELOG_URL']).text
+          print(changelog)
 
           mapping = None
           for line in changelog.splitlines():

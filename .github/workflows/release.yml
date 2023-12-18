@@ -257,7 +257,7 @@ jobs:
           open(sum_path, 'x').write(hex_sum)
 
       - name: Upload assets to artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binaries
           path: assets/*

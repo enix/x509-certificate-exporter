@@ -129,8 +129,8 @@ secretsExporter:
 
   # -- Additional environment variables for container
   env: []
-  #- name: GOMAXPROCS
-  #  value: "1"
+  # - name: GOMAXPROCS
+  #   value: "1"
 
 hostPathsExporter:
   # -- Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets)
@@ -187,8 +187,8 @@ hostPathsExporter:
 
   # -- Additional environment variables for container
   env: []
-  #- name: GOMAXPROCS
-  #  value: "1"
+  # - name: GOMAXPROCS
+  #   value: "1"
 
   # -- [SEE README] Map to define one or many DaemonSets running hostPath exporters. Key is used as a name ; value is a map to override all default settings set by `hostPathsExporter.*`.
   daemonSets: {}

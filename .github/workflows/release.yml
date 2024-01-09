@@ -90,7 +90,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Golang
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.VERSION_GOLANG }}
@@ -191,20 +191,20 @@ jobs:
           header('set build parameters')
 
           if os.environ['GOOS'] == 'windows':
-              binary_extension='.exe'
-              asset_extension='.zip'
-              zip_archive=True
+              binary_extension = '.exe'
+              asset_extension = '.zip'
+              zip_archive = True
           else:
-              binary_extension=''
-              asset_extension='.tar.gz'
-              zip_archive=False
+              binary_extension = ''
+              asset_extension = '.tar.gz'
+              zip_archive = False
 
-          base_name='x509-certificate-exporter'
-          binary_name='{}{}'.format(base_name, binary_extension)
-          asset_name='{}-{}-{}{}'.format(base_name, os.environ['GOOS'], os.environ['GOARCH'], asset_extension)
-          sum_name='{}.sha256'.format(asset_name)
+          base_name = 'x509-certificate-exporter'
+          binary_name = '{}{}'.format(base_name, binary_extension)
+          asset_name = '{}-{}-{}{}'.format(base_name, os.environ['GOOS'], os.environ['GOARCH'], asset_extension)
+          sum_name = '{}.sha256'.format(asset_name)
           build_time = datetime.utcnow().isoformat(timespec='seconds')
-          ldflags=[
+          ldflags = [
               '-X github.com/enix/x509-certificate-exporter/v3/internal.Version={}'.format(os.environ['VERSION']),
               '-X github.com/enix/x509-certificate-exporter/v3/internal.Revision={}'.format(os.environ['REVISION']),
               '-X github.com/enix/x509-certificate-exporter/v3/internal.BuildDateTime={}'.format(build_time),
@@ -467,8 +467,9 @@ jobs:
 
                   if base_tag:
                       # FIXME exceptions for RISC-V
+                      # use 'edge' with Alpine
+                      # https://gitlab.alpinelinux.org/alpine/aports/-/issues/13269
                       if container_arch == 'riscv64' and base_image == 'alpine':
-                          # use 'edge' waiting for version 3.17
                           container_base = 'docker://{}:edge'.format(base_image)
                       else:
                           container_base = 'docker://{}:{}'.format(base_image, base_tag)

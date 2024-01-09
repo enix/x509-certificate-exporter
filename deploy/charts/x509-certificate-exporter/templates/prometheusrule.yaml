@@ -52,7 +52,7 @@ spec:
         {{- end }}
     {{- end }}
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateRenewal" | trim }}'
-      expr: ((x509_cert_not_after - time()) / 86400) < {{ .Values.prometheusRules.warningDaysLeft }}
+      expr: (x509_cert_not_after - time()) < ({{ .Values.prometheusRules.warningDaysLeft }} * 86400)
       for: 15m
       labels:
         severity: {{ .Values.prometheusRules.certificateRenewalsSeverity }}
@@ -66,7 +66,7 @@ spec:
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateExpiration" | trim }}'
-      expr: ((x509_cert_not_after - time()) / 86400) < {{ .Values.prometheusRules.criticalDaysLeft }}
+      expr: (x509_cert_not_after - time()) < ({{ .Values.prometheusRules.criticalDaysLeft }} * 86400)
       for: 15m
       labels:
         severity: {{ .Values.prometheusRules.certificateExpirationsSeverity }}
@@ -75,7 +75,7 @@ spec:
         {{- end }}
       annotations:
         summary: Certificate is about to expire
-        description: Certificate for "{{ "{{" }} $labels.subject_CN {{ "}}" }}" is about to expire after {{`{{`}} printf "%.0f" $value {{`}}`}} days {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+        description: Certificate for "{{ "{{" }} $labels.subject_CN {{ "}}" }}" is about to expire after {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
         {{- if .Values.prometheusRules.alertExtraAnnotations }}
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}

@@ -90,6 +90,10 @@ spec:
           readOnly: true
         {{- end }}
         {{- end }}
+        {{- if .Values.secretsExporter.env }}
+        env:
+        {{- toYaml .Values.secretsExporter.env | trim | nindent 8 }}
+        {{- end }}
         args:
         {{- if .Values.secretsExporter.debugMode }}
         - --debug

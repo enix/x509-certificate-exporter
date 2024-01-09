@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	_ "go.uber.org/automaxprocs"
+
 	"github.com/enix/x509-certificate-exporter/v3/internal"
 	getopt "github.com/pborman/getopt/v2"
 	log "github.com/sirupsen/logrus"

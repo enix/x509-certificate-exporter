@@ -451,7 +451,7 @@ jobs:
               (version, 0),
               (prerelease, 0),
           ))
-          prerelease = bool(prerelease)
+          prerelease = prerelease.lower() == 'true'
 
           for base_image, base_tag in base_images.items():
               header('{}: create the multi-platform manifest'.format(base_image))

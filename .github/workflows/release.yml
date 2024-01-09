@@ -347,7 +347,8 @@ jobs:
           header('set the prerelease status')
           is_prerelease = '-' in os.environ['SR_VERSION']
           info('pre-release = {}'.format(is_prerelease))
-          print('::set-output name=prerelease::{}'.format(str(is_prerelease).lower()))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as gho:
+            gho.write("prerelease={}\n".format(str(is_prerelease).lower()))
 
   manual-edit-release-notes:
     name: Manual edition of Github release notes

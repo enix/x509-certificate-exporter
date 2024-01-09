@@ -2,6 +2,7 @@
 {{- range $dsName, $dsDef := . }}
 {{- $extraVolumes := concat ( default $.Values.hostPathsExporter.extraVolumes $dsDef.extraVolumes ) $.Values.extraVolumes }}
 {{- $extraVolumeMounts := concat ( default $.Values.hostPathsExporter.extraVolumeMounts $dsDef.extraVolumeMounts ) $.Values.extraVolumeMounts }}
+{{- $extraEnvs := concat (default (list) $.Values.hostPathsExporter.env) (default (list) $dsDef.env) }}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -70,6 +71,10 @@ spec:
         {{- end }}
         image: {{ include "x509-certificate-exporter.image" $ }}
         imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        {{- if $extraEnvs }}
+        env:
+        {{- toYaml $extraEnvs | trim | nindent 8 }}
+        {{- end }}
         args:
         {{- with default $.Values.hostPathsExporter.debugMode $dsDef.debugMode }}
         - --debug

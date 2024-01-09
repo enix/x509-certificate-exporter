@@ -127,6 +127,11 @@ secretsExporter:
     # -- Maximum time an object can stay in cache unrefreshed (seconds) - it will be at least half of that
     maxDuration: 300
 
+  # -- Additional environment variables for container
+  env: []
+  #- name: GOMAXPROCS
+  #  value: "1"
+
 hostPathsExporter:
   # -- Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets)
   debugMode: false
@@ -179,6 +184,11 @@ hostPathsExporter:
   watchFiles: []
   # -- [SEE README] List of Kubeconf file paths of the host to scan for embedded certificates to export metrics about
   watchKubeconfFiles: []
+
+  # -- Additional environment variables for container
+  env: []
+  #- name: GOMAXPROCS
+  #  value: "1"
 
   # -- [SEE README] Map to define one or many DaemonSets running hostPath exporters. Key is used as a name ; value is a map to override all default settings set by `hostPathsExporter.*`.
   daemonSets: {}

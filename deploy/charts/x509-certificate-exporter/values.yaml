@@ -91,7 +91,8 @@ secretsExporter:
   # -- Annotations added to Pods of the TLS Secrets exporter
   podAnnotations: {}
   # -- PodSecurityContext for Pods of the TLS Secrets exporter
-  podSecurityContext: {}
+  podSecurityContext:
+    runAsNonRoot: true
   # -- SecurityContext for containers of the TLS Secrets exporter
   # @default -- check `values.yaml`
   securityContext:
@@ -359,6 +360,7 @@ rbacProxy:
   securityContext:
     runAsUser: 65534
     runAsGroup: 65534
+    runAsNonRoot: true
     readOnlyRootFilesystem: true
     capabilities:
       drop:

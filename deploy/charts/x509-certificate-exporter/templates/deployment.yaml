@@ -148,9 +148,21 @@ spec:
         {{- end }}
       {{- if not .Values.rbacProxy.enabled }}
         - --listen-address=:{{ .Values.podListenPort }}
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 3
         ports:
         - name: metrics
           containerPort: {{ .Values.podListenPort }}
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 3
       {{- else }}
         - --listen-address=:{{ .Values.rbacProxy.upstreamListenPort }}
       - name: kube-rbac-proxy
@@ -170,9 +182,21 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 3
         ports:
         - name: metrics
           containerPort: {{ .Values.podListenPort }}
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 3
         {{- with .Values.rbacProxy.resources }}
         resources:
         {{- . | toYaml | trim | nindent 10 }}

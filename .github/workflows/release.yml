@@ -380,7 +380,7 @@ jobs:
 
       - name: Cache for chart-releaser
         id: cache-cr
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: bin/cr
           key: ${{ runner.os }}-cr-${{ env.VERSION_CHARTRELEASER }}

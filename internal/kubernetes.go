@@ -45,14 +45,21 @@ func (exporter *Exporter) parseAllKubeSecrets() ([]*certificateRef, []error) {
 		for _, secret := range secrets {
 			for _, secretType := range exporter.KubeSecretTypes {
 				typeAndKey := strings.Split(secretType, ":")
+				kubeSecretKeys, err := getMatchingKeys(secret.Data, typeAndKey[1])
+				if err != nil {
+					outputErrors = append(outputErrors, fmt.Errorf("failed to fetch keys for secret from namespace \"%s\": %s", namespace, err.Error()))
+					continue
+				}
+				for _, kubeSecretKey := range kubeSecretKeys {
 
-				if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
-					output = append(output, &certificateRef{
-						path:          fmt.Sprintf("k8s/%s/%s", namespace, secret.GetName()),
-						format:        certificateFormatKubeSecret,
-						kubeSecret:    secret,
-						kubeSecretKey: typeAndKey[1],
-					})
+					if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[kubeSecretKey]) > 0 {
+						output = append(output, &certificateRef{
+							path:          fmt.Sprintf("k8s/%s/%s", namespace, secret.GetName()),
+							format:        certificateFormatKubeSecret,
+							kubeSecret:    secret,
+							kubeSecretKey: kubeSecretKey,
+						})
+					}
 				}
 			}
 		}
@@ -203,9 +210,14 @@ func (exporter *Exporter) checkHasIncludedType(secret *v1.Secret) (bool, error) 
 		if len(typeAndKey) != 2 {
 			return false, fmt.Errorf("malformed kube secret type: \"%s\"", secretType)
 		}
-
-		if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
-			return true, nil
+		secretKeys, err := getMatchingKeys(secret.Data, typeAndKey[1])
+		if err != nil {
+			return false, nil
+		}
+		for _, secretKey := range secretKeys {
+			if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[secretKey]) > 0 {
+				return true, nil
+			}
 		}
 	}
 
@@ -224,8 +236,14 @@ func (exporter *Exporter) shrinkSecret(secret v1.Secret) v1.Secret {
 
 	for _, secretType := range exporter.KubeSecretTypes {
 		typeAndKey := strings.Split(secretType, ":")
-		if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
-			result.Data[typeAndKey[1]] = secret.Data[typeAndKey[1]]
+		secretKeys, err := getMatchingKeys(secret.Data, typeAndKey[1])
+		if err != nil {
+			continue
+		}
+		for _, secretKey := range secretKeys {
+			if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[secretKey]) > 0 {
+				result.Data[secretKey] = secret.Data[secretKey]
+			}
 		}
 	}
 

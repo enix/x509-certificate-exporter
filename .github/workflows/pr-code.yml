@@ -13,7 +13,7 @@ permissions:
 env:
   VERSION_KIND: v0.20.0
   VERSION_GOLANGCILINT: latest
-  VERSION_GOLANG: '1.21.5'
+  VERSION_GOLANG: '1.21.6'
 
 jobs:
   static-analysis:

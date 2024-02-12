@@ -99,7 +99,7 @@ jobs:
         uses: helm/chart-testing-action@v2.6.1
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v4
         with:
           version: ${{ env.VERSION_GOLANGCILINT }}
           args: --timeout 3m --verbose --out-${NO_FUTURE}format colored-line-number

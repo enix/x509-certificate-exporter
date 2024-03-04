@@ -313,26 +313,89 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 	return output, outputErrors
 }
 
+// compareCertificates compares labels of these two certificates
+// and returns true if they are the same
+// It would normally run `.getLabels` on both cert/ref combinations,
+// but this is a very allocation-heavy method, so we'll unroll it here
 func (exporter *Exporter) compareCertificates(
 	leftCert *parsedCertificate,
 	leftRef *certificateRef,
 	rightCert *parsedCertificate,
 	rightRef *certificateRef,
 ) bool {
-	lhsLabels := exporter.getLabels(leftCert, leftRef)
-	rhsLabels := exporter.getLabels(rightCert, rightRef)
-
-	if len(lhsLabels) != len(rhsLabels) {
+	// compare base labels
+	if leftRef.format != rightRef.format {
 		return false
 	}
-
-	for key, value := range lhsLabels {
-		if rhsLabels[key] != value {
+	if filepath.Base(leftRef.path) != filepath.Base(rightRef.path) {
+		return false
+	}
+	if leftRef.format != certificateFormatKubeSecret {
+		if trimComponents(leftRef.path, exporter.TrimPathComponents) != trimComponents(rightRef.path, exporter.TrimPathComponents) {
+			return false
+		}
+	} else {
+		if leftRef.kubeSecretKey != rightRef.kubeSecretKey {
+			return false
+		}
+		// secret namespace
+		if strings.Split(leftRef.path, "/")[1] != strings.Split(rightRef.path, "/")[1] {
 			return false
 		}
 	}
 
+	// non-base labels
+	if leftCert.cert.SerialNumber.String() != rightCert.cert.SerialNumber.String() {
+		return false
+	}
+	if !comparePkix(&leftCert.cert.Issuer, &rightCert.cert.Issuer) {
+		return false
+	}
+	if !comparePkix(&leftCert.cert.Subject, &rightCert.cert.Subject) {
+		return false
+	}
+
+	if leftRef.format == certificateFormatYAML {
+		// embedded_kind
+		if strings.TrimRight(strings.Split(leftCert.yqMatchExpr, ".")[1], "s") != strings.TrimRight(strings.Split(rightCert.yqMatchExpr, ".")[1], "s") {
+			return false
+		}
+	}
+	if leftCert.userID != rightCert.userID {
+		return false
+	}
+
 	return true
+}
+
+func comparePkix(left *pkix.Name, right *pkix.Name) bool {
+	if first(left.Country) != first(right.Country) {
+		return false
+	}
+	if first(left.StreetAddress) != first(right.StreetAddress) {
+		return false
+	}
+	if first(left.Locality) != first(right.Locality) {
+		return false
+	}
+	if first(left.Organization) != first(right.Organization) {
+		return false
+	}
+	if first(left.OrganizationalUnit) != first(right.OrganizationalUnit) {
+		return false
+	}
+	if left.CommonName != right.CommonName {
+		return false
+	}
+
+	return true
+}
+
+func first[T any](arr []T) T {
+	if len(arr) == 0 {
+		return *new(T)
+	}
+	return arr[0]
 }
 
 func (exporter *Exporter) getLabels(certData *parsedCertificate, ref *certificateRef) map[string]string {
@@ -354,20 +417,25 @@ func (exporter *Exporter) getLabels(certData *parsedCertificate, ref *certificat
 	return labels
 }
 
+func trimComponents(filepath string, trimCount int) string {
+	if trimCount == 0 {
+		return filepath
+	}
+	pathComponents := strings.Split(filepath, "/")
+	prefix := ""
+	if pathComponents[0] == "" {
+		trimCount++
+		prefix = "/"
+	}
+	return path.Join(prefix, path.Join(pathComponents[trimCount:]...))
+}
+
 func (exporter *Exporter) getBaseLabels(ref *certificateRef) map[string]string {
 	labels := map[string]string{}
 
 	if ref.format != certificateFormatKubeSecret {
-		trimComponentsCount := exporter.TrimPathComponents
-		pathComponents := strings.Split(ref.path, "/")
-		prefix := ""
-		if pathComponents[0] == "" {
-			trimComponentsCount++
-			prefix = "/"
-		}
-
 		labels["filename"] = filepath.Base(ref.path)
-		labels["filepath"] = path.Join(prefix, path.Join(pathComponents[trimComponentsCount:]...))
+		labels["filepath"] = trimComponents(ref.path, exporter.TrimPathComponents)
 	} else {
 		labels["secret_name"] = filepath.Base(ref.path)
 		labels["secret_namespace"] = strings.Split(ref.path, "/")[1]
@@ -401,27 +469,27 @@ func (exporter *Exporter) unzipLabels(labels map[string]string) ([]string, []str
 
 func fillLabelsFromName(name *pkix.Name, prefix string, output map[string]string) {
 	if len(name.Country) > 0 {
-		output[fmt.Sprintf("%s_C", prefix)] = name.Country[0]
+		output[prefix+"_C"] = name.Country[0]
 	}
 
 	if len(name.StreetAddress) > 0 {
-		output[fmt.Sprintf("%s_ST", prefix)] = name.StreetAddress[0]
+		output[prefix+"_ST"] = name.StreetAddress[0]
 	}
 
 	if len(name.Locality) > 0 {
-		output[fmt.Sprintf("%s_L", prefix)] = name.Locality[0]
+		output[prefix+"_L"] = name.Locality[0]
 	}
 
 	if len(name.Organization) > 0 {
-		output[fmt.Sprintf("%s_O", prefix)] = name.Organization[0]
+		output[prefix+"_O"] = name.Organization[0]
 	}
 
 	if len(name.OrganizationalUnit) > 0 {
-		output[fmt.Sprintf("%s_OU", prefix)] = name.OrganizationalUnit[0]
+		output[prefix+"_OU"] = name.OrganizationalUnit[0]
 	}
 
 	if len(name.CommonName) > 0 {
-		output[fmt.Sprintf("%s_CN", prefix)] = name.CommonName
+		output[prefix+"_CN"] = name.CommonName
 	}
 }
 

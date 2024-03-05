@@ -29,6 +29,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.VERSION_GOLANG }}
+          cache: false # we're already caching in the golangci-lint step
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
@@ -45,11 +46,6 @@ jobs:
     name: Unit Testing
     runs-on: ubuntu-22.04
     steps:
-      - name: Create KinD cluster
-        uses: engineerd/setup-kind@v0.6.2
-        with:
-          version: ${{ env.VERSION_KIND }}
-
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
@@ -60,20 +56,8 @@ jobs:
         with:
           go-version: ${{ env.VERSION_GOLANG }}
 
-      - name: Restore cached Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go${{ env.VERSION_GOLANG }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go${{ env.VERSION_GOLANG }}-
-
       - name: Run unit tests
         run: |
-          set -euo pipefail
-          kubectl cluster-info
           go test -v -failfast -timeout 1m -coverprofile=coverage.cov ./internal
           go tool cover -html=coverage.cov -o coverage.html
 

@@ -172,13 +172,8 @@ go run ./cmd/x509-certificate-exporter --debug -b localhost:9793 -d test/
 # Once the server is running, you can check the exported metrics
 curl -Ss localhost:9793/metrics | grep "^x509_cert_not_after"
 
-# Automated tests work against a Kubernetes cluster, so create a throwaway
-# cluster (for example with kind). Do not run the server locally because the
-# tests run the server executable with the default listening port.
-kind create cluster --kubeconfig ~/.kube/config-kind
-export KUBECONFIG=~/.kube/config-kind
+# Automated tests do not need a Kubernetes cluster, you can just invoke
 go test -v ./internal
-kind delete cluster
 
 # Docker build (does not run tests)
 docker buildx build .

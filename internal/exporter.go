@@ -398,6 +398,8 @@ func first[T any](arr []T) T {
 	return arr[0]
 }
 
+// getLabels : Generate metrics labels for a given certificate
+// WARNING! If you update this function, please make sure that the `compareCertificates` function is updated accordingly.
 func (exporter *Exporter) getLabels(certData *parsedCertificate, ref *certificateRef) map[string]string {
 	labels := exporter.getBaseLabels(ref)
 

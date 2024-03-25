@@ -21,6 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"github.com/dimiro1/health"
 	"github.com/prometheus/exporter-toolkit/web"
 	"k8s.io/client-go/kubernetes"
 )
@@ -118,6 +119,7 @@ func (exporter *Exporter) Listen() error {
 // Serve : Actually reply to requests
 func (exporter *Exporter) Serve() error {
 	mux := http.NewServeMux()
+	mux.Handle("/healthz", health.NewHandler())
 	mux.Handle("/metrics", promhttp.Handler())
 
 	exporter.server = &http.Server{

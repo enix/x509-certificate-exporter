@@ -146,7 +146,7 @@ spec:
       {{- if not $.Values.rbacProxy.enabled }}
         livenessProbe:
           httpGet:
-            path: /metrics
+            path: /healthz
             port: metrics
           initialDelaySeconds: 5
           periodSeconds: 3
@@ -155,7 +155,7 @@ spec:
           containerPort: {{ $.Values.podListenPort }}
         readinessProbe:
           httpGet:
-            path: /metrics
+            path: /healthz
             port: metrics
           initialDelaySeconds: 5
           periodSeconds: 3
@@ -179,7 +179,7 @@ spec:
               fieldPath: status.podIP
         livenessProbe:
           httpGet:
-            path: /metrics
+            path: /healthz
             port: metrics
           initialDelaySeconds: 5
           periodSeconds: 3
@@ -188,7 +188,7 @@ spec:
           containerPort: {{ $.Values.podListenPort }}
         readinessProbe:
           httpGet:
-            path: /metrics
+            path: /healthz
             port: metrics
           initialDelaySeconds: 5
           periodSeconds: 3

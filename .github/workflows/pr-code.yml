@@ -13,7 +13,7 @@ permissions:
 env:
   VERSION_KIND: v0.20.0
   VERSION_GOLANGCILINT: latest
-  VERSION_GOLANG: '1.21.5'
+  VERSION_GOLANG: '1.21.8'
 
 jobs:
   static-analysis:
@@ -31,7 +31,7 @@ jobs:
           go-version: ${{ env.VERSION_GOLANG }}
   
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v4
         with:
           version: ${{ env.VERSION_GOLANGCILINT }}
           only-new-issues: true
@@ -61,7 +61,7 @@ jobs:
           go-version: ${{ env.VERSION_GOLANG }}
 
       - name: Restore cached Go modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build

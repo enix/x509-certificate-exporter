@@ -629,6 +629,26 @@ func TestDuplicateCertificate2(t *testing.T) {
 	})
 }
 
+func BenchmarkParsingCertificates(b *testing.B) {
+	tempdir := b.TempDir()
+	notBefore := time.Now()
+	n := 1000
+	filenames := make([]string, 0, n)
+	for i := 0; i < n; i++ {
+		filename := path.Join(tempdir, fmt.Sprintf("cert%d.pem", i))
+		filenames = append(filenames, filename)
+		generateCertificate(filename, notBefore)
+	}
+	exporter := Exporter{Files: filenames}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, errs := exporter.parseAllCertificates()
+		if len(errs) != 0 {
+			b.Fatalf("unexpected errors: %v", errs)
+		}
+	}
+}
+
 func TestBadBase64StringInYAML(t *testing.T) {
 	testRequest(t, &Exporter{
 		YAMLs:     []string{"../test/bad/yaml-bad-base64.conf"},

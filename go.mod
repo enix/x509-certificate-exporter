@@ -5,6 +5,7 @@ go 1.23.4
 require (
 	github.com/KimMachineGun/automemlimit v0.7.0
 	github.com/bmatcuk/doublestar/v4 v4.7.1
+	github.com/dimiro1/health v0.0.0-20231118160444-e388c68d7d7e
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pborman/getopt/v2 v2.1.0
 	github.com/pkg/errors v0.9.1

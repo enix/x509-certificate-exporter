@@ -1,7 +1,7 @@
 version: '0.0.0'
 appVersion: '0.0.0'
 annotations:
-  artifacthub.io/containsSecurityUpdates: 'true'
+  artifacthub.io/containsSecurityUpdates: 'false'
   artifacthub.io/prerelease: 'false'
   artifacthub.io/license: MIT
   artifacthub.io/changes: ''

@@ -136,9 +136,21 @@ spec:
         - {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
       {{- if not $.Values.rbacProxy.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 3
         ports:
         - name: metrics
           containerPort: {{ $.Values.podListenPort }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 3
       {{- else }}
       - name: kube-rbac-proxy
         {{- with $.Values.rbacProxy.securityContext }}
@@ -157,9 +169,21 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 3
         ports:
         - name: metrics
           containerPort: {{ $.Values.podListenPort }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 3
         {{- with $.Values.rbacProxy.resources }}
         resources:
         {{- . | toYaml | trim | nindent 10 }}

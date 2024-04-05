@@ -51,7 +51,7 @@ require (
 	github.com/prometheus/procfs v0.13.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
-	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/oauth2 v0.19.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
@@ -72,5 +72,3 @@ require (
 replace github.com/bmatcuk/doublestar/v4 => github.com/enix/doublestar/v4 v4.0.0-20230517083426-fa6d1b0d071d
 
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
-
-replace golang.org/x/net => golang.org/x/net v0.23.0

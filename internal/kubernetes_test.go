@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	sharedKubeClient, err = connectToKubernetesCluster("kubeconfig", true)
+	sharedKubeClient, err = connectToKubernetesCluster("kubeconfig", true, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -286,7 +286,7 @@ func TestKubeMetricLabels(t *testing.T) {
 }
 
 func TestKubeNamespaceListFailure(t *testing.T) {
-	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-certificate-exporter", true)
+	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-certificate-exporter", true, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -301,7 +301,7 @@ func TestKubeNamespaceListFailure(t *testing.T) {
 }
 
 func TestKubeSecretsListFailure(t *testing.T) {
-	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-certificate-exporter-list", true)
+	kubeClient, err := connectToKubernetesCluster("kubeconfig.x509-certificate-exporter-list", true, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -316,7 +316,7 @@ func TestKubeSecretsListFailure(t *testing.T) {
 }
 
 func TestKubeInvalidConfig(t *testing.T) {
-	_, err := connectToKubernetesCluster("../test/kubeconfig-corrupted.yml", true)
+	_, err := connectToKubernetesCluster("../test/kubeconfig-corrupted.yml", true, nil)
 	assert.NotNil(t, err)
 }
 
@@ -370,7 +370,7 @@ func TestKubeEmptyStringKey(t *testing.T) {
 
 func TestKubeConnectionFromInsideFailure(t *testing.T) {
 	e := &Exporter{}
-	err := e.ConnectToKubernetesCluster("")
+	err := e.ConnectToKubernetesCluster("", nil)
 	assert.NotNil(t, err)
 }
 

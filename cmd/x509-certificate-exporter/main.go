@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "go.uber.org/automaxprocs"
+	"k8s.io/client-go/util/flowcontrol"
 
 	"github.com/enix/x509-certificate-exporter/v3/internal"
 	getopt "github.com/pborman/getopt/v2"
@@ -37,6 +38,9 @@ func main() {
 
 	maxCacheDuration := durationFlag(0)
 	getopt.FlagLong(&maxCacheDuration, "max-cache-duration", 0, "maximum cache duration for kube secrets. cache is per namespace and randomized to avoid massive requests.")
+
+	rateLimitQPS := getopt.IntLong("kube-api-rate-limit-qps", 0, 0, "Kubernetes API request rate limit")
+	rateLimitBurst := getopt.IntLong("kube-api-rate-limit-burst", 0, 0, "Kubernetes API request burst")
 
 	files := stringArrayFlag{}
 	getopt.FlagLong(&files, "watch-file", 'f', "watch one or more x509 certificate file")
@@ -130,7 +134,14 @@ func main() {
 			configpath = defaultKubeConfig
 		}
 
-		err := exporter.ConnectToKubernetesCluster(configpath)
+		// Set rate limiter only if both QPS and burst are set
+		var rateLimiter flowcontrol.RateLimiter
+		if *rateLimitQPS > 0 && *rateLimitBurst > 0 {
+			log.Infof("setting Kubernetes API rate limiter to %d QPS and %d burst", *rateLimitQPS, *rateLimitBurst)
+			rateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(*rateLimitQPS), *rateLimitBurst)
+		}
+
+		err := exporter.ConnectToKubernetesCluster(configpath, rateLimiter)
 		if err != nil {
 			log.Fatal(err)
 		}

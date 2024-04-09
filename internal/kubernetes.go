@@ -15,13 +15,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/flowcontrol"
 )
 
 // ConnectToKubernetesCluster : Try connect to a cluster from inside if path is empty,
 // otherwise try loading the kubeconfig at path "path"
-func (exporter *Exporter) ConnectToKubernetesCluster(path string) error {
+func (exporter *Exporter) ConnectToKubernetesCluster(path string, rateLimiter flowcontrol.RateLimiter) error {
 	var err error
-	exporter.kubeClient, err = connectToKubernetesCluster(path, false)
+	exporter.kubeClient, err = connectToKubernetesCluster(path, false, rateLimiter)
 	return err
 }
 
@@ -232,7 +233,7 @@ func (exporter *Exporter) shrinkSecret(secret v1.Secret) v1.Secret {
 	return secret
 }
 
-func connectToKubernetesCluster(kubeconfigPath string, insecure bool) (*kubernetes.Clientset, error) {
+func connectToKubernetesCluster(kubeconfigPath string, insecure bool, rateLimiter flowcontrol.RateLimiter) (*kubernetes.Clientset, error) {
 	config, err := parseKubeConfig(kubeconfigPath)
 	if err != nil {
 		return nil, err
@@ -241,6 +242,10 @@ func connectToKubernetesCluster(kubeconfigPath string, insecure bool) (*kubernet
 	if insecure {
 		config.TLSClientConfig.Insecure = true
 		config.TLSClientConfig.CAData = nil
+	}
+
+	if rateLimiter != nil {
+		config.RateLimiter = rateLimiter
 	}
 
 	return getKubeClient(config)

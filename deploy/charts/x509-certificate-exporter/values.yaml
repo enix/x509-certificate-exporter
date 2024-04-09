@@ -128,6 +128,11 @@ secretsExporter:
     # -- Maximum time an object can stay in cache unrefreshed (seconds) - it will be at least half of that
     maxDuration: 300
 
+  kubeApiRateLimits: {}
+    # -- Try higher values if querying secrets takes a long time because of throttling
+    # qps: 5
+    # burst: 10
+
   # -- Additional environment variables for container
   env: []
   # - name: GOMAXPROCS

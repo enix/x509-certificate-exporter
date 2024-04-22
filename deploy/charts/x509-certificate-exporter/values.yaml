@@ -91,6 +91,7 @@ secretsExporter:
   # -- Annotations added to Pods of the TLS Secrets exporter
   podAnnotations: {}
   # -- PodSecurityContext for Pods of the TLS Secrets exporter
+  # @default -- check `values.yaml`
   podSecurityContext:
     runAsNonRoot: true
   # -- SecurityContext for containers of the TLS Secrets exporter
@@ -128,10 +129,13 @@ secretsExporter:
     # -- Maximum time an object can stay in cache unrefreshed (seconds) - it will be at least half of that
     maxDuration: 300
 
-  kubeApiRateLimits: {}
-    # -- Try higher values if querying secrets takes a long time because of throttling
-    # qps: 5
-    # burst: 10
+  kubeApiRateLimits:
+    # -- Should requests to the Kubernetes API server be rate-limited
+    enabled: false
+    # -- Maximum rate of queries sent to the API server (per second)
+    queriesPerSecond: 5
+    # -- Burst bucket size for queries sent to the API server
+    burstQueries: 10
 
   # -- Additional environment variables for container
   env: []

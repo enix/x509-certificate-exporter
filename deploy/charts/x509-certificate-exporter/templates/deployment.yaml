@@ -126,8 +126,10 @@ spec:
         - --max-cache-duration=0
         {{- end }}
         {{- with .Values.secretsExporter.kubeApiRateLimits }}
-        - --kube-api-rate-limit-qps={{ .qps }}
-        - --kube-api-rate-limit-burst={{ .burst }}
+          {{- if .enabled }}
+        - --kube-api-rate-limit-qps={{ int .queriesPerSecond }}
+        - --kube-api-rate-limit-burst={{ int .burstQueries }}
+          {{- end }}
         {{- end }}
         {{- if .Values.exposePerCertificateErrorMetrics }}
         - --expose-per-cert-error-metrics

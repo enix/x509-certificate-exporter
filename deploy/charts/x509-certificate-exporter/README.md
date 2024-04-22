@@ -379,7 +379,7 @@ hostPathsExporter:
 | secretsExporter.priorityClassName | string | `""` | PriorityClassName for Pods of the TLS Secrets exporter |
 | secretsExporter.podExtraLabels | object | `{}` | Additional labels added to Pods of the TLS Secrets exporter |
 | secretsExporter.podAnnotations | object | `{}` | Annotations added to Pods of the TLS Secrets exporter |
-| secretsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of the TLS Secrets exporter |
+| secretsExporter.podSecurityContext | object | check `values.yaml` | PodSecurityContext for Pods of the TLS Secrets exporter |
 | secretsExporter.securityContext | object | check `values.yaml` | SecurityContext for containers of the TLS Secrets exporter |
 | secretsExporter.extraVolumes | list | `[]` | Additionnal volumes added to Pods of the TLS Secrets exporter (combined with global `extraVolumes`) |
 | secretsExporter.extraVolumeMounts | list | `[]` | Additionnal volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`) |
@@ -390,6 +390,9 @@ hostPathsExporter:
 | secretsExporter.excludeLabels | list | `[]` | Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.cache.enabled | bool | `true` | Enable caching of Kubernetes objects to prevent scraping timeouts |
 | secretsExporter.cache.maxDuration | int | `300` | Maximum time an object can stay in cache unrefreshed (seconds) - it will be at least half of that |
+| secretsExporter.kubeApiRateLimits.enabled | bool | `false` | Should requests to the Kubernetes API server be rate-limited |
+| secretsExporter.kubeApiRateLimits.queriesPerSecond | int | `5` | Maximum rate of queries sent to the API server (per second) |
+| secretsExporter.kubeApiRateLimits.burstQueries | int | `10` | Burst bucket size for queries sent to the API server |
 | secretsExporter.env | list | `[]` | Additional environment variables for container |
 | hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |

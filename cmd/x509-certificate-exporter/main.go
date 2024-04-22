@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/KimMachineGun/automemlimit"
 	_ "go.uber.org/automaxprocs"
 
 	"github.com/enix/x509-certificate-exporter/v3/internal"

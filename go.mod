@@ -1,6 +1,8 @@
 module github.com/enix/x509-certificate-exporter/v3
 
-go 1.21
+go 1.22.0
+
+toolchain go1.22.2
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.6.1

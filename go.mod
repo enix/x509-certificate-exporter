@@ -1,6 +1,7 @@
 module github.com/enix/x509-certificate-exporter/v3
 
 go 1.21
+toolchain go1.22.2
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.6.1
@@ -16,8 +17,8 @@ require (
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0
 	go.uber.org/automaxprocs v1.5.3
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.29.3
-	k8s.io/apimachinery v0.29.3
+	k8s.io/api v0.30.0
+	k8s.io/apimachinery v0.30.0
 	k8s.io/client-go v0.29.3
 )
 

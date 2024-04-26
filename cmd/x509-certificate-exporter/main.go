@@ -57,8 +57,8 @@ func main() {
 
 	kubeConfig := getopt.StringLong("kubeconfig", 0, "", "Path to the kubeconfig file to use for requests. Takes precedence over the KUBECONFIG environment variable, and default path (~/.kube/config).", "path")
 
-	kubeSecretTypes := stringArrayFlag{}
-	getopt.FlagLong(&kubeSecretTypes, "secret-type", 's', "one or more kubernetes secret type & key to watch (e.g. \"kubernetes.io/tls:tls.crt\"")
+	kubeSecretTypePatterns := stringArrayFlag{}
+	getopt.FlagLong(&kubeSecretTypePatterns, "secret-type", 's', "one or more kubernetes secret type & key to watch (e.g. \"kubernetes.io/tls:tls.crt\"")
 
 	kubeConfigMapKeys := stringArrayFlag{}
 	getopt.FlagLong(&kubeConfigMapKeys, "configmap-keys", 'c', "keys in configmaps to watch")
@@ -116,6 +116,15 @@ func main() {
 	)
 	if err != nil {
 		slog.Error("Cannot set GOMEMLIMIT with automemlimit", "reason", err.Error())
+	}
+
+	kubeSecretTypes := make([]internal.KubeSecretType, 0)
+	for _, pattern := range kubeSecretTypePatterns {
+		kst, err := internal.ParseSecretType(pattern)
+		if err != nil {
+			log.Fatal("failed to parse --secret-type argument: ", err)
+		}
+		kubeSecretTypes = append(kubeSecretTypes, kst)
 	}
 
 	exporter := internal.Exporter{

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -263,9 +264,9 @@ func TestKubeIncludeExcludeLabelMix4(t *testing.T) {
 
 func TestKubeCustomSecret(t *testing.T) {
 	testRequestKube(t, &Exporter{
-		KubeSecretTypes: []string{
-			"istio.io/cert-and-key:cert-chain.pem",
-			"istio.io/cert-and-key:root-cert.pem",
+		KubeSecretTypes: []KubeSecretType{
+			{Type: "istio.io/cert-and-key", Regexp: regexp.MustCompile(`cert-chain\.pem`)},
+			{Type: "istio.io/cert-and-key", Regexp: regexp.MustCompile(`root-cert\.pem`)},
 		},
 	}, func(m []model.MetricFamily) {
 		metric := getMetricsForName(m, "x509_cert_expired")
@@ -349,19 +350,18 @@ func TestKubeInvalidConfig3(t *testing.T) {
 }
 
 func TestKubeInvalidSecretType(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeNamespaces: []string{"default"},
-		KubeSecretTypes:       []string{"aze"},
-	}, func(m []model.MetricFamily) {
-		metrics := getMetricsForName(m, "x509_read_errors")
-		assert.Equal(t, 1., metrics[0].GetGauge().GetValue())
-	})
+	_, err := ParseSecretType("aze")
+	assert.Error(t, err)
 }
 
 func TestKubeEmptyStringKey(t *testing.T) {
 	testRequestKube(t, &Exporter{
 		KubeIncludeLabels: []string{"empty=true"},
-		KubeSecretTypes:   []string{"kubernetes.io/tls:tls.crt", "kubernetes.io/tls:tls.key", "kubernetes.io/tls:nil.key"},
+		KubeSecretTypes: []KubeSecretType{
+			{Type: "kubernetes.io/tls", Regexp: regexp.MustCompile(`tls\.crt`)},
+			{Type: "kubernetes.io/tls", Regexp: regexp.MustCompile(`tls\.key`)},
+			{Type: "kubernetes.io/tls", Regexp: regexp.MustCompile(`nil\.key`)},
+		},
 	}, func(m []model.MetricFamily) {
 		metrics := getMetricsForName(m, "x509_read_errors")
 		assert.Equal(t, 0., metrics[0].GetGauge().GetValue())

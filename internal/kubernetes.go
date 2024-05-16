@@ -45,15 +45,15 @@ func (exporter *Exporter) parseAllKubeSecrets() ([]*certificateRef, []error) {
 
 		for _, secret := range secrets {
 			for _, secretType := range exporter.KubeSecretTypes {
-				typeAndKey := strings.Split(secretType, ":")
-
-				if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
-					output = append(output, &certificateRef{
-						path:          fmt.Sprintf("k8s/%s/%s", namespace, secret.GetName()),
-						format:        certificateFormatKubeSecret,
-						kubeSecret:    secret,
-						kubeSecretKey: typeAndKey[1],
-					})
+				for key := range secret.Data {
+					if secretType.Matches(string(secret.Type), key) {
+						output = append(output, &certificateRef{
+							path:          fmt.Sprintf("k8s/%s/%s", namespace, secret.GetName()),
+							format:        certificateFormatKubeSecret,
+							kubeSecret:    secret,
+							kubeSecretKey: key,
+						})
+					}
 				}
 			}
 		}
@@ -199,17 +199,12 @@ func (exporter *Exporter) filterSecrets(secrets []v1.Secret, includedLabels, exc
 
 func (exporter *Exporter) checkHasIncludedType(secret *v1.Secret) (bool, error) {
 	for _, secretType := range exporter.KubeSecretTypes {
-		typeAndKey := strings.Split(secretType, ":")
-
-		if len(typeAndKey) != 2 {
-			return false, fmt.Errorf("malformed kube secret type: \"%s\"", secretType)
-		}
-
-		if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
-			return true, nil
+		for key := range secret.Data {
+			if secretType.Matches(string(secret.Type), key) {
+				return true, nil
+			}
 		}
 	}
-
 	return false, nil
 }
 
@@ -224,9 +219,10 @@ func (exporter *Exporter) shrinkSecret(secret v1.Secret) v1.Secret {
 	}
 
 	for _, secretType := range exporter.KubeSecretTypes {
-		typeAndKey := strings.Split(secretType, ":")
-		if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
-			result.Data[typeAndKey[1]] = secret.Data[typeAndKey[1]]
+		for key := range secret.Data {
+			if secretType.Matches(string(secret.Type), key) {
+				result.Data[key] = secret.Data[key]
+			}
 		}
 	}
 

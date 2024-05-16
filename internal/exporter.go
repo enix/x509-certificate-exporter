@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -39,7 +40,7 @@ type Exporter struct {
 	ExposeRelativeMetrics bool
 	ExposeErrorMetrics    bool
 	ExposeLabels          []string
-	KubeSecretTypes       []string
+	KubeSecretTypes       []KubeSecretType
 	KubeIncludeNamespaces []string
 	KubeExcludeNamespaces []string
 	KubeIncludeLabels     []string
@@ -50,6 +51,33 @@ type Exporter struct {
 	server       *http.Server
 	isDiscovery  bool
 	secretsCache *cache.Cache
+}
+
+type KubeSecretType struct {
+	Type   string
+	Regexp *regexp.Regexp
+}
+
+func ParseSecretType(s string) (KubeSecretType, error) {
+	ty, pattern, found := strings.Cut(s, ":")
+	if !found {
+		return KubeSecretType{}, errors.New("secret type needs to contain at least a single colon")
+	}
+	compiled, err := regexp.Compile(pattern)
+	if err != nil {
+		return KubeSecretType{}, err
+	}
+	return KubeSecretType{
+		Type:   ty,
+		Regexp: compiled,
+	}, nil
+}
+
+func (kst *KubeSecretType) Matches(secretType, key string) bool {
+	if kst.Type != secretType {
+		return false
+	}
+	return kst.Regexp.MatchString(key)
 }
 
 // ListenAndServe : Convenience function to start exporter

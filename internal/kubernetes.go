@@ -46,7 +46,7 @@ func (exporter *Exporter) parseAllKubeSecrets() ([]*certificateRef, []error) {
 		for _, secret := range secrets {
 			for _, secretType := range exporter.KubeSecretTypes {
 				for key := range secret.Data {
-					if secretType.Matches(string(secret.Type), key) {
+					if len(secret.Data[key]) > 0 && secretType.Matches(string(secret.Type), key) {
 						output = append(output, &certificateRef{
 							path:          fmt.Sprintf("k8s/%s/%s", namespace, secret.GetName()),
 							format:        certificateFormatKubeSecret,
@@ -200,7 +200,7 @@ func (exporter *Exporter) filterSecrets(secrets []v1.Secret, includedLabels, exc
 func (exporter *Exporter) checkHasIncludedType(secret *v1.Secret) (bool, error) {
 	for _, secretType := range exporter.KubeSecretTypes {
 		for key := range secret.Data {
-			if secretType.Matches(string(secret.Type), key) {
+			if len(secret.Data[key]) > 0 && secretType.Matches(string(secret.Type), key) {
 				return true, nil
 			}
 		}
@@ -220,7 +220,7 @@ func (exporter *Exporter) shrinkSecret(secret v1.Secret) v1.Secret {
 
 	for _, secretType := range exporter.KubeSecretTypes {
 		for key := range secret.Data {
-			if secretType.Matches(string(secret.Type), key) {
+			if len(secret.Data[key]) > 0 && secretType.Matches(string(secret.Type), key) {
 				result.Data[key] = secret.Data[key]
 			}
 		}

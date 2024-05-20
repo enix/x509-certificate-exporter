@@ -5,7 +5,7 @@ go 1.22.0
 toolchain go1.22.2
 
 require (
-	github.com/KimMachineGun/automemlimit v0.6.0
+	github.com/KimMachineGun/automemlimit v0.6.1
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pborman/getopt/v2 v2.1.0

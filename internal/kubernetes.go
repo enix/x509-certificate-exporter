@@ -230,7 +230,7 @@ func (exporter *Exporter) shrinkSecret(secret v1.Secret) v1.Secret {
 		}
 	}
 
-	return secret
+	return result
 }
 
 func connectToKubernetesCluster(kubeconfigPath string, insecure bool, rateLimiter flowcontrol.RateLimiter) (*kubernetes.Clientset, error) {

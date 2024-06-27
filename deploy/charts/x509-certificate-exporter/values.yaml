@@ -73,7 +73,6 @@ secretsExporter:
   # @default -- check `values.yaml`
   resources:
     limits:
-      cpu: 200m
       memory: 150Mi
     requests:
       cpu: 20m
@@ -153,7 +152,6 @@ hostPathsExporter:
   # @default -- check `values.yaml`
   resources:
     limits:
-      cpu: 100m
       memory: 40Mi
     requests:
       cpu: 10m

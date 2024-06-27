@@ -23,6 +23,10 @@ spec:
     tlsConfig:
       insecureSkipVerify: true
     {{- end }}
+    {{- with .Values.prometheusServiceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- . | toYaml | nindent 4 }}
+    {{- end }}
     {{- with .Values.prometheusServiceMonitor.relabelings }}
     relabelings:
     {{- . | toYaml | nindent 4 }}

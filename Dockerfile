@@ -34,7 +34,7 @@ RUN go build -v \
 
 # https://github.com/hadolint/hadolint/issues/861
 # hadolint ignore=DL3029
-FROM --platform=${TARGETPLATFORM:-linux/amd64} alpine:3.19.1
+FROM --platform=${TARGETPLATFORM:-linux/amd64} alpine:3.20.1
 
 COPY --from=build /go/src/github.com/enix/x509-certificate-exporter/x509-certificate-exporter /x509-certificate-exporter
 

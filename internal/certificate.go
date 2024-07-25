@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pavlo-v-chernykh/keystore-go/v4"
 	"github.com/yalp/jsonpath"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
@@ -68,6 +69,7 @@ type certificateRef struct {
 	yamlPaths     []YAMLCertRef
 	kubeSecret    v1.Secret
 	kubeSecretKey string
+	jksPassword   string
 }
 
 type parsedCertificate struct {
@@ -87,6 +89,7 @@ const (
 	certificateFormatPEM        certificateFormat = iota
 	certificateFormatYAML                         = iota
 	certificateFormatKubeSecret                   = iota
+	certificateFormatJKS                          = iota
 )
 
 func (cert *certificateRef) parse() error {
@@ -99,6 +102,8 @@ func (cert *certificateRef) parse() error {
 		cert.certificates, err = readAndParseYAMLFile(cert.path, cert.yamlPaths)
 	case certificateFormatKubeSecret:
 		cert.certificates, err = readAndParseKubeSecret(&cert.kubeSecret, cert.kubeSecretKey)
+	case certificateFormatJKS:
+		cert.certificates, err = readAndParseJKSFile(cert.path, cert.jksPassword)
 	}
 
 	return err
@@ -120,6 +125,50 @@ func readAndParsePEMFile(path string) ([]*parsedCertificate, error) {
 		output = append(output, &parsedCertificate{cert: cert})
 	}
 
+	return output, nil
+}
+
+func readAndParseJKSFile(path string, password string) ([]*parsedCertificate, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	ks := keystore.New()
+	err = ks.Load(f, []byte(password))
+	if err != nil {
+		return nil, err
+	}
+
+	output := []*parsedCertificate{}
+	aliases := ks.Aliases()
+
+	for _, alias := range aliases {
+		var cert *x509.Certificate
+		if ks.IsTrustedCertificateEntry(alias) {
+			entry, err := ks.GetTrustedCertificateEntry(alias)
+			if err != nil {
+				return nil, err
+			}
+			cert, err = x509.ParseCertificate(entry.Certificate.Content)
+			if err != nil {
+				return nil, fmt.Errorf("tried to parse malformed x509 data, %s", err.Error())
+			}
+
+		} else {
+			entry, err := ks.GetPrivateKeyEntry(alias, []byte(password))
+			if err != nil {
+				return nil, err
+			}
+			cert, err = x509.ParseCertificate(entry.CertificateChain[0].Content)
+			if err != nil {
+				return nil, fmt.Errorf("tried to parse malformed x509 data, %s", err.Error())
+			}
+
+		}
+		output = append(output, &parsedCertificate{cert: cert})
+	}
 	return output, nil
 }
 

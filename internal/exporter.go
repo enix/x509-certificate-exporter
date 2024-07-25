@@ -17,6 +17,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gopkg.in/yaml.v2"
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/prometheus/common/promlog"
@@ -50,6 +51,8 @@ type Exporter struct {
 	server       *http.Server
 	isDiscovery  bool
 	secretsCache *cache.Cache
+
+	JKSPasswordsFile string
 }
 
 // ListenAndServe : Convenience function to start exporter
@@ -258,9 +261,21 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 					continue
 				}
 
+				var jksPassword string
+				if strings.HasSuffix(file.Name(), ".jks") {
+					format = certificateFormatJKS
+					jksPassword, err = exporter.obtainJksPasswords(path.Clean(path.Join(dir, file.Name())))
+					if err != nil {
+						outputErrors = append(outputErrors, err)
+						continue
+					}
+				} else {
+					format = certificateFormatPEM
+				}
 				output = append(output, &certificateRef{
-					path:   path.Clean(path.Join(dir, file.Name())),
-					format: certificateFormatPEM,
+					path:        path.Clean(path.Join(dir, file.Name())),
+					format:      format,
+					jksPassword: jksPassword,
 				})
 			}
 		} else {
@@ -311,6 +326,38 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 	}
 
 	return output, outputErrors
+}
+
+func (exporter *Exporter) obtainJksPasswords(filename string) (string, error) {
+	filename = filepath.Base(filename)
+	if len(exporter.JKSPasswordsFile) == 0 {
+		return "", errors.New("JKS password file not specified")
+	}
+
+	passwordsFile, err := os.ReadFile(exporter.JKSPasswordsFile)
+	if err != nil {
+		return "", err
+	}
+	type KeystoreConfig struct {
+		Name     string `yaml:"name"`
+		Password string `yaml:"password"`
+	}
+	type Config struct {
+		Keystores []KeystoreConfig `yaml:"keystores"`
+	}
+	var config Config
+	if err = yaml.Unmarshal(passwordsFile, &config); err != nil {
+		return "", err
+	}
+
+	for _, keystore := range config.Keystores {
+		if keystore.Name == filename {
+			return keystore.Password, nil
+		}
+	}
+
+	return "", errors.New("JKS password not found")
+
 }
 
 // compareCertificates compares labels of these two certificates

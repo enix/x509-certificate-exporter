@@ -18,10 +18,12 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0
 	go.uber.org/automaxprocs v1.5.3
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
 	k8s.io/client-go v0.30.2
+	software.sslmate.com/src/go-pkcs12 v0.4.0
 )
 
 require (
@@ -70,16 +72,16 @@ require (
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240703190633-0aa61b46e8c2 // indirect
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
-	software.sslmate.com/src/go-pkcs12 v0.4.0 // indirect
 )
 
 replace github.com/bmatcuk/doublestar/v4 => github.com/enix/doublestar/v4 v4.0.0-20230517083426-fa6d1b0d071d
 
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
+
+replace software.sslmate.com/src/go-pkcs12 => github.com/muhammadn/go-pkcs12 v0.0.0-20240726114946-df1b7d811158

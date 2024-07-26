@@ -4,3 +4,5 @@ __pycache__
 *.debug
 coverage.html
 /kubeconfig*
+p12-passwords.yml
+/x509-certificate-exporter

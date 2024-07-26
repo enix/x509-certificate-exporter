@@ -357,11 +357,11 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 
 func (exporter *Exporter) obtainP12Passwords(filename string) (string, error) {
         filename = filepath.Base(filename)
-        if len(exporter.p12PasswordsFile) == 0 {
+        if len(exporter.P12PasswordsFile) == 0 {
                 return "", errors.New("p12 password file not specified")
         }
 
-        passwordsFile, err := os.ReadFile(exporter.p12PasswordsFile)
+        passwordsFile, err := os.ReadFile(exporter.P12PasswordsFile)
         if err != nil {
                 return "", err
         }

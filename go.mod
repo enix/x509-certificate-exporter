@@ -72,16 +72,16 @@ require (
 	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
-	software.sslmate.com/src/go-pkcs12 v0.4.0 // indirect
 )
 
 replace github.com/bmatcuk/doublestar/v4 => github.com/enix/doublestar/v4 v4.0.0-20230517083426-fa6d1b0d071d
 
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
+
+replace software.sslmate.com/src/go-pkcs12 => github.com/muhammadn/go-pkcs12 v0.0.0-20240726114946-df1b7d811158

@@ -14,6 +14,7 @@ import (
 	"github.com/yalp/jsonpath"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
+	"software.sslmate.com/src/go-pkcs12"
 )
 
 // YAMLCertRef : Contains information to access certificates in yaml files
@@ -68,6 +69,8 @@ type certificateRef struct {
 	yamlPaths     []YAMLCertRef
 	kubeSecret    v1.Secret
 	kubeSecretKey string
+	p12Password   string
+
 }
 
 type parsedCertificate struct {
@@ -87,6 +90,7 @@ const (
 	certificateFormatPEM        certificateFormat = iota
 	certificateFormatYAML                         = iota
 	certificateFormatKubeSecret                   = iota
+	certificateFormatP12                          = iota
 )
 
 func (cert *certificateRef) parse() error {
@@ -99,6 +103,8 @@ func (cert *certificateRef) parse() error {
 		cert.certificates, err = readAndParseYAMLFile(cert.path, cert.yamlPaths)
 	case certificateFormatKubeSecret:
 		cert.certificates, err = readAndParseKubeSecret(&cert.kubeSecret, cert.kubeSecretKey)
+	case certificateFormatP12:
+		cert.certificates, err = readAndParsePasswordPkcsFile(cert.path, cert.p12Password)
 	}
 
 	return err
@@ -121,6 +127,22 @@ func readAndParsePEMFile(path string) ([]*parsedCertificate, error) {
 	}
 
 	return output, nil
+}
+
+func readAndParsePasswordPkcsFile(path string, password string) ([]*parsedCertificate, error) {
+        contents, err := readFile(path)
+       if err != nil {
+               return nil, err
+       }
+
+       output := []*parsedCertificate{}
+       _, cert, err := pkcs12.Decode(contents, password)
+        if err != nil {
+               return nil, err
+       }
+
+       output = append(output, &parsedCertificate{cert: cert})
+       return output, nil
 }
 
 func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCertificate, error) {

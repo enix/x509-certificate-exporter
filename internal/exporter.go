@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/exporter-toolkit/web"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
+        "gopkg.in/yaml.v2"
 )
 
 // Exporter : Configuration (from command-line)
@@ -50,6 +51,7 @@ type Exporter struct {
 	server       *http.Server
 	isDiscovery  bool
 	secretsCache *cache.Cache
+        p12PasswordsFile string
 }
 
 // ListenAndServe : Convenience function to start exporter
@@ -258,9 +260,22 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 					continue
 				}
 
+                                var p12Password string
+                                if strings.HasSuffix(file.Name(), ".p12") {
+                                        format = certificateFormatP12
+                                        p12Password, err = exporter.obtainP12Passwords(path.Clean(path.Join(dir, file.Name())))
+                                        if err != nil {
+                                                outputErrors = append(outputErrors, err)
+                                                continue
+                                        }
+                                } else {
+                                         format = certificateFormatPEM
+                                }
+
 				output = append(output, &certificateRef{
-					path:   path.Clean(path.Join(dir, file.Name())),
-					format: certificateFormatPEM,
+                                        path:        path.Clean(path.Join(dir, file.Name())),
+                                        format:      format,
+                                        p12Password: p12Password,
 				})
 			}
 		} else {
@@ -312,6 +327,38 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 
 	return output, outputErrors
 }
+
+func (exporter *Exporter) obtainP12Passwords(filename string) (string, error) {
+        filename = filepath.Base(filename)
+        if len(exporter.p12PasswordsFile) == 0 {
+                return "", errors.New("p12 password file not specified")
+        }
+
+        passwordsFile, err := os.ReadFile(exporter.p12PasswordsFile)
+        if err != nil {
+                return "", err
+        }
+        type P12Config struct {
+                Name     string `yaml:"name"`
+                Password string `yaml:"password"`
+        }
+        type Config struct {
+                P12 []P12Config `yaml:"p12"`
+        }
+        var config Config
+        if err = yaml.Unmarshal(passwordsFile, &config); err != nil {
+                return "", err
+        }
+ 
+        for _, p12 := range config.P12 {
+                if p12.Name == filename {
+                        return p12.Password, nil
+                }
+         }
+  
+        return "", errors.New("p12 password not found")
+}
+
 
 // compareCertificates compares labels of these two certificates
 // and returns true if they are the same

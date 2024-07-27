@@ -131,18 +131,28 @@ func readAndParsePEMFile(path string) ([]*parsedCertificate, error) {
 
 func readAndParsePasswordPkcsFile(path string, password string) ([]*parsedCertificate, error) {
         contents, err := readFile(path)
-       if err != nil {
-               return nil, err
-       }
-
-       output := []*parsedCertificate{}
-       _, cert, err := pkcs12.Decode(contents, password)
         if err != nil {
                return nil, err
-       }
+        }
 
-       output = append(output, &parsedCertificate{cert: cert})
-       return output, nil
+        output := []*parsedCertificate{}
+        // keystore p12
+        _, cert, err := pkcs12.Decode(contents, password)
+	if err == nil {
+                output = append(output, &parsedCertificate{cert: cert})
+		return output, nil
+	}
+
+	// truststore p12
+        certs, err := pkcs12.DecodeTrustStore(contents, password)
+        if err != nil {
+                return nil, err
+        }
+
+        for _, cert := range certs {
+                output = append(output, &parsedCertificate{cert: cert})
+        }
+        return output, nil
 }
 
 func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCertificate, error) {

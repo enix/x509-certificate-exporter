@@ -23,7 +23,6 @@ require (
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
 	k8s.io/client-go v0.30.2
-	software.sslmate.com/src/go-pkcs12 v0.4.0
 )
 
 require (
@@ -78,10 +77,9 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
+	software.sslmate.com/src/go-pkcs12 v0.4.0 // indirect
 )
 
 replace github.com/bmatcuk/doublestar/v4 => github.com/enix/doublestar/v4 v4.0.0-20230517083426-fa6d1b0d071d
 
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
-
-replace software.sslmate.com/src/go-pkcs12 => github.com/muhammadn/go-pkcs12 v0.0.0-20240726114946-df1b7d811158

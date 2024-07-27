@@ -370,7 +370,7 @@ func (exporter *Exporter) obtainP12Passwords(filename string) (string, error) {
                 Password string `yaml:"password"`
         }
         type Config struct {
-                P12 []P12Config `yaml:"p12"`
+                P12 []P12Config `yaml:"pkcs12"`
         }
         var config Config
         if err = yaml.Unmarshal(passwordsFile, &config); err != nil {

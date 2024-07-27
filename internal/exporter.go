@@ -288,7 +288,7 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 				}
 
                                 var p12Password string
-                                if strings.HasSuffix(file.Name(), ".p12") {
+                                if strings.HasSuffix(file.Name(), ".p12") || strings.HasSuffix(file.Name(), ".jks") {
                                         format = certificateFormatP12
                                         p12Password, err = exporter.obtainP12Passwords(path.Clean(path.Join(dir, file.Name())))
                                         if err != nil {

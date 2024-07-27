@@ -70,7 +70,7 @@ type certificateRef struct {
 	kubeSecret    v1.Secret
 	kubeConfigMap v1.ConfigMap
 	kubeSecretKey string
-	p12Password   string
+	password   string
 
 }
 
@@ -108,7 +108,7 @@ func (cert *certificateRef) parse() error {
 	case certificateFormatKubeConfigMap:
 		cert.certificates, err = readAndParseKubeConfigMap(&cert.kubeConfigMap, cert.kubeSecretKey)
 	case certificateFormatP12:
-		cert.certificates, err = readAndParsePasswordPkcsFile(cert.path, cert.p12Password)
+		cert.certificates, err = readAndParsePasswordPkcsFile(cert.path, cert.password)
 	}
 	return err
 }

@@ -69,7 +69,7 @@ type certificateRef struct {
 	yamlPaths     []YAMLCertRef
 	kubeSecret    v1.Secret
 	kubeSecretKey string
-	p12Password   string
+	password   string
 
 }
 
@@ -104,7 +104,7 @@ func (cert *certificateRef) parse() error {
 	case certificateFormatKubeSecret:
 		cert.certificates, err = readAndParseKubeSecret(&cert.kubeSecret, cert.kubeSecretKey)
 	case certificateFormatP12:
-		cert.certificates, err = readAndParsePasswordPkcsFile(cert.path, cert.p12Password)
+		cert.certificates, err = readAndParsePasswordPkcsFile(cert.path, cert.password)
 	}
 
 	return err

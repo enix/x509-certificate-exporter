@@ -296,7 +296,11 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
                                                 continue
                                         }
                                 } else {
-                                         format = certificateFormatPEM
+					if strings.HasSuffix(file.Name(), ".key") {
+                                        	continue
+					}
+
+                                        format = certificateFormatPEM
                                 }
 
 				output = append(output, &certificateRef{

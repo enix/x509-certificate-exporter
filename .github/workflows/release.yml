@@ -10,7 +10,7 @@ concurrency:
 env:
   COMMIT_NAME: Monkeynator
   COMMIT_EMAIL: monkeynator@enix.io
-  VERSION_KIND: v0.23.0
+  VERSION_KIND: v0.24.0
   VERSION_GOLANGCILINT: latest
   VERSION_GOLANG: '1.22.5'
   VERSION_CHARTRELEASER: '1.6.0'

@@ -114,6 +114,11 @@ secretsExporter:
   - type: kubernetes.io/tls
     key: tls.crt
 
+  # -- If the exporter should for certificates in configmaps, just specify the keys it needs to watch
+  # -- E.g.: `configMapKeys: ["tls.crt"]`
+  # @default -- check `values.yaml`
+  configMapKeys: []
+
   # -- Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty)
   includeNamespaces: []
   # -- Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`)

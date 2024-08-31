@@ -39,16 +39,19 @@ type Exporter struct {
 	ExposeErrorMetrics    bool
 	ExposeLabels          []string
 	KubeSecretTypes       []string
+	ExposeConfigMapLabels []string
+	ConfigMapKeys         []string
 	KubeIncludeNamespaces []string
 	KubeExcludeNamespaces []string
 	KubeIncludeLabels     []string
 	KubeExcludeLabels     []string
 
-	kubeClient   *kubernetes.Clientset
-	listener     net.Listener
-	server       *http.Server
-	isDiscovery  bool
-	secretsCache *cache.Cache
+	kubeClient      *kubernetes.Clientset
+	listener        net.Listener
+	server          *http.Server
+	isDiscovery     bool
+	secretsCache    *cache.Cache
+	configMapsCache *cache.Cache
 }
 
 // ListenAndServe : Convenience function to start exporter
@@ -113,6 +116,7 @@ func (exporter *Exporter) Shutdown() error {
 // DiscoverCertificates : Parse all certs in a dry run with verbose logging
 func (exporter *Exporter) DiscoverCertificates() {
 	exporter.secretsCache = cache.New(exporter.MaxCacheDuration, 5*time.Minute)
+	exporter.configMapsCache = cache.New(exporter.MaxCacheDuration, 5*time.Minute)
 	exporter.isDiscovery = true
 	certs, errs := exporter.parseAllCertificates()
 
@@ -172,7 +176,7 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	}
 
 	if exporter.kubeClient != nil {
-		certs, errs := exporter.parseAllKubeSecrets()
+		certs, errs := exporter.parseAllKubeObjects()
 		output = append(output, certs...)
 		for _, err := range errs {
 			raiseError(&certificateError{

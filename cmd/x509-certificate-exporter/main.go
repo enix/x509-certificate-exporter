@@ -35,6 +35,7 @@ func main() {
 	exposeRelativeMetrics := getopt.BoolLong("expose-relative-metrics", 0, "expose additionnal metrics with relative durations instead of absolute timestamps")
 	exposeErrorMetrics := getopt.BoolLong("expose-per-cert-error-metrics", 0, "expose additionnal error metric for each certificate indicating wether it has failure(s)")
 	exposeLabels := getopt.StringLong("expose-labels", 'l', "one or more comma-separated labels to enable (defaults to all if not specified)")
+	exposeConfigMapLabels := getopt.StringLong("expose-configmap-labels", 0, "one or more comma-separated labels to enable (defaults to all if not specified)")
 	profile := getopt.BoolLong("profile", 0, "optionally enable a pprof server to monitor cpu and memory usage at runtime")
 
 	maxCacheDuration := durationFlag(0)
@@ -58,6 +59,9 @@ func main() {
 
 	kubeSecretTypes := stringArrayFlag{}
 	getopt.FlagLong(&kubeSecretTypes, "secret-type", 's', "one or more kubernetes secret type & key to watch (e.g. \"kubernetes.io/tls:tls.crt\"")
+
+	kubeConfigMapKeys := stringArrayFlag{}
+	getopt.FlagLong(&kubeConfigMapKeys, "configmap-keys", 'c', "keys in configmaps to watch")
 
 	kubeIncludeNamespaces := stringArrayFlag{}
 	getopt.FlagLong(&kubeIncludeNamespaces, "include-namespace", 0, "add the given kube namespace to the watch list (when used, all namespaces are excluded by default)")
@@ -112,6 +116,7 @@ func main() {
 		ExposeRelativeMetrics: *exposeRelativeMetrics,
 		ExposeErrorMetrics:    *exposeErrorMetrics,
 		KubeSecretTypes:       kubeSecretTypes,
+		ConfigMapKeys:         kubeConfigMapKeys,
 		KubeIncludeNamespaces: kubeIncludeNamespaces,
 		KubeExcludeNamespaces: kubeExcludeNamespaces,
 		KubeIncludeLabels:     kubeIncludeLabels,
@@ -120,6 +125,9 @@ func main() {
 
 	if getopt.Lookup("expose-labels").Seen() {
 		exporter.ExposeLabels = strings.Split(*exposeLabels, ",")
+	}
+	if getopt.Lookup("expose-configmap-labels").Seen() {
+		exporter.ExposeConfigMapLabels = strings.Split(*exposeConfigMapLabels, ",")
 	}
 
 	if *kubeEnabled {

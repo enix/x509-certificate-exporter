@@ -26,9 +26,49 @@ func (exporter *Exporter) ConnectToKubernetesCluster(path string, rateLimiter fl
 	return err
 }
 
-func (exporter *Exporter) parseAllKubeSecrets() ([]*certificateRef, []error) {
+func (exporter *Exporter) parseAllKubeObjects() ([]*certificateRef, []error) {
 	output := []*certificateRef{}
 	outputErrors := []error{}
+	readCertificatesFromSecrets := func(secrets []v1.Secret) (outputs []*certificateRef) {
+		for _, secret := range secrets {
+			for _, secretType := range exporter.KubeSecretTypes {
+				typeAndKey := strings.Split(secretType, ":")
+
+				if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
+					outputs = append(outputs, &certificateRef{
+						path:          fmt.Sprintf("k8s/%s/%s", secret.GetNamespace(), secret.GetName()),
+						format:        certificateFormatKubeSecret,
+						kubeSecret:    secret,
+						kubeSecretKey: typeAndKey[1],
+					})
+				}
+			}
+		}
+		return outputs
+	}
+	contains := func(needle string, haystack []string) bool {
+		for _, item := range haystack {
+			if needle == item {
+				return true
+			}
+		}
+		return false
+	}
+	readCertificatesFromConfigMaps := func(configMaps []v1.ConfigMap) (outputs []*certificateRef) {
+		for _, configMap := range configMaps {
+			for key, _ := range configMap.Data {
+				if contains(key, exporter.ConfigMapKeys) {
+					outputs = append(outputs, &certificateRef{
+						path:          fmt.Sprintf("k8s/%s/%s", configMap.GetNamespace(), configMap.GetName()),
+						format:        certificateFormatKubeConfigMap,
+						kubeConfigMap: configMap,
+						kubeSecretKey: key,
+					})
+				}
+			}
+		}
+		return outputs
+	}
 
 	namespaces, err := exporter.listNamespacesToWatch()
 	if err != nil {
@@ -42,21 +82,13 @@ func (exporter *Exporter) parseAllKubeSecrets() ([]*certificateRef, []error) {
 			outputErrors = append(outputErrors, fmt.Errorf("failed to fetch secrets from namespace \"%s\": %s", namespace, err.Error()))
 			continue
 		}
-
-		for _, secret := range secrets {
-			for _, secretType := range exporter.KubeSecretTypes {
-				typeAndKey := strings.Split(secretType, ":")
-
-				if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
-					output = append(output, &certificateRef{
-						path:          fmt.Sprintf("k8s/%s/%s", namespace, secret.GetName()),
-						format:        certificateFormatKubeSecret,
-						kubeSecret:    secret,
-						kubeSecretKey: typeAndKey[1],
-					})
-				}
-			}
+		configMaps, err := exporter.getWatchedConfigMaps(namespace)
+		if err != nil {
+			outputErrors = append(outputErrors, fmt.Errorf("failed to fetch configmaps from namespace \"%s\": %s", namespace, err.Error()))
+			continue
 		}
+		output = append(output, readCertificatesFromSecrets(secrets)...)
+		output = append(output, readCertificatesFromConfigMaps(configMaps)...)
 	}
 
 	return output, outputErrors
@@ -93,6 +125,22 @@ func (exporter *Exporter) listNamespacesToWatch() ([]string, error) {
 	}
 
 	return namespaces, nil
+}
+
+func (exporter *Exporter) getWatchedConfigMaps(namespace string) ([]v1.ConfigMap, error) {
+	cachedConfigMaps, cached := exporter.configMapsCache.Get(namespace)
+	if cached {
+		return cachedConfigMaps.([]v1.ConfigMap), nil
+	}
+	configMapsList, err := exporter.kubeClient.CoreV1().ConfigMaps(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	configMaps := configMapsList.Items
+	halfDuration := float64(exporter.MaxCacheDuration.Nanoseconds()) / 2
+	cacheDuration := halfDuration*float64(rand.Float64()) + halfDuration
+	exporter.configMapsCache.Set(namespace, configMaps, time.Duration(cacheDuration))
+	return configMaps, nil
 }
 
 func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, error) {

@@ -59,6 +59,9 @@ func main() {
 	kubeSecretTypes := stringArrayFlag{}
 	getopt.FlagLong(&kubeSecretTypes, "secret-type", 's', "one or more kubernetes secret type & key to watch (e.g. \"kubernetes.io/tls:tls.crt\"")
 
+	kubeConfigMapKeys := stringArrayFlag{}
+	getopt.FlagLong(&kubeConfigMapKeys, "configmap-keys", 'c', "keys in configmaps to watch")
+
 	kubeIncludeNamespaces := stringArrayFlag{}
 	getopt.FlagLong(&kubeIncludeNamespaces, "include-namespace", 0, "add the given kube namespace to the watch list (when used, all namespaces are excluded by default)")
 
@@ -112,6 +115,7 @@ func main() {
 		ExposeRelativeMetrics: *exposeRelativeMetrics,
 		ExposeErrorMetrics:    *exposeErrorMetrics,
 		KubeSecretTypes:       kubeSecretTypes,
+		ConfigMapKeys:         kubeConfigMapKeys,
 		KubeIncludeNamespaces: kubeIncludeNamespaces,
 		KubeExcludeNamespaces: kubeExcludeNamespaces,
 		KubeIncludeLabels:     kubeIncludeLabels,

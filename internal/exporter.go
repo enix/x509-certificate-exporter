@@ -39,7 +39,6 @@ type Exporter struct {
 	ExposeErrorMetrics    bool
 	ExposeLabels          []string
 	KubeSecretTypes       []string
-	ExposeConfigMapLabels []string
 	ConfigMapKeys         []string
 	KubeIncludeNamespaces []string
 	KubeExcludeNamespaces []string

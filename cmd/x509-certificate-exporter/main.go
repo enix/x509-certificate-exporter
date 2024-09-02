@@ -36,7 +36,6 @@ func main() {
 	exposeRelativeMetrics := getopt.BoolLong("expose-relative-metrics", 0, "expose additionnal metrics with relative durations instead of absolute timestamps")
 	exposeErrorMetrics := getopt.BoolLong("expose-per-cert-error-metrics", 0, "expose additionnal error metric for each certificate indicating wether it has failure(s)")
 	exposeLabels := getopt.StringLong("expose-labels", 'l', "one or more comma-separated labels to enable (defaults to all if not specified)")
-	exposeConfigMapLabels := getopt.StringLong("expose-configmap-labels", 0, "one or more comma-separated labels to enable (defaults to all if not specified)")
 	profile := getopt.BoolLong("profile", 0, "optionally enable a pprof server to monitor cpu and memory usage at runtime")
 
 	maxCacheDuration := durationFlag(0)
@@ -141,9 +140,6 @@ func main() {
 
 	if getopt.Lookup("expose-labels").Seen() {
 		exporter.ExposeLabels = strings.Split(*exposeLabels, ",")
-	}
-	if getopt.Lookup("expose-configmap-labels").Seen() {
-		exporter.ExposeConfigMapLabels = strings.Split(*exposeConfigMapLabels, ",")
 	}
 
 	if *kubeEnabled {

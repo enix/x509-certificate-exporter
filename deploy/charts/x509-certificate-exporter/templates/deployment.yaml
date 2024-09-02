@@ -106,7 +106,7 @@ spec:
         - --secret-type={{ .type | trim }}:{{ .key | trim }}
         {{- end }}
         {{- range .Values.secretsExporter.configMapKeys }}
-        - --secret-type={{ . | trim }}
+        - --configmap-keys={{ . | trim }}
         {{- end }}
         {{- range .Values.secretsExporter.includeNamespaces }}
         - --include-namespace={{ . | trim }}

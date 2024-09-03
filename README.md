@@ -146,7 +146,8 @@ Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclud
                 usage at runtime
  -s, --secret-type=value
                 one or more kubernetes secret type & key to watch (e.g.
-                "kubernetes.io/tls:tls.crt"
+                "kubernetes.io/tls:tls.crt". Value can be a regex pattern
+                "kubernetes.io/tls:.*.tls")
      --trim-path-components=value
                 remove <n> leading component(s) from path(s) in label(s)
  -v, --version  show version info and exit

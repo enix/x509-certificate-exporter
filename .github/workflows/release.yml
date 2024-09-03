@@ -287,7 +287,7 @@ jobs:
           persist-credentials: false
 
       - name: Retrieve assets from artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: binaries
           path: assets
@@ -407,7 +407,7 @@ jobs:
           password: ${{ secrets.QUAY_ROBOT_TOKEN }}
 
       - name: Retrieve assets from artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: binaries
           path: assets

@@ -240,6 +240,10 @@ prometheusServiceMonitor:
   metricRelabelings: []
   # -- Relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
   relabelings: []
+  # -- Scheme config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
+  scheme: http
+  # -- Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig
+  tlsConfig: {}
 
 prometheusPodMonitor:
   # -- Should a PodMonitor object be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
@@ -254,6 +258,10 @@ prometheusPodMonitor:
   metricRelabelings: []
   # -- Relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
   relabelings: []
+  # -- Scheme config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
+  scheme: http
+  # -- Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig
+  tlsConfig: {}
 
 prometheusRules:
   # -- Should a PrometheusRule object be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users.

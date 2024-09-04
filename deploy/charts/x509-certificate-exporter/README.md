@@ -427,14 +427,18 @@ hostPathsExporter:
 | prometheusServiceMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the ServiceMonitor |
 | prometheusServiceMonitor.scrapeTimeout | string | `"30s"` | Target scrape timeout set in the ServiceMonitor |
 | prometheusServiceMonitor.extraLabels | object | `{}` | Additional labels to add to ServiceMonitor objects |
-| prometheusServiceMonitor.metricRelabelings | list | `[]` | Metrics relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusServiceMonitor.metricRelabelings | list | `[]` | Metric relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusServiceMonitor.relabelings | list | `[]` | Relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusServiceMonitor.scheme | string | `"http"` | Scheme config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusServiceMonitor.tlsConfig | object | `{}` | Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig |
 | prometheusPodMonitor.create | bool | `false` | Should a PodMonitor object be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |
 | prometheusPodMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the PodMonitor |
 | prometheusPodMonitor.scrapeTimeout | string | `"30s"` | Target scrape timeout set in the PodMonitor |
 | prometheusPodMonitor.extraLabels | object | `{}` | Additional labels to add to PodMonitor objects |
 | prometheusPodMonitor.metricRelabelings | list | `[]` | Metric relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusPodMonitor.relabelings | list | `[]` | Relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusPodMonitor.scheme | string | `"http"` | Scheme config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusPodMonitor.tlsConfig | object | `{}` | Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig |
 | prometheusRules.create | bool | `true` | Should a PrometheusRule object be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users. |
 | prometheusRules.alertOnReadErrors | bool | `true` | Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions. |
 | prometheusRules.readErrorsSeverity | string | `"warning"` | Severity for the X509ExporterReadErrors alerting rule |

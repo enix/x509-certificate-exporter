@@ -19,9 +19,11 @@ spec:
     scrapeTimeout: {{ .Values.prometheusPodMonitor.scrapeTimeout }}
     {{- if .Values.rbacProxy.enable }}
     bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-    scheme: https
+    {{- end }}
+    scheme: {{ .Values.prometheusPodMonitor.scheme }}
+    {{- with .Values.prometheusPodMonitor.tlsConfig }}
     tlsConfig:
-      insecureSkipVerify: true
+    {{- . | toYaml | nindent 6 }}
     {{- end }}
     {{- with .Values.prometheusPodMonitor.metricRelabelings }}
     metricRelabelings:

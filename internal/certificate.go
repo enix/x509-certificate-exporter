@@ -67,6 +67,7 @@ type certificateRef struct {
 	certificates  []*parsedCertificate
 	yamlPaths     []YAMLCertRef
 	kubeSecret    v1.Secret
+	kubeConfigMap v1.ConfigMap
 	kubeSecretKey string
 }
 
@@ -84,9 +85,10 @@ type certificateError struct {
 type certificateFormat int
 
 const (
-	certificateFormatPEM        certificateFormat = iota
-	certificateFormatYAML                         = iota
-	certificateFormatKubeSecret                   = iota
+	certificateFormatPEM           certificateFormat = iota
+	certificateFormatYAML                            = iota
+	certificateFormatKubeSecret                      = iota
+	certificateFormatKubeConfigMap                   = iota
 )
 
 func (cert *certificateRef) parse() error {
@@ -99,8 +101,9 @@ func (cert *certificateRef) parse() error {
 		cert.certificates, err = readAndParseYAMLFile(cert.path, cert.yamlPaths)
 	case certificateFormatKubeSecret:
 		cert.certificates, err = readAndParseKubeSecret(&cert.kubeSecret, cert.kubeSecretKey)
+	case certificateFormatKubeConfigMap:
+		cert.certificates, err = readAndParseKubeConfigMap(&cert.kubeConfigMap, cert.kubeSecretKey)
 	}
-
 	return err
 }
 
@@ -210,20 +213,34 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 	return output, nil
 }
 
-func readAndParseKubeSecret(secret *v1.Secret, key string) ([]*parsedCertificate, error) {
-	certs, err := parsePEM(secret.Data[key])
+func parseKubeCerts(certs []byte) ([]*parsedCertificate, error) {
+	output := []*parsedCertificate{}
+	parsedCerts, err := parsePEM(certs)
 	if err != nil {
 		return nil, err
 	}
-
-	output := []*parsedCertificate{}
-	for _, cert := range certs {
+	for _, cert := range parsedCerts {
 		output = append(output, &parsedCertificate{
 			cert: cert,
 		})
 	}
-
 	return output, nil
+}
+
+func readAndParseKubeConfigMap(cm *v1.ConfigMap, key string) ([]*parsedCertificate, error) {
+	certs_data, ok := cm.Data[key]
+	if !ok {
+		return nil, fmt.Errorf("key %s not found in ConfigMap %s/%s", key, cm.Namespace, cm.Name)
+	}
+	return parseKubeCerts([]byte(certs_data))
+}
+
+func readAndParseKubeSecret(secret *v1.Secret, key string) ([]*parsedCertificate, error) {
+	certs, ok := secret.Data[key]
+	if !ok {
+		return nil, fmt.Errorf("key %s not found in Secret %s/%s", key, secret.Namespace, secret.Name)
+	}
+	return parseKubeCerts(certs)
 }
 
 func readFile(file string) ([]byte, error) {

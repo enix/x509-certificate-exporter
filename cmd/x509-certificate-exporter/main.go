@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -10,13 +12,12 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/KimMachineGun/automemlimit"
-	_ "go.uber.org/automaxprocs"
+	"github.com/KimMachineGun/automemlimit/memlimit"
+	"go.uber.org/automaxprocs/maxprocs"
 	"k8s.io/client-go/util/flowcontrol"
 
 	"github.com/enix/x509-certificate-exporter/v3/internal"
 	getopt "github.com/pborman/getopt/v2"
-	log "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -83,20 +84,35 @@ func main() {
 		return
 	}
 
-	log.Infof("starting %s version %s (%s) (%s)", path.Base(os.Args[0]), internal.Version, internal.Revision, internal.BuildDateTime)
-
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if *debug {
-		log.SetLevel(log.DebugLevel)
+		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
+	slog.SetDefault(logger)
+
+	slog.Info("Starting exporter", "version", internal.Version, "revision", internal.Revision, "build_time", internal.BuildDateTime)
 
 	if *profile {
 		go func() {
-			log.Infoln("pprof server listening on :6060")
-			err := http.ListenAndServe(":6060", nil)
+			address := "[::]:6060"
+			slog.Info("Starting pprof server", "address", address)
+			err := http.ListenAndServe(address, nil)
 			if err != nil {
-				log.Fatal(err)
+				slog.Error("Failed to start pprof", "reason", err)
 			}
 		}()
+	}
+
+	_, err := maxprocs.Set(maxprocs.Logger(log.Printf))
+	if err != nil {
+		slog.Error("Cannot set GOMAXPROC with automaxprocs", "reason", err.Error())
+	}
+
+	_, err = memlimit.SetGoMemLimitWithOpts(
+		memlimit.WithLogger(slog.Default()),
+	)
+	if err != nil {
+		slog.Error("Cannot set GOMEMLIMIT with automemlimit", "reason", err.Error())
 	}
 
 	exporter := internal.Exporter{
@@ -138,18 +154,20 @@ func main() {
 		// Set rate limiter only if both QPS and burst are set
 		var rateLimiter flowcontrol.RateLimiter
 		if *rateLimitQPS > 0 && *rateLimitBurst > 0 {
-			log.Infof("setting Kubernetes API rate limiter to %d QPS and %d burst", *rateLimitQPS, *rateLimitBurst)
+			slog.Info("Setting Kubernetes API rate limiter", "qps", *rateLimitQPS, "burst", *rateLimitBurst)
 			rateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(*rateLimitQPS), *rateLimitBurst)
 		}
 
 		err := exporter.ConnectToKubernetesCluster(configpath, rateLimiter)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error("Failed to connect to Kubernetes API", "reason", err)
+			os.Exit(1)
 		}
 	}
 
-	err := exporter.ListenAndServe()
+	err = exporter.ListenAndServe()
 	if err != nil {
-		log.Fatal("failed to start server: ", err)
+		slog.Error("Failed to start server", "reason", err)
+		os.Exit(1)
 	}
 }

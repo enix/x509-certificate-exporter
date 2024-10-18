@@ -3,9 +3,9 @@ package internal
 import (
 	"runtime"
 	"time"
+	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 type collector struct {
@@ -96,7 +96,7 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 
 	for index, err := range certErrors {
 		if err.err != nil {
-			log.Debugf("read error %d: %+v", index+1, err.err)
+			slog.Debug("Collect read error", "reason", err, "index", index)
 		}
 
 		if collector.exporter.ExposeErrorMetrics && err.ref != nil {

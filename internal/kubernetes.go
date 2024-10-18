@@ -3,12 +3,12 @@ package internal
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -256,17 +256,17 @@ func parseKubeConfig(kubeconfigPath string) (*rest.Config, error) {
 	var err error
 
 	if len(kubeconfigPath) > 0 {
-		log.Infof("using kubeconfig file: %s", kubeconfigPath)
+		slog.Info("Using kubeconfig file", "path", kubeconfigPath)
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	} else {
-		log.Info("no kubeconfig file provided, attempting to load in-cluster configuration")
+		slog.Info("Attempting to load in-cluster Kubernetes configuration")
 		config, err = rest.InClusterConfig()
 	}
 
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("loaded configuration, API server is at %s", config.Host)
+	slog.Info("Loaded Kubernetes configuration", "apiserver_host", config.Host)
 
 	return config, nil
 }
@@ -277,12 +277,12 @@ func getKubeClient(config *rest.Config) (*kubernetes.Clientset, error) {
 		return nil, errors.Wrap(err, "unable to get k8s client")
 	}
 
-	log.Info("fetching API server version")
+	slog.Info("Fetching Kubernetes API server version")
 	serverVersion, err := kubeClient.Discovery().ServerVersion()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get Kubernetes API server version")
+		return nil, errors.Wrap(err, "Failed to get Kubernetes API server version")
 	}
-	log.Infof("kubernetes server version is %s", serverVersion.GitVersion)
+	slog.Info("Got Kubernetes API server version", "apiserver_version", serverVersion.GitVersion)
 
 	return kubeClient, nil
 }

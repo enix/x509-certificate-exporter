@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -19,9 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/bmatcuk/doublestar/v4"
-	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/exporter-toolkit/web"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -99,10 +98,7 @@ func (exporter *Exporter) Serve() error {
 		WebConfigFile:      &exporter.ConfigFile,
 	}
 
-	promlogConfig := &promlog.Config{}
-	logger := promlog.New(promlogConfig)
-
-	return web.Serve(exporter.listener, exporter.server, &toolkitFlags, logger)
+	return web.Serve(exporter.listener, exporter.server, &toolkitFlags, slog.Default())
 }
 
 // Shutdown : Properly tear down server
@@ -124,7 +120,7 @@ func (exporter *Exporter) DiscoverCertificates() {
 	for _, cert := range certs {
 		certCount += len(cert.certificates)
 	}
-	log.Infof("parsed %d certificates (%d read failures)", certCount, len(errs))
+	slog.Info("Discovered and parsed certificates", "certificates", certCount, "failures", len(errs))
 
 	exporter.isDiscovery = false
 }
@@ -135,7 +131,7 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 	raiseError := func(err *certificateError) {
 		outputErrors = append(outputErrors, err)
 		if exporter.isDiscovery && err.err != nil {
-			log.Warn(err.err)
+			slog.Warn(err.err.Error())
 		}
 	}
 
@@ -201,7 +197,7 @@ func (exporter *Exporter) parseAllCertificates() ([]*certificateRef, []*certific
 				ref: cert,
 			})
 		} else if exporter.isDiscovery {
-			log.Infof("%d valid certificate(s) found in \"%s\"", len(cert.certificates), cert.path)
+			slog.Info("Valid certificate(s) found", "certificates", len(cert.certificates), "path", cert.path)
 		}
 
 		for _, existingCertRef := range output {

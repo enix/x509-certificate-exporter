@@ -1,6 +1,6 @@
 module github.com/enix/x509-certificate-exporter/v3
 
-go 1.23.0
+go 1.23.1
 
 toolchain go1.23.1
 

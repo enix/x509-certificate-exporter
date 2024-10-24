@@ -1,6 +1,6 @@
 module github.com/enix/x509-certificate-exporter/v3
 
-go 1.23.1
+go 1.23.2
 
 require (
 	github.com/KimMachineGun/automemlimit v0.6.1

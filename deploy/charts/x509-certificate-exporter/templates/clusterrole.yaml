@@ -28,6 +28,16 @@ rules:
   - get
   - watch
   - list
+{{- if .Values.secretsExporter.configMapKeys }}
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - watch
+  - list
+{{- end }}
 {{- if .Values.rbacProxy.enable }}
 - apiGroups:
   - authentication.k8s.io

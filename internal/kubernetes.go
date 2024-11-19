@@ -12,6 +12,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -37,17 +38,16 @@ func (exporter *Exporter) parseAllKubeSecrets() ([]*certificateRef, []error) {
 	}
 
 	for _, namespace := range namespaces {
-		secrets, err := exporter.getWatchedSecrets(namespace)
-		if err != nil {
-			outputErrors = append(outputErrors, fmt.Errorf("failed to fetch secrets from namespace \"%s\": %s", namespace, err.Error()))
-			continue
-		}
+		for _, secretType := range exporter.KubeSecretTypes {
+			typeAndKey := strings.Split(secretType, ":")
+			secrets, err := exporter.getWatchedSecrets(namespace, typeAndKey[0])
+			if err != nil {
+				outputErrors = append(outputErrors, fmt.Errorf("failed to fetch secrets from namespace \"%s\": %s", namespace, err.Error()))
+				continue
+			}
 
-		for _, secret := range secrets {
-			for _, secretType := range exporter.KubeSecretTypes {
-				typeAndKey := strings.Split(secretType, ":")
-
-				if secret.Type == v1.SecretType(typeAndKey[0]) && len(secret.Data[typeAndKey[1]]) > 0 {
+			for _, secret := range secrets {
+				if len(secret.Data[typeAndKey[1]]) > 0 {
 					output = append(output, &certificateRef{
 						path:          fmt.Sprintf("k8s/%s/%s", namespace, secret.GetName()),
 						format:        certificateFormatKubeSecret,
@@ -58,7 +58,6 @@ func (exporter *Exporter) parseAllKubeSecrets() ([]*certificateRef, []error) {
 			}
 		}
 	}
-
 	return output, outputErrors
 }
 
@@ -95,7 +94,7 @@ func (exporter *Exporter) listNamespacesToWatch() ([]string, error) {
 	return namespaces, nil
 }
 
-func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, error) {
+func (exporter *Exporter) getWatchedSecrets(namespace string, secretType string) ([]v1.Secret, error) {
 	cachedSecrets, cached := exporter.secretsCache.Get(namespace)
 	if cached {
 		return cachedSecrets.([]v1.Secret), nil
@@ -124,8 +123,10 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 	}
 
 	labelSelector := metav1.LabelSelector{MatchLabels: includedLabelsWithValue}
+	fieldSelector := fields.SelectorFromSet(fields.Set{"type" : secretType})
 	secrets, err := exporter.kubeClient.CoreV1().Secrets(namespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
+		FieldSelector: fieldSelector.String(),
 	})
 	if err != nil {
 		return nil, err

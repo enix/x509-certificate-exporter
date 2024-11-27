@@ -91,6 +91,9 @@ spec:
         {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
         - --watch-dir=/mnt/watch/dir-{{ . | clean | sha1sum }}/{{ . | clean }}
         {{- end }}
+        {{- range default $.Values.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories }}
+        - --watch-dir=/mnt/watch/dir-{{ .directory | clean | sha1sum }}/{{ .directory | clean }}/*.{{ .extension | clean }}
+        {{- end }}
         {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
         - --watch-file=/mnt/watch/file-{{ . | clean | sha1sum }}/{{ . | clean }}
         {{- end }}
@@ -115,6 +118,11 @@ spec:
         {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
         - name: dir-{{ . | clean | sha1sum }}
           mountPath: /mnt/watch/dir-{{ . | clean | sha1sum }}/{{ . | clean }}
+          readOnly: true
+        {{- end }}
+        {{- range default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories }}
+        - name: dir-{{ .directory| clean | sha1sum }}
+          mountPath: /mnt/watch/dir-{{ .directory | clean | sha1sum }}/{{ .directory | clean | dir }}
           readOnly: true
         {{- end }}
         {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
@@ -175,6 +183,14 @@ spec:
       - name: dir-{{ . | clean | sha1sum }}
         hostPath:
           path: {{ . | clean }}
+          {{- if $hostPathType }}
+          type: {{ $hostPathType | quote }}
+          {{- end }}
+      {{- end }}
+      {{- range default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories }}
+      - name: dir-{{ .directory | clean | sha1sum }}
+        hostPath:
+          path: {{ .directory | clean }}
           {{- if $hostPathType }}
           type: {{ $hostPathType | quote }}
           {{- end }}

@@ -194,6 +194,8 @@ hostPathsExporter:
   hostPathVolumeType: Directory
   # -- [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep)
   watchDirectories: []
+  # -- [SEE README] List of directory paths of the host to scan for specific extension files to be watched and exported as metrics (one level deep)
+  watchSpecificExtensionDirectories: []
   # -- [SEE README] List of file paths of the host for PEM encoded certificates to be watched and exported as metrics (one level deep)
   watchFiles: []
   # -- [SEE README] List of Kubeconf file paths of the host to scan for embedded certificates to export metrics about

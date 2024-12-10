@@ -114,8 +114,7 @@ secretsExporter:
   - type: kubernetes.io/tls
     key: tls.crt
 
-  # -- If the exporter should for certificates in configmaps, just specify the keys it needs to watch
-  # -- E.g.: `configMapKeys: ["tls.crt"]`
+  # -- If the exporter should for certificates in configmaps, just specify the keys it needs to watch. E.g.: `configMapKeys: ["tls.crt"]`
   # @default -- check `values.yaml`
   configMapKeys: []
 

@@ -384,6 +384,7 @@ hostPathsExporter:
 | secretsExporter.extraVolumes | list | `[]` | Additionnal volumes added to Pods of the TLS Secrets exporter (combined with global `extraVolumes`) |
 | secretsExporter.extraVolumeMounts | list | `[]` | Additionnal volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`) |
 | secretsExporter.secretTypes | list | check `values.yaml` | Which type of Secrets should be watched ; "key" is the map key in the secret data |
+| secretsExporter.configMapKeys | list | check `values.yaml` | If the exporter should for certificates in configmaps, just specify the keys it needs to watch. E.g.: `configMapKeys: ["tls.crt"]` |
 | secretsExporter.includeNamespaces | list | `[]` | Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty) |
 | secretsExporter.excludeNamespaces | list | `[]` | Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`) |
 | secretsExporter.includeLabels | list | `[]` | Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
@@ -427,7 +428,7 @@ hostPathsExporter:
 | prometheusServiceMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the ServiceMonitor |
 | prometheusServiceMonitor.scrapeTimeout | string | `"30s"` | Target scrape timeout set in the ServiceMonitor |
 | prometheusServiceMonitor.extraLabels | object | `{}` | Additional labels to add to ServiceMonitor objects |
-| prometheusServiceMonitor.metricRelabelings | list | `[]` | Metrics relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusServiceMonitor.metricRelabelings | list | `[]` | Metric relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusServiceMonitor.relabelings | list | `[]` | Relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusPodMonitor.create | bool | `false` | Should a PodMonitor object be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |
 | prometheusPodMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the PodMonitor |

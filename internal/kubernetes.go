@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
 	"math/rand"
 	"strings"
@@ -26,22 +27,32 @@ func (exporter *Exporter) ConnectToKubernetesCluster(path string, rateLimiter fl
 	return err
 }
 
+func MatchingSecretKeys(types []KubeSecretType, secret *v1.Secret) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for _, secretType := range types {
+			for key := range secret.Data {
+				if len(secret.Data[key]) > 0 && secretType.Matches(string(secret.Type), key) {
+					if !yield(key) {
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
 func (exporter *Exporter) parseAllKubeObjects() ([]*certificateRef, []error) {
 	output := []*certificateRef{}
 	outputErrors := []error{}
 	readCertificatesFromSecrets := func(secrets []v1.Secret) (outputs []*certificateRef) {
 		for _, secret := range secrets {
-			for _, secretType := range exporter.KubeSecretTypes {
-				for key := range secret.Data {
-					if secretType.Matches(string(secret.Type), key) {
-						output = append(output, &certificateRef{
-							path:          fmt.Sprintf("k8s/%s/%s", secret.GetNamespace(), secret.GetName()),
-							format:        certificateFormatKubeSecret,
-							kubeSecret:    secret,
-							kubeSecretKey: key,
-						})
-					}
-				}
+			for key := range MatchingSecretKeys(exporter.KubeSecretTypes, &secret) {
+				output = append(output, &certificateRef{
+					path:          fmt.Sprintf("k8s/%s/%s", secret.GetNamespace(), secret.GetName()),
+					format:        certificateFormatKubeSecret,
+					kubeSecret:    secret,
+					kubeSecretKey: key,
+				})
 			}
 		}
 		return outputs
@@ -56,7 +67,7 @@ func (exporter *Exporter) parseAllKubeObjects() ([]*certificateRef, []error) {
 	}
 	readCertificatesFromConfigMaps := func(configMaps []v1.ConfigMap) (outputs []*certificateRef) {
 		for _, configMap := range configMaps {
-			for key, _ := range configMap.Data {
+			for key := range configMap.Data {
 				if contains(key, exporter.ConfigMapKeys) {
 					outputs = append(outputs, &certificateRef{
 						path:          fmt.Sprintf("k8s/%s/%s", configMap.GetNamespace(), configMap.GetName()),
@@ -246,12 +257,8 @@ func (exporter *Exporter) filterSecrets(secrets []v1.Secret, includedLabels, exc
 }
 
 func (exporter *Exporter) checkHasIncludedType(secret *v1.Secret) (bool, error) {
-	for _, secretType := range exporter.KubeSecretTypes {
-		for key := range secret.Data {
-			if len(secret.Data[key]) > 0 && secretType.Matches(string(secret.Type), key) {
-				return true, nil
-			}
-		}
+	for range MatchingSecretKeys(exporter.KubeSecretTypes, secret) {
+		return true, nil
 	}
 	return false, nil
 }
@@ -265,15 +272,9 @@ func (exporter *Exporter) shrinkSecret(secret v1.Secret) v1.Secret {
 			Namespace: secret.Namespace,
 		},
 	}
-
-	for _, secretType := range exporter.KubeSecretTypes {
-		for key := range secret.Data {
-			if len(secret.Data[key]) > 0 && secretType.Matches(string(secret.Type), key) {
-				result.Data[key] = secret.Data[key]
-			}
-		}
+	for key := range MatchingSecretKeys(exporter.KubeSecretTypes, &secret) {
+		result.Data[key] = secret.Data[key]
 	}
-
 	return result
 }
 

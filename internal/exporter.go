@@ -22,8 +22,8 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/prometheus/exporter-toolkit/web"
+	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/kubernetes"
-        "gopkg.in/yaml.v2"
 )
 
 // Exporter : Configuration (from command-line)
@@ -53,7 +53,7 @@ type Exporter struct {
 	isDiscovery     bool
 	secretsCache    *cache.Cache
 	configMapsCache *cache.Cache
-        p12PasswordsFile string
+    PasswordsFile string
 }
 
 type KubeSecretType struct {
@@ -297,7 +297,7 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
                                         }
                                 } else {
 					if strings.HasSuffix(file.Name(), ".crt") ||
-					   strings.HasSuffix(file.Name(), ".pem") || 
+					   strings.HasSuffix(file.Name(), ".pem") ||
 					   strings.HasSuffix(file.Name(), ".cert") {
 						format = certificateFormatPEM
 					} else {
@@ -382,13 +382,13 @@ func (exporter *Exporter) obtainP12Passwords(filename string) (string, error) {
         if err = yaml.Unmarshal(passwordsFile, &config); err != nil {
                 return "", err
         }
- 
+
         for _, p12 := range config.P12 {
                 if p12.Name == filename {
                         return p12.Password, nil
                 }
          }
-  
+
         return "", errors.New("p12 password not found")
 }
 

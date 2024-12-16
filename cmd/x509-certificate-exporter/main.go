@@ -75,8 +75,8 @@ func main() {
 	kubeExcludeLabels := stringArrayFlag{}
 	getopt.FlagLong(&kubeExcludeLabels, "exclude-label", 0, "removes the kube secrets with the given label (or label value if specified) from the watch list (applied after --include-label)")
 
-        var PasswordsFile string
-        getopt.FlagLong(&PasswordsFile, "passwords-file", 0, "path to a yaml file containing a list of passwords to try when opening a p12 file")
+	var PasswordsFile string
+	getopt.FlagLong(&PasswordsFile, "passwords-file", 0, "path to a yaml file containing a list of passwords to try when opening a p12 file")
 
 	getopt.Parse()
 
@@ -148,7 +148,7 @@ func main() {
 		KubeExcludeNamespaces: kubeExcludeNamespaces,
 		KubeIncludeLabels:     kubeIncludeLabels,
 		KubeExcludeLabels:     kubeExcludeLabels,
-                PasswordsFile:      PasswordsFile,
+		PasswordsFile:         PasswordsFile,
 	}
 
 	if getopt.Lookup("expose-labels").Seen() {

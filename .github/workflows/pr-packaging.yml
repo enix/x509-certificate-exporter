@@ -6,7 +6,7 @@ on:
       - deploy/charts/**
 
 env:
-  VERSION_KIND: v0.24.0
+  VERSION_KIND: v0.26.0
 
 jobs:
   chart-testing:

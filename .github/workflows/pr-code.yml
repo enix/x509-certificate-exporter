@@ -11,7 +11,7 @@ permissions:
   pull-requests: read
 
 env:
-  VERSION_KIND: v0.24.0
+  VERSION_KIND: v0.26.0
   VERSION_GOLANGCILINT: latest
   VERSION_GOLANG: '1.23.4'
 

@@ -13,9 +13,9 @@ env:
   VERSION_KIND: v0.26.0
   VERSION_GOLANGCILINT: latest
   VERSION_GOLANG: "1.23.4"
-  VERSION_CHARTRELEASER: '1.6.0'
-  VERSION_OCI_BUSYBOX: '1.37.0-glibc'
-  VERSION_OCI_ALPINE: '3.20.3'
+  VERSION_CHARTRELEASER: "1.6.0"
+  VERSION_OCI_BUSYBOX: "1.37.0-glibc"
+  VERSION_OCI_ALPINE: "3.21.0"
 
 jobs:
   semver:
@@ -140,18 +140,18 @@ jobs:
         #goarch: [amd64, arm64, riscv64]
         goos:
           [linux, darwin, freebsd, illumos, netbsd, openbsd, solaris, windows]
-        goarch: [amd64, arm64, riscv64, '386']
+        goarch: [amd64, arm64, riscv64, "386"]
         exclude:
           - { goos: darwin, goarch: riscv64 }
-          - { goos: darwin, goarch: '386' }
+          - { goos: darwin, goarch: "386" }
           - { goos: illumos, goarch: arm64 }
           - { goos: illumos, goarch: riscv64 }
-          - { goos: illumos, goarch: '386' }
+          - { goos: illumos, goarch: "386" }
           - { goos: netbsd, goarch: riscv64 }
           - { goos: openbsd, goarch: riscv64 }
           - { goos: solaris, goarch: arm64 }
           - { goos: solaris, goarch: riscv64 }
-          - { goos: solaris, goarch: '386' }
+          - { goos: solaris, goarch: "386" }
           - { goos: windows, goarch: riscv64 }
     steps:
       - name: Checkout Repository

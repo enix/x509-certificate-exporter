@@ -93,13 +93,16 @@ func (exporter *Exporter) parseAllKubeObjects() ([]*certificateRef, []error) {
 			outputErrors = append(outputErrors, fmt.Errorf("failed to fetch secrets from namespace \"%s\": %s", namespace, err.Error()))
 			continue
 		}
-		configMaps, err := exporter.getWatchedConfigMaps(namespace)
-		if err != nil {
-			outputErrors = append(outputErrors, fmt.Errorf("failed to fetch configmaps from namespace \"%s\": %s", namespace, err.Error()))
-			continue
-		}
 		output = append(output, readCertificatesFromSecrets(secrets)...)
-		output = append(output, readCertificatesFromConfigMaps(configMaps)...)
+
+		if len(exporter.ConfigMapKeys) > 0 {
+			configMaps, err := exporter.getWatchedConfigMaps(namespace)
+			if err != nil {
+				outputErrors = append(outputErrors, fmt.Errorf("failed to fetch configmaps from namespace \"%s\": %s", namespace, err.Error()))
+				continue
+			}
+			output = append(output, readCertificatesFromConfigMaps(configMaps)...)
+		}
 	}
 
 	return output, outputErrors

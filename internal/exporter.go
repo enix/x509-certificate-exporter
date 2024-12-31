@@ -22,6 +22,7 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/prometheus/exporter-toolkit/web"
+	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -52,6 +53,7 @@ type Exporter struct {
 	isDiscovery     bool
 	secretsCache    *cache.Cache
 	configMapsCache *cache.Cache
+    PasswordsFile string
 }
 
 type KubeSecretType struct {
@@ -285,9 +287,28 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 					continue
 				}
 
+                                var password string
+                                if strings.HasSuffix(file.Name(), ".p12") || strings.HasSuffix(file.Name(), ".jks") {
+                                        format = certificateFormatP12
+                                        password, err = exporter.obtainP12Passwords(path.Clean(path.Join(dir, file.Name())))
+                                        if err != nil {
+                                                outputErrors = append(outputErrors, err)
+                                                continue
+                                        }
+                                } else {
+					if strings.HasSuffix(file.Name(), ".crt") ||
+					   strings.HasSuffix(file.Name(), ".pem") ||
+					   strings.HasSuffix(file.Name(), ".cert") {
+						format = certificateFormatPEM
+					} else {
+                                                continue
+                                        }
+                                }
+
 				output = append(output, &certificateRef{
-					path:   path.Clean(path.Join(dir, file.Name())),
-					format: certificateFormatPEM,
+                                        path:        path.Clean(path.Join(dir, file.Name())),
+                                        format:      format,
+                                        password:    password,
 				})
 			}
 		} else {
@@ -339,6 +360,38 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 
 	return output, outputErrors
 }
+
+func (exporter *Exporter) obtainP12Passwords(filename string) (string, error) {
+        filename = filepath.Base(filename)
+        if len(exporter.PasswordsFile) == 0 {
+                return "", errors.New("password file not specified")
+        }
+
+        passwordsFile, err := os.ReadFile(exporter.PasswordsFile)
+        if err != nil {
+                return "", err
+        }
+        type P12Config struct {
+                Name     string `yaml:"name"`
+                Password string `yaml:"password"`
+        }
+        type Config struct {
+                P12 []P12Config `yaml:"pkcs12"`
+        }
+        var config Config
+        if err = yaml.Unmarshal(passwordsFile, &config); err != nil {
+                return "", err
+        }
+
+        for _, p12 := range config.P12 {
+                if p12.Name == filename {
+                        return p12.Password, nil
+                }
+         }
+
+        return "", errors.New("p12 password not found")
+}
+
 
 // compareCertificates compares labels of these two certificates
 // and returns true if they are the same

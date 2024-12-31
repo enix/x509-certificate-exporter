@@ -14,6 +14,7 @@ import (
 	"github.com/yalp/jsonpath"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
+	"software.sslmate.com/src/go-pkcs12"
 )
 
 // YAMLCertRef : Contains information to access certificates in yaml files
@@ -69,6 +70,8 @@ type certificateRef struct {
 	kubeSecret    v1.Secret
 	kubeConfigMap v1.ConfigMap
 	kubeSecretKey string
+	password   string
+
 }
 
 type parsedCertificate struct {
@@ -89,6 +92,7 @@ const (
 	certificateFormatYAML                            = iota
 	certificateFormatKubeSecret                      = iota
 	certificateFormatKubeConfigMap                   = iota
+	certificateFormatP12                          = iota
 )
 
 func (cert *certificateRef) parse() error {
@@ -103,6 +107,8 @@ func (cert *certificateRef) parse() error {
 		cert.certificates, err = readAndParseKubeSecret(&cert.kubeSecret, cert.kubeSecretKey)
 	case certificateFormatKubeConfigMap:
 		cert.certificates, err = readAndParseKubeConfigMap(&cert.kubeConfigMap, cert.kubeSecretKey)
+	case certificateFormatP12:
+		cert.certificates, err = readAndParsePasswordPkcsFile(cert.path, cert.password)
 	}
 	return err
 }
@@ -124,6 +130,32 @@ func readAndParsePEMFile(path string) ([]*parsedCertificate, error) {
 	}
 
 	return output, nil
+}
+
+func readAndParsePasswordPkcsFile(path string, password string) ([]*parsedCertificate, error) {
+        contents, err := readFile(path)
+        if err != nil {
+               return nil, err
+        }
+
+        output := []*parsedCertificate{}
+        // keystore p12
+        _, cert, err := pkcs12.Decode(contents, password)
+	if err == nil {
+                output = append(output, &parsedCertificate{cert: cert})
+		return output, nil
+	}
+
+	// truststore p12
+        certs, err := pkcs12.DecodeTrustStore(contents, password)
+        if err != nil {
+                return nil, err
+        }
+
+        for _, cert := range certs {
+                output = append(output, &parsedCertificate{cert: cert})
+        }
+        return output, nil
 }
 
 func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCertificate, error) {

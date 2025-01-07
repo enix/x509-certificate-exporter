@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+      target: dev
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    user: ${USER_ID:-1000}:${GROUP_ID:-1000}
+    network_mode: "host"
+    volumes:
+      - .:/app:z

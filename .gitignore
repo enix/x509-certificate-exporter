@@ -1,6 +1,14 @@
-__pycache__
-*.pyc
+*.out
+*.so
+*.dylib
+*.exe
+*.exe~
+*.dll
+*.test
 *.cov
 *.debug
+*.kubeconfig.yaml
+kubeconfig.yaml
 coverage.html
-/kubeconfig*
+/vendor
+/tmp

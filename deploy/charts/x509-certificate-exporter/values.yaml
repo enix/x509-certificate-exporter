@@ -122,6 +122,10 @@ secretsExporter:
   includeNamespaces: []
   # -- Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`)
   excludeNamespaces: []
+  # -- Only watch namespaces having these labels (all namespaces if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
+  includeNamespaceLabels: []
+  # -- Exclude namespaces having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
+  excludeNamespaceLabels: []
   # -- Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   includeLabels: []
   # -- Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.

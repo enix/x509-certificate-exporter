@@ -114,6 +114,12 @@ spec:
         {{- range .Values.secretsExporter.excludeNamespaces }}
         - --exclude-namespace={{ . | trim }}
         {{- end }}
+        {{- range .Values.secretsExporter.includeNamespaceLabels }}
+        - --include-namespace-label={{ . | trim }}
+        {{- end }}
+        {{- range .Values.secretsExporter.excludeNamespaceLabels }}
+        - --exclude-namespace-label={{ . | trim }}
+        {{- end }}
         {{- range .Values.secretsExporter.includeLabels }}
         - --include-label={{ . | trim }}
         {{- end }}

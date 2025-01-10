@@ -88,202 +88,144 @@ func TestMain(m *testing.M) {
 	os.Exit(status)
 }
 
-func TestKubeAllSecrets(t *testing.T) {
-	testRequestKube(t, &Exporter{}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 21)
-		metrics := getMetricsForName(m, "x509_read_errors")
-		assert.Equal(t, 1., metrics[0].GetGauge().GetValue())
-	})
-}
-
-func TestKubeIncludeNamespace(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeNamespaces: []string{"default"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 11)
-	})
-}
-
-func TestKubeIncludeMultipleNamespaces(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeNamespaces: []string{"default", "kube-system"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 21)
-	})
-}
-
-func TestKubeExcludeNamespace(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeExcludeNamespaces: []string{"default"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 10)
-	})
-}
-
-func TestKubeExcludeMultipleNamespaces(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeExcludeNamespaces: []string{"default", "kube-system"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 0)
-	})
-}
-
-func TestKubeIncludeExcludeNamespaceMix(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeNamespaces: []string{"default"},
-		KubeExcludeNamespaces: []string{"default"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 0)
-	})
-}
-
-func TestKubeIncludeExcludeNamespaceMix2(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeNamespaces: []string{"default", "kube-system"},
-		KubeExcludeNamespaces: []string{"kube-system"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 11)
-	})
-}
-
-func TestKubeIncludeExistingLabelWithoutValue(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeLabels: []string{"test"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 20)
-	})
-}
-
-func TestKubeIncludeNonExistingLabelWithoutValue(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeLabels: []string{"xxxx"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 0)
-	})
-}
-
-func TestKubeIncludeExistingLabelWithValue(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeLabels: []string{"aze=abc"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 20)
-	})
-}
-
-func TestKubeIncludeNonExistingLabelWithValue(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeLabels: []string{"xxx=xxx"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 0)
-	})
-}
-
-func TestKubeIncludeExistingLabelWithNonExistingValue(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeLabels: []string{"aze=xxx"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 0)
-	})
-}
-
-func TestKubeExcludeExistingLabelWithoutValue(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeExcludeLabels: []string{"test"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 1)
-	})
-}
-
-func TestKubeExcludeNonExistingLabelWithoutValue(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeExcludeLabels: []string{"xxxx"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 21)
-	})
-}
-
-func TestKubeExcludeExistingLabelWithValue(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeExcludeLabels: []string{"aze=abc"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 1)
-	})
-}
-
-func TestKubeExcludeNonExistingLabelWithValue(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeExcludeLabels: []string{"xxx=xxx"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 21)
-	})
-}
-
-func TestKubeExcludeExistingLabelWithNonExistingValue(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeExcludeLabels: []string{"aze=xxx"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 21)
-	})
-}
-
-func TestKubeIncludeExcludeLabelMix(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeLabels: []string{"aze=abc"},
-		KubeExcludeLabels: []string{"aze=abc"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 0)
-	})
-}
-
-func TestKubeIncludeExcludeLabelMix2(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeLabels: []string{"test"},
-		KubeExcludeLabels: []string{"index=0"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 18)
-	})
-}
-
-func TestKubeIncludeExcludeLabelMix3(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeLabels: []string{"test"},
-		KubeExcludeLabels: []string{"xxxxx"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 20)
-	})
-}
-
-func TestKubeIncludeExcludeLabelMix4(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeLabels: []string{"index=0", "test"},
-		KubeExcludeLabels: []string{"index=1"},
-	}, func(m []model.MetricFamily) {
-		checkMetricsCount(t, m, 2)
-	})
-}
-
-func TestKubeCustomSecret(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeSecretTypes: []KubeSecretType{
-			{Type: "istio.io/cert-and-key", Regexp: regexp.MustCompile(`cert-chain\.pem`)},
-			{Type: "istio.io/cert-and-key", Regexp: regexp.MustCompile(`root-cert\.pem`)},
+func TestKubeNamespaceAndSecretsFiltering(t *testing.T) {
+	tests := []struct {
+		Name             string
+		Exporter         Exporter
+		MetricCount      int
+		AdditionnalCheck func(m []model.MetricFamily)
+	}{
+		{
+			Name:        "All secrets (no filtering)",
+			MetricCount: 21,
+			AdditionnalCheck: func(m []model.MetricFamily) {
+				metrics := getMetricsForName(m, "x509_read_errors")
+				assert.Equal(t, 1., metrics[0].GetGauge().GetValue())
+			},
+		}, {
+			Name: "Include existing label without value",
+			Exporter: Exporter{
+				KubeIncludeLabels: []string{"test"},
+			},
+			MetricCount: 20,
+		}, {
+			Name: "Include non-existing label without value",
+			Exporter: Exporter{
+				KubeIncludeLabels: []string{"xxxx"},
+			},
+			MetricCount: 0,
+		}, {
+			Name: "Include existing label with value",
+			Exporter: Exporter{
+				KubeIncludeLabels: []string{"aze=abc"},
+			},
+			MetricCount: 20,
+		}, {
+			Name: "Include non-existing label with value",
+			Exporter: Exporter{
+				KubeIncludeLabels: []string{"xxx=xxx"},
+			},
+			MetricCount: 0,
+		}, {
+			Name: "Include existing label with non-existing value",
+			Exporter: Exporter{
+				KubeIncludeLabels: []string{"aze=xxx"},
+			},
+			MetricCount: 0,
+		}, {
+			Name: "Exclude existing label without value",
+			Exporter: Exporter{
+				KubeExcludeLabels: []string{"test"},
+			},
+			MetricCount: 1,
+		}, {
+			Name: "Exclude non-existing label without value",
+			Exporter: Exporter{
+				KubeExcludeLabels: []string{"xxxx"},
+			},
+			MetricCount: 21,
+		}, {
+			Name: "Exclude existing label with value",
+			Exporter: Exporter{
+				KubeExcludeLabels: []string{"aze=abc"},
+			},
+			MetricCount: 1,
+		}, {
+			Name: "Exclude non-existing label with value",
+			Exporter: Exporter{
+				KubeExcludeLabels: []string{"xxx=xxx"},
+			},
+			MetricCount: 21,
+		}, {
+			Name: "Exclude existing label with non-existing value",
+			Exporter: Exporter{
+				KubeExcludeLabels: []string{"aze=xxx"},
+			},
+			MetricCount: 21,
+		}, {
+			Name: "Include and exclude label mix",
+			Exporter: Exporter{
+				KubeIncludeLabels: []string{"aze=abc"},
+				KubeExcludeLabels: []string{"aze=abc"},
+			},
+			MetricCount: 0,
+		}, {
+			Name: "Include and exclude label mix 2",
+			Exporter: Exporter{
+				KubeIncludeLabels: []string{"test"},
+				KubeExcludeLabels: []string{"index=0"},
+			},
+			MetricCount: 18,
+		}, {
+			Name: "Include and exclude label mix 3",
+			Exporter: Exporter{
+				KubeIncludeLabels: []string{"test"},
+				KubeExcludeLabels: []string{"xxxxx"},
+			},
+			MetricCount: 20,
+		}, {
+			Name: "Include and exclude label mix 4",
+			Exporter: Exporter{
+				KubeIncludeLabels: []string{"index=0", "test"},
+				KubeExcludeLabels: []string{"index=1"},
+			},
+			MetricCount: 2,
+		}, {
+			Name: "Custom secret",
+			Exporter: Exporter{
+				KubeSecretTypes: []KubeSecretType{
+					{Type: "istio.io/cert-and-key", Regexp: regexp.MustCompile(`cert-chain\.pem`)},
+					{Type: "istio.io/cert-and-key", Regexp: regexp.MustCompile(`root-cert\.pem`)},
+				},
+			},
+			MetricCount: 2,
+			AdditionnalCheck: func(m []model.MetricFamily) {
+				metric := getMetricsForName(m, "x509_cert_expired")
+				assert.Len(t, metric, 2)
+				checkLabels(t, metric[0].GetLabel(), "k8s/default/test-custom-type", true, 15)
+				checkLabels(t, metric[1].GetLabel(), "k8s/default/test-custom-type", true, 15)
+			},
+		}, {
+			Name: "Metric labels",
+			Exporter: Exporter{
+				KubeIncludeNamespaces: []string{"default"},
+				KubeIncludeLabels:     []string{"index=0"},
+			},
+			MetricCount: 1,
+			AdditionnalCheck: func(m []model.MetricFamily) {
+				metric := getMetricsForName(m, "x509_cert_expired")[0]
+				checkLabels(t, metric.GetLabel(), "k8s/default/test-default-0.crt", true, 15)
+			},
 		},
-	}, func(m []model.MetricFamily) {
-		metric := getMetricsForName(m, "x509_cert_expired")
-		assert.Len(t, metric, 2)
-		checkLabels(t, metric[0].GetLabel(), "k8s/default/test-custom-type", true, 15)
-		checkLabels(t, metric[1].GetLabel(), "k8s/default/test-custom-type", true, 15)
-	})
-}
+	}
 
-func TestKubeMetricLabels(t *testing.T) {
-	testRequestKube(t, &Exporter{
-		KubeIncludeNamespaces: []string{"default"},
-		KubeIncludeLabels:     []string{"index=0"},
-	}, func(m []model.MetricFamily) {
-		metric := getMetricsForName(m, "x509_cert_expired")[0]
-		checkLabels(t, metric.GetLabel(), "k8s/default/test-default-0.crt", true, 15)
-	})
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			testRequestKube(t, &tt.Exporter, func(m []model.MetricFamily) {
+				checkMetricsCount(t, m, tt.MetricCount)
+			})
+		})
+	}
 }
 
 func TestKubeNamespaceListFailure(t *testing.T) {
@@ -372,6 +314,107 @@ func TestKubeConnectionFromInsideFailure(t *testing.T) {
 	e := &Exporter{}
 	err := e.ConnectToKubernetesCluster("", nil)
 	assert.NotNil(t, err)
+}
+
+func TestExporterFilterNamespaces(t *testing.T) {
+	tests := []struct {
+		Name               string
+		Exporter           Exporter
+		ExpectedNamespaces []string
+	}{
+		{
+			Name:               "All namespaces (no filtering)",
+			ExpectedNamespaces: []string{"default", "kube-system", "x509-exporter"},
+		}, {
+			Name: "Include namespace",
+			Exporter: Exporter{
+				KubeIncludeNamespaces: []string{"default"},
+			},
+			ExpectedNamespaces: []string{"default"},
+		}, {
+			Name: "Include multiple namespaces",
+			Exporter: Exporter{
+				KubeIncludeNamespaces: []string{"default", "kube-system"},
+			},
+			ExpectedNamespaces: []string{"default", "kube-system"},
+		}, {
+			Name: "Exclude namespace",
+			Exporter: Exporter{
+				KubeExcludeNamespaces: []string{"default"},
+			},
+			ExpectedNamespaces: []string{"kube-system", "x509-exporter"},
+		}, {
+			Name: "Exclude multiple namespaces",
+			Exporter: Exporter{
+				KubeExcludeNamespaces: []string{"default", "kube-system"},
+			},
+			ExpectedNamespaces: []string{"x509-exporter"},
+		}, {
+			Name: "Include and exclude namespace mix",
+			Exporter: Exporter{
+				KubeIncludeNamespaces: []string{"default"},
+				KubeExcludeNamespaces: []string{"default"},
+			},
+			ExpectedNamespaces: []string{},
+		}, {
+			Name: "Include and exclude namespace mix 2",
+			Exporter: Exporter{
+				KubeIncludeNamespaces: []string{"default", "kube-system"},
+				KubeExcludeNamespaces: []string{"kube-system"},
+			},
+			ExpectedNamespaces: []string{"default"},
+		}, {
+			Name: "Exlucde labels",
+			Exporter: Exporter{
+				KubeExcludeNamespaceLabels: []string{"foo"},
+			},
+			ExpectedNamespaces: []string{"kube-system", "x509-exporter"},
+		},
+		{
+			Name: "Exclude labels with value",
+			Exporter: Exporter{
+				KubeExcludeNamespaceLabels: []string{"group=foo"},
+			},
+			ExpectedNamespaces: []string{"x509-exporter"},
+		},
+		{
+			Name: "Include namespaces and exclude labels with value",
+			Exporter: Exporter{
+				KubeIncludeNamespaces:      []string{"default", "kube-system"},
+				KubeExcludeNamespaceLabels: []string{"foo=bar"},
+			},
+			ExpectedNamespaces: []string{"kube-system"},
+		},
+	}
+
+	namespaces := []v1.Namespace{
+		{ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+			Labels: map[string]string{
+				"foo":   "bar",
+				"group": "foo",
+			},
+		}},
+		{ObjectMeta: metav1.ObjectMeta{
+			Name: "kube-system",
+			Labels: map[string]string{
+				"group": "foo",
+			},
+		}},
+		{ObjectMeta: metav1.ObjectMeta{
+			Name: "x509-exporter",
+			Labels: map[string]string{
+				"group": "bar",
+			},
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			filteredNamespaces := tt.Exporter.filterNamespaces(namespaces)
+			assert.Equal(t, tt.ExpectedNamespaces, filteredNamespaces)
+		})
+	}
 }
 
 func testRequestKube(t *testing.T, e *Exporter, f func(metrics []model.MetricFamily)) {

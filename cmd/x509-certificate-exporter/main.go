@@ -69,6 +69,12 @@ func main() {
 	kubeExcludeNamespaces := stringArrayFlag{}
 	getopt.FlagLong(&kubeExcludeNamespaces, "exclude-namespace", 0, "removes the given kube namespace from the watch list (applied after --include-namespace)")
 
+	kubeIncludeNamespaceLabels := stringArrayFlag{}
+	getopt.FlagLong(&kubeIncludeNamespaceLabels, "include-namespace-label", 0, "add the kube namespaces with the given label (or label value if specified) to the watch list (when used, all namespaces are excluded by default)")
+
+	kubeExcludeNamespaceLabels := stringArrayFlag{}
+	getopt.FlagLong(&kubeExcludeNamespaceLabels, "exclude-namespace-label", 0, "removes the kube namespaces with the given label (or label value if specified) from the watch list (applied after --include-namespace-label)")
+
 	kubeIncludeLabels := stringArrayFlag{}
 	getopt.FlagLong(&kubeIncludeLabels, "include-label", 0, "add the kube secrets with the given label (or label value if specified) to the watch list (when used, all secrets are excluded by default)")
 
@@ -128,23 +134,25 @@ func main() {
 	}
 
 	exporter := internal.Exporter{
-		ListenAddress:         *listenAddress,
-		SystemdSocket:         *systemdSocket,
-		ConfigFile:            *configFile,
-		Files:                 files,
-		Directories:           directories,
-		YAMLs:                 yamls,
-		YAMLPaths:             internal.DefaultYamlPaths,
-		TrimPathComponents:    *trimPathComponents,
-		MaxCacheDuration:      time.Duration(maxCacheDuration),
-		ExposeRelativeMetrics: *exposeRelativeMetrics,
-		ExposeErrorMetrics:    *exposeErrorMetrics,
-		KubeSecretTypes:       kubeSecretTypes,
-		ConfigMapKeys:         kubeConfigMapKeys,
-		KubeIncludeNamespaces: kubeIncludeNamespaces,
-		KubeExcludeNamespaces: kubeExcludeNamespaces,
-		KubeIncludeLabels:     kubeIncludeLabels,
-		KubeExcludeLabels:     kubeExcludeLabels,
+		ListenAddress:              *listenAddress,
+		SystemdSocket:              *systemdSocket,
+		ConfigFile:                 *configFile,
+		Files:                      files,
+		Directories:                directories,
+		YAMLs:                      yamls,
+		YAMLPaths:                  internal.DefaultYamlPaths,
+		TrimPathComponents:         *trimPathComponents,
+		MaxCacheDuration:           time.Duration(maxCacheDuration),
+		ExposeRelativeMetrics:      *exposeRelativeMetrics,
+		ExposeErrorMetrics:         *exposeErrorMetrics,
+		KubeSecretTypes:            kubeSecretTypes,
+		ConfigMapKeys:              kubeConfigMapKeys,
+		KubeIncludeNamespaces:      kubeIncludeNamespaces,
+		KubeExcludeNamespaces:      kubeExcludeNamespaces,
+		KubeIncludeNamespaceLabels: kubeIncludeNamespaceLabels,
+		KubeExcludeNamespaceLabels: kubeExcludeNamespaceLabels,
+		KubeIncludeLabels:          kubeIncludeLabels,
+		KubeExcludeLabels:          kubeExcludeLabels,
 	}
 
 	if getopt.Lookup("expose-labels").Seen() {

@@ -109,36 +109,72 @@ func (exporter *Exporter) parseAllKubeObjects() ([]*certificateRef, []error) {
 }
 
 func (exporter *Exporter) listNamespacesToWatch() ([]string, error) {
-	includedNamespaces := exporter.KubeIncludeNamespaces
-
-	if len(includedNamespaces) < 1 {
-		allNamespaces, err := exporter.kubeClient.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-
-		for _, ns := range allNamespaces.Items {
-			includedNamespaces = append(includedNamespaces, ns.Name)
-		}
+	_, includedLabelsWithValue := exporter.prepareLabelFilters(exporter.KubeIncludeNamespaceLabels)
+	labelSelector := metav1.LabelSelector{MatchLabels: includedLabelsWithValue}
+	namespaces, err := exporter.kubeClient.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{
+		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	namespaces := []string{}
-	for _, includeNs := range includedNamespaces {
-		found := false
+	return exporter.filterNamespaces(namespaces.Items), nil
+}
 
+func (exporter *Exporter) filterNamespaces(namespaces []v1.Namespace) []string {
+	filteredNamespaces := []*v1.Namespace{}
+	for _, namespace := range namespaces {
+		found := false
+		for _, includeNs := range exporter.KubeIncludeNamespaces {
+			if namespace.Name == includeNs {
+				found = true
+				break
+			}
+		}
+
+		if len(exporter.KubeIncludeNamespaces) > 0 && !found {
+			continue
+		}
+
+		found = false
 		for _, excludeNs := range exporter.KubeExcludeNamespaces {
-			if includeNs == excludeNs {
+			if namespace.Name == excludeNs {
 				found = true
 				break
 			}
 		}
 
 		if !found {
-			namespaces = append(namespaces, includeNs)
+			filteredNamespaces = append(filteredNamespaces, &namespace)
 		}
 	}
 
-	return namespaces, nil
+	includedLabels, _ := exporter.prepareLabelFilters(exporter.KubeIncludeNamespaceLabels)
+	excludedLabels, excludedLabelsWithValue := exporter.prepareLabelFilters(exporter.KubeExcludeNamespaceLabels)
+	filteredNamespaces = filterObjects(filteredNamespaces, includedLabels, excludedLabels, excludedLabelsWithValue)
+
+	namespacesNames := []string{}
+	for _, namespace := range filteredNamespaces {
+		namespacesNames = append(namespacesNames, namespace.Name)
+	}
+
+	return namespacesNames
+}
+
+func (exporter *Exporter) prepareLabelFilters(labels []string) ([]string, map[string]string) {
+	labelsWithValue := map[string]string{}
+	labelsWithoutValue := []string{}
+
+	for _, label := range labels {
+		parts := strings.Split(label, "=")
+		if len(parts) < 2 {
+			labelsWithoutValue = append(labelsWithoutValue, label)
+		} else {
+			labelsWithValue[parts[0]] = parts[1]
+		}
+	}
+
+	return labelsWithoutValue, labelsWithValue
 }
 
 func (exporter *Exporter) getWatchedConfigMaps(namespace string) ([]v1.ConfigMap, error) {
@@ -163,28 +199,7 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 		return cachedSecrets.([]v1.Secret), nil
 	}
 
-	includedLabelsWithValue := map[string]string{}
-	includedLabelsWithoutValue := []string{}
-	for _, label := range exporter.KubeIncludeLabels {
-		parts := strings.Split(label, "=")
-		if len(parts) < 2 {
-			includedLabelsWithoutValue = append(includedLabelsWithoutValue, label)
-		} else {
-			includedLabelsWithValue[parts[0]] = parts[1]
-		}
-	}
-
-	excludedLabelsWithValue := map[string]string{}
-	excludedLabelsWithoutValue := []string{}
-	for _, label := range exporter.KubeExcludeLabels {
-		parts := strings.Split(label, "=")
-		if len(parts) < 2 {
-			excludedLabelsWithoutValue = append(excludedLabelsWithoutValue, label)
-		} else {
-			excludedLabelsWithValue[parts[0]] = parts[1]
-		}
-	}
-
+	_, includedLabelsWithValue := exporter.prepareLabelFilters(exporter.KubeIncludeLabels)
 	labelSelector := metav1.LabelSelector{MatchLabels: includedLabelsWithValue}
 	secrets, err := exporter.kubeClient.CoreV1().Secrets(namespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
@@ -193,7 +208,7 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 		return nil, err
 	}
 
-	filteredSecrets, err := exporter.filterSecrets(secrets.Items, includedLabelsWithoutValue, excludedLabelsWithoutValue, excludedLabelsWithValue)
+	filteredSecrets, err := exporter.filterSecrets(secrets.Items)
 	if err != nil {
 		return nil, err
 	}
@@ -209,8 +224,11 @@ func (exporter *Exporter) getWatchedSecrets(namespace string) ([]v1.Secret, erro
 	return shrinkedSecrets, nil
 }
 
-func (exporter *Exporter) filterSecrets(secrets []v1.Secret, includedLabels, excludedLabels []string, excludedLabelsWithValue map[string]string) ([]v1.Secret, error) {
-	filteredSecrets := []v1.Secret{}
+func (exporter *Exporter) filterSecrets(secrets []v1.Secret) ([]v1.Secret, error) {
+	filteredSecrets := []*v1.Secret{}
+
+	includedLabels, _ := exporter.prepareLabelFilters(exporter.KubeIncludeLabels)
+	excludedLabels, excludedLabelsWithValue := exporter.prepareLabelFilters(exporter.KubeExcludeLabels)
 
 	for _, secret := range secrets {
 		hasIncludedType, err := exporter.checkHasIncludedType(&secret)
@@ -222,41 +240,15 @@ func (exporter *Exporter) filterSecrets(secrets []v1.Secret, includedLabels, exc
 			continue
 		}
 
-		validKeyCount := 0
-		for _, expectedKey := range includedLabels {
-			for key := range secret.GetLabels() {
-				if key == expectedKey {
-					validKeyCount++
-					break
-				}
-			}
-		}
-
-		forbiddenKeyCount := 0
-		for _, forbiddenKey := range excludedLabels {
-			for key := range secret.GetLabels() {
-				if key == forbiddenKey {
-					forbiddenKeyCount++
-					break
-				}
-			}
-		}
-
-		for forbiddenKey, forbiddenValue := range excludedLabelsWithValue {
-			for key, value := range secret.GetLabels() {
-				if key == forbiddenKey && value == forbiddenValue {
-					forbiddenKeyCount++
-					break
-				}
-			}
-		}
-
-		if validKeyCount >= len(includedLabels) && forbiddenKeyCount == 0 {
-			filteredSecrets = append(filteredSecrets, secret)
-		}
+		filteredSecrets = append(filteredSecrets, &secret)
 	}
 
-	return filteredSecrets, nil
+	filteredSecrets = filterObjects(filteredSecrets, includedLabels, excludedLabels, excludedLabelsWithValue)
+	for i, filteredSecret := range filteredSecrets {
+		secrets[i] = *filteredSecret
+	}
+
+	return secrets[:len(filteredSecrets)], nil
 }
 
 func (exporter *Exporter) checkHasIncludedType(secret *v1.Secret) (bool, error) {
@@ -333,4 +325,45 @@ func getKubeClient(config *rest.Config) (*kubernetes.Clientset, error) {
 	slog.Info("Got Kubernetes API server version", "apiserver_version", serverVersion.GitVersion)
 
 	return kubeClient, nil
+}
+
+func filterObjects[T metav1.Object](objects []T, includedLabels []string, excludedLabels []string, excludedLabelsWithValue map[string]string) []T {
+	filteredObjects := []T{}
+
+	for _, object := range objects {
+		validKeyCount := 0
+		for _, expectedKey := range includedLabels {
+			for key := range object.GetLabels() {
+				if key == expectedKey {
+					validKeyCount++
+					break
+				}
+			}
+		}
+
+		forbiddenKeyCount := 0
+		for _, forbiddenKey := range excludedLabels {
+			for key := range object.GetLabels() {
+				if key == forbiddenKey {
+					forbiddenKeyCount++
+					break
+				}
+			}
+		}
+
+		for forbiddenKey, forbiddenValue := range excludedLabelsWithValue {
+			for key, value := range object.GetLabels() {
+				if key == forbiddenKey && value == forbiddenValue {
+					forbiddenKeyCount++
+					break
+				}
+			}
+		}
+
+		if validKeyCount >= len(includedLabels) && forbiddenKeyCount == 0 {
+			filteredObjects = append(filteredObjects, object)
+		}
+	}
+
+	return filteredObjects
 }

@@ -27,24 +27,26 @@ import (
 
 // Exporter : Configuration (from command-line)
 type Exporter struct {
-	ListenAddress         string
-	SystemdSocket         bool
-	ConfigFile            string
-	Files                 []string
-	Directories           []string
-	YAMLs                 []string
-	YAMLPaths             []YAMLCertRef
-	TrimPathComponents    int
-	MaxCacheDuration      time.Duration
-	ExposeRelativeMetrics bool
-	ExposeErrorMetrics    bool
-	ExposeLabels          []string
-	ConfigMapKeys         []string
-	KubeSecretTypes       []KubeSecretType
-	KubeIncludeNamespaces []string
-	KubeExcludeNamespaces []string
-	KubeIncludeLabels     []string
-	KubeExcludeLabels     []string
+	ListenAddress              string
+	SystemdSocket              bool
+	ConfigFile                 string
+	Files                      []string
+	Directories                []string
+	YAMLs                      []string
+	YAMLPaths                  []YAMLCertRef
+	TrimPathComponents         int
+	MaxCacheDuration           time.Duration
+	ExposeRelativeMetrics      bool
+	ExposeErrorMetrics         bool
+	ExposeLabels               []string
+	ConfigMapKeys              []string
+	KubeSecretTypes            []KubeSecretType
+	KubeIncludeNamespaces      []string
+	KubeExcludeNamespaces      []string
+	KubeIncludeNamespaceLabels []string
+	KubeExcludeNamespaceLabels []string
+	KubeIncludeLabels          []string
+	KubeExcludeLabels          []string
 
 	kubeClient      *kubernetes.Clientset
 	listener        net.Listener

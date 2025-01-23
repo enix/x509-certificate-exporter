@@ -41,7 +41,7 @@ USER 65534:65534
 EXPOSE 9793/tcp
 ENTRYPOINT [ "/x509-certificate-exporter" ]
 
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:4f12c90f259bd273ed698660bc983053c5f4d2d2617beb0d481d4ec43d7cbbbd
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:54db2c1df599961424cff34b05fd4d852e73a029b19fcd3d4973fa0cb30fd8ec
 COPY --from=build --chown=0:0 --chmod=0555 /x509-certificate-exporter /x509-certificate-exporter
 USER nobody:nobody
 EXPOSE 9793/tcp

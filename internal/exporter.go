@@ -48,7 +48,7 @@ type Exporter struct {
 	KubeIncludeLabels          []string
 	KubeExcludeLabels          []string
 
-	kubeClient      *kubernetes.Clientset
+	kubeClient      kubernetes.Interface
 	listener        net.Listener
 	server          *http.Server
 	isDiscovery     bool

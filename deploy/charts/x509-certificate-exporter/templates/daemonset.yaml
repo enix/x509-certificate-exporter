@@ -151,14 +151,16 @@ spec:
           httpGet:
             path: /healthz
             port: metrics
-          initialDelaySeconds: 5
-          periodSeconds: 3
+        {{- with omit $.Values.hostPathsExporter.readinessProbe "httpGet" }}
+          {{ tpl (. | toYaml) $ | indent 10 | trim }}
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /healthz
             port: metrics
-          initialDelaySeconds: 5
-          periodSeconds: 3
+        {{- with omit $.Values.hostPathsExporter.livenessProbe "httpGet" }}
+          {{ tpl (. | toYaml) $ | indent 10 | trim }}
+        {{- end }}
       {{- else }}
       - name: kube-rbac-proxy
         {{- with $.Values.rbacProxy.securityContext }}
@@ -184,14 +186,16 @@ spec:
           httpGet:
             path: /healthz
             port: metrics
-          initialDelaySeconds: 5
-          periodSeconds: 3
+        {{- with omit $.Values.hostPathsExporter.readinessProbe "httpGet" }}
+          {{ tpl (. | toYaml) $ | indent 10 | trim }}
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /healthz
             port: metrics
-          initialDelaySeconds: 5
-          periodSeconds: 3
+        {{- with omit $.Values.hostPathsExporter.livenessProbe "httpGet" }}
+          {{ tpl (. | toYaml) $ | indent 10 | trim }}
+        {{- end }}
         {{- with $.Values.rbacProxy.resources }}
         resources:
         {{- . | toYaml | trim | nindent 10 }}

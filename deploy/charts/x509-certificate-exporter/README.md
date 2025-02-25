@@ -373,6 +373,8 @@ hostPathsExporter:
 | secretsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of the TLS Secrets exporter |
 | secretsExporter.strategy | object | `{}` | DeploymentStrategy for the TLS Secrets exporter |
 | secretsExporter.resources | object | check `values.yaml` | ResourceRequirements for containers of the TLS Secrets exporter |
+| secretsExporter.readinessProbe | object | check `values.yaml` | Readiness probe definition for the secrets exporter (.httpGet cannot be changed) |
+| secretsExporter.livenessProbe | object | check `values.yaml` | Liveness probe definition for the secrets exporter (.httpGet cannot be changed) |
 | secretsExporter.nodeSelector | object | `{}` | Node selector for Pods of the TLS Secrets exporter |
 | secretsExporter.tolerations | list | `[]` | Toleration for Pods of the TLS Secrets exporter |
 | secretsExporter.affinity | object | `{}` | Affinity for Pods of the TLS Secrets exporter |
@@ -387,6 +389,8 @@ hostPathsExporter:
 | secretsExporter.configMapKeys | list | check `values.yaml` | If the exporter should for certificates in configmaps, just specify the keys it needs to watch. E.g.: `configMapKeys: ["tls.crt"]` |
 | secretsExporter.includeNamespaces | list | `[]` | Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty) |
 | secretsExporter.excludeNamespaces | list | `[]` | Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`) |
+| secretsExporter.includeNamespaceLabels | list | `[]` | Only watch namespaces having these labels (all namespaces if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
+| secretsExporter.excludeNamespaceLabels | list | `[]` | Exclude namespaces having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.includeLabels | list | `[]` | Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.excludeLabels | list | `[]` | Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.cache.enabled | bool | `true` | Enable caching of Kubernetes objects to prevent scraping timeouts |
@@ -399,6 +403,8 @@ hostPathsExporter:
 | hostPathsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.updateStrategy | object | `{}` | updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.resources | object | check `values.yaml` | ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.readinessProbe | object | check `values.yaml` | Readiness probe definition for the host paths exporter (.httpGet cannot be changed) |
+| hostPathsExporter.livenessProbe | object | check `values.yaml` | Liveness probe definition for the host paths exporter (.httpGet cannot be changed) |
 | hostPathsExporter.nodeSelector | object | `{}` | Node selector for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.tolerations | list | `[]` | Toleration for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.affinity | object | `{}` | Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
@@ -411,6 +417,7 @@ hostPathsExporter:
 | hostPathsExporter.extraVolumeMounts | list | `[]` | Additionnal volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`) |
 | hostPathsExporter.hostPathVolumeType | string | `"Directory"` | Type for HostPath volumes used with watched paths. Can be set to `""` or null to use Kubernetes defaults. May be required with RKE if Pods don't start. |
 | hostPathsExporter.watchDirectories | list | `[]` | [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep) |
+| hostPathsExporter.watchSpecificExtensionDirectories | list | `[]` | [SEE README] List of directory paths of the host to scan for specific extension files to be watched and exported as metrics (one level deep) |
 | hostPathsExporter.watchFiles | list | `[]` | [SEE README] List of file paths of the host for PEM encoded certificates to be watched and exported as metrics (one level deep) |
 | hostPathsExporter.watchKubeconfFiles | list | `[]` | [SEE README] List of Kubeconf file paths of the host to scan for embedded certificates to export metrics about |
 | hostPathsExporter.env | list | `[]` | Additional environment variables for container |

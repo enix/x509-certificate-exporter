@@ -1,4 +1,4 @@
-package internal
+package exporter
 
 // Version and build informations set at link time
 var Version = "0.0.0"

@@ -16,7 +16,7 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 	"k8s.io/client-go/util/flowcontrol"
 
-	"github.com/enix/x509-certificate-exporter/v3/internal"
+	"github.com/enix/x509-certificate-exporter/v3/pkg/exporter"
 	getopt "github.com/pborman/getopt/v2"
 )
 
@@ -89,7 +89,7 @@ func main() {
 	}
 
 	if *version {
-		fmt.Fprintf(os.Stderr, "version %s\n", internal.Version)
+		fmt.Fprintf(os.Stderr, "version %s\n", exporter.Version)
 		return
 	}
 
@@ -99,7 +99,7 @@ func main() {
 	}
 	slog.SetDefault(logger)
 
-	slog.Info("Starting exporter", "version", internal.Version, "revision", internal.Revision, "build_time", internal.BuildDateTime)
+	slog.Info("Starting exporter", "version", exporter.Version, "revision", exporter.Revision, "build_time", exporter.BuildDateTime)
 
 	if *profile {
 		go func() {
@@ -124,23 +124,23 @@ func main() {
 		slog.Error("Cannot set GOMEMLIMIT with automemlimit", "reason", err.Error())
 	}
 
-	kubeSecretTypes := make([]internal.KubeSecretType, 0)
+	kubeSecretTypes := make([]exporter.KubeSecretType, 0)
 	for _, pattern := range kubeSecretTypePatterns {
-		kst, err := internal.ParseSecretType(pattern)
+		kst, err := exporter.ParseSecretType(pattern)
 		if err != nil {
 			log.Fatal("failed to parse --secret-type argument: ", err)
 		}
 		kubeSecretTypes = append(kubeSecretTypes, kst)
 	}
 
-	exporter := internal.Exporter{
+	exporter := exporter.Exporter{
 		ListenAddress:              *listenAddress,
 		SystemdSocket:              *systemdSocket,
 		ConfigFile:                 *configFile,
 		Files:                      files,
 		Directories:                directories,
 		YAMLs:                      yamls,
-		YAMLPaths:                  internal.DefaultYamlPaths,
+		YAMLPaths:                  exporter.DefaultYamlPaths,
 		TrimPathComponents:         *trimPathComponents,
 		MaxCacheDuration:           time.Duration(maxCacheDuration),
 		ExposeRelativeMetrics:      *exposeRelativeMetrics,

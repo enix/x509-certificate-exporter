@@ -78,6 +78,16 @@ secretsExporter:
     requests:
       cpu: 20m
       memory: 20Mi
+  # -- Readiness probe definition for the secrets exporter (.httpGet cannot be changed)
+  # @default -- check `values.yaml`
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 3
+  # -- Liveness probe definition for the secrets exporter (.httpGet cannot be changed)
+  # @default -- check `values.yaml`
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 3
   # -- Node selector for Pods of the TLS Secrets exporter
   nodeSelector: {}
   # -- Toleration for Pods of the TLS Secrets exporter
@@ -166,6 +176,16 @@ hostPathsExporter:
     requests:
       cpu: 10m
       memory: 20Mi
+  # -- Readiness probe definition for the host paths exporter (.httpGet cannot be changed)
+  # @default -- check `values.yaml`
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 3
+  # -- Liveness probe definition for the host paths exporter (.httpGet cannot be changed)
+  # @default -- check `values.yaml`
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 3
   # -- Node selector for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   nodeSelector: {}
   # -- Toleration for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)

@@ -148,12 +148,6 @@ spec:
         {{- end }}
       {{- if not .Values.rbacProxy.enabled }}
         - --listen-address=:{{ .Values.podListenPort }}
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: metrics
-          initialDelaySeconds: 5
-          periodSeconds: 3
         ports:
         - name: metrics
           containerPort: {{ .Values.podListenPort }}
@@ -161,8 +155,16 @@ spec:
           httpGet:
             path: /healthz
             port: metrics
-          initialDelaySeconds: 5
-          periodSeconds: 3
+        {{- with omit $.Values.secretsExporter.readinessProbe "httpGet" }}
+          {{ tpl (. | toYaml) $ | indent 10 | trim }}
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+        {{- with omit $.Values.secretsExporter.livenessProbe "httpGet" }}
+          {{ tpl (. | toYaml) $ | indent 10 | trim }}
+        {{- end }}
       {{- else }}
         - --listen-address=:{{ .Values.rbacProxy.upstreamListenPort }}
       - name: kube-rbac-proxy
@@ -182,12 +184,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: metrics
-          initialDelaySeconds: 5
-          periodSeconds: 3
         ports:
         - name: metrics
           containerPort: {{ .Values.podListenPort }}
@@ -195,8 +191,16 @@ spec:
           httpGet:
             path: /healthz
             port: metrics
-          initialDelaySeconds: 5
-          periodSeconds: 3
+        {{- with omit $.Values.secretsExporter.readinessProbe "httpGet" }}
+          {{ tpl (. | toYaml) $ | indent 10 | trim }}
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: metrics
+        {{- with omit $.Values.secretsExporter.livenessProbe "httpGet" }}
+          {{ tpl (. | toYaml) $ | indent 10 | trim }}
+        {{- end }}
         {{- with .Values.rbacProxy.resources }}
         resources:
         {{- . | toYaml | trim | nindent 10 }}

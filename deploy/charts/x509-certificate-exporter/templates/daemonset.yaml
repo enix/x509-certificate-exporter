@@ -114,6 +114,10 @@ spec:
         {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
         - --web.config.file=/mnt/webconfig.yaml
         {{- end }}
+        {{- if $.Values.secretsExporter.kubeApiRateLimits.enabled }}
+        - --kube-api-rate-limit-qps={{ $.Values.secretsExporter.kubeApiRateLimits.queriesPerSecond }}
+        - --kube-api-rate-limit-burst={{ $.Values.secretsExporter.kubeApiRateLimits.burstQueries }}
+        {{- end }}
         volumeMounts:
         {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
         - name: dir-{{ . | clean | sha1sum }}

@@ -9,6 +9,10 @@ metadata:
     {{- with .Values.prometheusServiceMonitor.extraLabels }}
     {{- . | toYaml | trim | nindent 4 }}
     {{- end }}
+  annotations:
+    {{- with .Values.prometheusServiceMonitor.extraAnnotations }}
+    {{- . | toYaml | trim | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:

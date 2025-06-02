@@ -1,7 +1,7 @@
 FROM --platform=$BUILDPLATFORM golang:1.24.2 AS base
 WORKDIR /app
 
-FROM --platform=$BUILDPLATFORM cosmtrek/air:v1.61.7 AS air
+FROM --platform=$BUILDPLATFORM cosmtrek/air:v1.62.0 AS air
 
 FROM base AS dev
 ARG USER_ID=1000

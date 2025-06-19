@@ -35,6 +35,7 @@ RUN go build -v -a -buildvcs=false \
     " \
     -o /x509-certificate-exporter \
     ./cmd/x509-certificate-exporter
+
 FROM scratch AS distroless
 COPY --from=build --chown=0:0 --chmod=0555 /x509-certificate-exporter /x509-certificate-exporter
 USER 65534:65534

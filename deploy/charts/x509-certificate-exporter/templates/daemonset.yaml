@@ -148,19 +148,25 @@ spec:
         - name: metrics
           containerPort: {{ $.Values.podListenPort }}
         readinessProbe:
-          httpGet:
-            path: /healthz
-            port: metrics
         {{- with omit $.Values.hostPathsExporter.readinessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
-        livenessProbe:
           httpGet:
             path: /healthz
             port: metrics
+          {{- with $.Values.hostPathsExporter.readinessProbe.httpGet }}
+            {{ tpl (. | toYaml) $ | indent 12 | trim }}
+          {{- end }}
+        livenessProbe:
         {{- with omit $.Values.hostPathsExporter.livenessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
+          httpGet:
+            path: /healthz
+            port: metrics
+          {{- with $.Values.hostPathsExporter.livenessProbe.httpGet }}
+            {{ tpl (. | toYaml) $ | indent 12 | trim }}
+          {{- end }}
       {{- else }}
       - name: kube-rbac-proxy
         {{- with $.Values.rbacProxy.securityContext }}

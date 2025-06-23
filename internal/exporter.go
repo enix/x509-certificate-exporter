@@ -135,10 +135,16 @@ func (exporter *Exporter) Serve() error {
 	return web.Serve(exporter.listener, exporter.server, &toolkitFlags, slog.Default())
 }
 
-// Shutdown : Properly tear down server
+// Shutdown : Properly tear down server tears down server using a default background context
 func (exporter *Exporter) Shutdown() error {
+	return exporter.ShutdownWithContext(context.Background())
+}
+
+// ShutdownWithContext properly tears down the server using the provided context
+// This allows for setting timeouts and other context-specific configurations
+func (exporter *Exporter) ShutdownWithContext(ctx context.Context) error {
 	if exporter.server != nil {
-		return exporter.server.Shutdown(context.Background())
+		return exporter.server.Shutdown(ctx)
 	}
 
 	return nil

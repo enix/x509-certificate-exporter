@@ -61,6 +61,8 @@ grafana:
 secretsExporter:
   # -- Should the TLS Secrets exporter be running
   enabled: true
+  # -- Additional Deployment annotations
+  annotations: {}
   # -- Should debug messages be produced by the TLS Secrets exporter
   debugMode: false
   # -- Desired number of TLS Secrets exporter Pod
@@ -161,6 +163,8 @@ secretsExporter:
   #   value: "1"
 
 hostPathsExporter:
+  # -- Additional DaemonSet annotations
+  annotations: {}
   # -- Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets)
   debugMode: false
   # -- restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)

@@ -368,6 +368,7 @@ hostPathsExporter:
 | grafana.annotations | object | `{}` | Annotations added to the Grafana dashboard ConfigMap (example in `values.yaml`) |
 | grafana.extraLabels | object | `{}` | Additional labels added to the Grafana dashboard ConfigMap |
 | secretsExporter.enabled | bool | `true` | Should the TLS Secrets exporter be running |
+| secretsExporter.annotations | object | `{}` | Additional Deployment annotations |
 | secretsExporter.debugMode | bool | `false` | Should debug messages be produced by the TLS Secrets exporter |
 | secretsExporter.replicas | int | `1` | Desired number of TLS Secrets exporter Pod |
 | secretsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of the TLS Secrets exporter |
@@ -399,6 +400,7 @@ hostPathsExporter:
 | secretsExporter.kubeApiRateLimits.queriesPerSecond | int | `5` | Maximum rate of queries sent to the API server (per second) |
 | secretsExporter.kubeApiRateLimits.burstQueries | int | `10` | Burst bucket size for queries sent to the API server |
 | secretsExporter.env | list | `[]` | Additional environment variables for container |
+| hostPathsExporter.annotations | object | `{}` | Additional DaemonSet annotations |
 | hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.updateStrategy | object | `{}` | updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets) |
@@ -435,6 +437,7 @@ hostPathsExporter:
 | prometheusServiceMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the ServiceMonitor |
 | prometheusServiceMonitor.scrapeTimeout | string | `"30s"` | Target scrape timeout set in the ServiceMonitor |
 | prometheusServiceMonitor.extraLabels | object | `{}` | Additional labels to add to ServiceMonitor objects |
+| prometheusServiceMonitor.extraAnnotations | object | `{}` | Additional annotations to add to ServiceMonitor objects |
 | prometheusServiceMonitor.metricRelabelings | list | `[]` | Metric relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusServiceMonitor.relabelings | list | `[]` | Relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusServiceMonitor.scheme | string | `"http"` | Scheme config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |

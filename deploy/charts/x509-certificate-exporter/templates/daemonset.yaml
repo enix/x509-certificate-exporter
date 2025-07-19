@@ -7,6 +7,10 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
+  {{- with default $.Values.hostPathsExporter.annotations $dsDef.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   name: {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $dsName }}
   namespace: {{ include "x509-certificate-exporter.namespace" $ }}
   labels:

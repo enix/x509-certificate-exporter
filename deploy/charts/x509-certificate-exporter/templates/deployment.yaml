@@ -4,6 +4,10 @@
 apiVersion: {{ include "capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
+  {{- with .Values.secretsExporter.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   name: {{ include "x509-certificate-exporter.secretsExporterName" . }}
   namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:

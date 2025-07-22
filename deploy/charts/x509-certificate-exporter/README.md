@@ -383,8 +383,8 @@ hostPathsExporter:
 | secretsExporter.podAnnotations | object | `{}` | Annotations added to Pods of the TLS Secrets exporter |
 | secretsExporter.podSecurityContext | object | check `values.yaml` | PodSecurityContext for Pods of the TLS Secrets exporter |
 | secretsExporter.securityContext | object | check `values.yaml` | SecurityContext for containers of the TLS Secrets exporter |
-| secretsExporter.extraVolumes | list | `[]` | Additionnal volumes added to Pods of the TLS Secrets exporter (combined with global `extraVolumes`) |
-| secretsExporter.extraVolumeMounts | list | `[]` | Additionnal volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`) |
+| secretsExporter.extraVolumes | list | `[]` | Additional volumes added to Pods of the TLS Secrets exporter (combined with global `extraVolumes`) |
+| secretsExporter.extraVolumeMounts | list | `[]` | Additional volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`) |
 | secretsExporter.secretTypes | list | check `values.yaml` | Which type of Secrets should be watched ; "key" is the map key in the secret data |
 | secretsExporter.configMapKeys | list | check `values.yaml` | If the exporter should for certificates in configmaps, just specify the keys it needs to watch. E.g.: `configMapKeys: ["tls.crt"]` |
 | secretsExporter.includeNamespaces | list | `[]` | Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty) |
@@ -393,6 +393,7 @@ hostPathsExporter:
 | secretsExporter.excludeNamespaceLabels | list | `[]` | Exclude namespaces having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.includeLabels | list | `[]` | Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.excludeLabels | list | `[]` | Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
+| secretsExporter.extraArgs | list | `[]` | Includes extra arguments. Items can be a list of extra arguments that should be added to the command line such as `--watch-file="/extra-cert/tls.crt`. |
 | secretsExporter.cache.enabled | bool | `true` | Enable caching of Kubernetes objects to prevent scraping timeouts |
 | secretsExporter.cache.maxDuration | int | `300` | Maximum time an object can stay in cache unrefreshed (seconds) - it will be at least half of that |
 | secretsExporter.kubeApiRateLimits.enabled | bool | `false` | Should requests to the Kubernetes API server be rate-limited |
@@ -413,8 +414,8 @@ hostPathsExporter:
 | hostPathsExporter.podAnnotations | object | `{}` | Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.securityContext | object | check `values.yaml` | SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
-| hostPathsExporter.extraVolumes | list | `[]` | Additionnal volumes added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`) |
-| hostPathsExporter.extraVolumeMounts | list | `[]` | Additionnal volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`) |
+| hostPathsExporter.extraVolumes | list | `[]` | Additional volumes added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`) |
+| hostPathsExporter.extraVolumeMounts | list | `[]` | Additional volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`) |
 | hostPathsExporter.hostPathVolumeType | string | `"Directory"` | Type for HostPath volumes used with watched paths. Can be set to `""` or null to use Kubernetes defaults. May be required with RKE if Pods don't start. |
 | hostPathsExporter.watchDirectories | list | `[]` | [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep) |
 | hostPathsExporter.watchSpecificExtensionDirectories | list | `[]` | [SEE README] List of directory paths of the host to scan for specific extension files to be watched and exported as metrics (one level deep) |
@@ -466,8 +467,8 @@ hostPathsExporter:
 | podExtraLabels | object | `{}` | Additional labels added to all Pods |
 | podAnnotations | object | `{}` | Annotations added to all Pods |
 | priorityClassName | string | `""` | PriorityClassName set for all Pods by default (could be overrided with `secretsExporter` and `hostPathsExporter` specific values) |
-| extraVolumes | list | `[]` | Additionnal volumes added to all Pods (see also the `secretsExporter` and `hostPathsExporter` variants) |
-| extraVolumeMounts | list | `[]` | Additionnal volume mounts added to all Pod containers (see also the `secretsExporter` and `hostPathsExporter` variants) |
+| extraVolumes | list | `[]` | Additional volumes added to all Pods (see also the `secretsExporter` and `hostPathsExporter` variants) |
+| extraVolumeMounts | list | `[]` | Additional volume mounts added to all Pod containers (see also the `secretsExporter` and `hostPathsExporter` variants) |
 | psp.create | bool | `false` | Should Pod Security Policy objects be created |
 | rbac.create | bool | `true` | Should RBAC objects be created |
 | rbac.secretsExporter.serviceAccountName | string | `nil` | Name of the ServiceAccount for the Secrets exporter (required if `rbac.create=false`) |

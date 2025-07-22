@@ -117,9 +117,9 @@ secretsExporter:
     capabilities:
       drop:
       - ALL
-  # -- Additionnal volumes added to Pods of the TLS Secrets exporter (combined with global `extraVolumes`)
+  # -- Additional volumes added to Pods of the TLS Secrets exporter (combined with global `extraVolumes`)
   extraVolumes: []
-  # -- Additionnal volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`)
+  # -- Additional volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`)
   extraVolumeMounts: []
 
   # -- Which type of Secrets should be watched ; "key" is the map key in the secret data
@@ -146,6 +146,8 @@ secretsExporter:
   excludeLabels: []
   # -- Expose selected labels from kubernetes secrets as prometheus label.
   exposeSecretLabels: []
+  # -- Includes extra arguments. Items can be a list of extra arguments that should be added to the command line such as `--watch-file="/extra-cert/tls.crt`.
+  extraArgs: []
 
   cache:
     # -- Enable caching of Kubernetes objects to prevent scraping timeouts
@@ -219,9 +221,9 @@ hostPathsExporter:
     capabilities:
       drop:
       - ALL
-  # -- Additionnal volumes added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`)
+  # -- Additional volumes added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`)
   extraVolumes: []
-  # -- Additionnal volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`)
+  # -- Additional volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`)
   extraVolumeMounts: []
 
   # -- Type for HostPath volumes used with watched paths. Can be set to `""` or null to use Kubernetes defaults. May be required with RKE if Pods don't start.
@@ -361,10 +363,10 @@ podAnnotations: {}
 # -- PriorityClassName set for all Pods by default (could be overrided with `secretsExporter` and `hostPathsExporter` specific values)
 priorityClassName: ""
 
-# -- Additionnal volumes added to all Pods (see also the `secretsExporter` and `hostPathsExporter` variants)
+# -- Additional volumes added to all Pods (see also the `secretsExporter` and `hostPathsExporter` variants)
 extraVolumes: []
 
-# -- Additionnal volume mounts added to all Pod containers (see also the `secretsExporter` and `hostPathsExporter` variants)
+# -- Additional volume mounts added to all Pod containers (see also the `secretsExporter` and `hostPathsExporter` variants)
 extraVolumeMounts: []
 
 psp:

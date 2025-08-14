@@ -18,8 +18,8 @@ require (
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0
 	go.uber.org/automaxprocs v1.6.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.33.1
-	k8s.io/apimachinery v0.33.1
+	k8s.io/api v0.33.4
+	k8s.io/apimachinery v0.33.4
 	k8s.io/client-go v0.33.1
 )
 
@@ -41,7 +41,6 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/mdlayher/vsock v1.2.1 // indirect

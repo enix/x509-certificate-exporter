@@ -285,7 +285,7 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 			}
 
 			for _, file := range files {
-				if file.IsDir() {
+				if isDir(dir, file.Name()) {
 					continue
 				}
 
@@ -342,6 +342,18 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 	}
 
 	return output, outputErrors
+}
+
+// for testing if an os.DirEntry is a directory we want to first follow
+// the symbolic link if there is one or we will try to load a directory
+// as a certificate
+func isDir(dir string, name string) bool {
+	info, err := os.Stat(path.Join(dir, name))
+	if err != nil {
+		return false
+	}
+
+	return info.IsDir()
 }
 
 // compareCertificates compares labels of these two certificates

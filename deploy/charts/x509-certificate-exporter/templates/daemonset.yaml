@@ -95,10 +95,10 @@ spec:
         - --watch-dir=/mnt/watch/dir-{{ .directory | clean | sha1sum }}/{{ .directory | clean }}/*.{{ .extension | clean }}
         {{- end }}
         {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
-        - --watch-file=/mnt/watch/file-{{ . | clean | sha1sum }}/{{ . | clean }}
+        - --watch-file=/mnt/watch/file-{{ . | clean | sha1sum }}{{ . | clean }}
         {{- end }}
         {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
-        - --watch-kubeconf=/mnt/watch/kube-{{ . | clean | sha1sum }}/{{ . | clean }}
+        - --watch-kubeconf=/mnt/watch/kube-{{ . | clean | sha1sum }}{{ . | clean }}
         {{- end }}
         {{- if not (kindIs "invalid" $.Values.metricLabelsFilterList) }}
         - --expose-labels={{ $.Values.metricLabelsFilterList | join "," }}
@@ -127,12 +127,12 @@ spec:
         {{- end }}
         {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
         - name: file-{{ . | clean | sha1sum }}
-          mountPath: /mnt/watch/file-{{ . | clean | sha1sum }}/{{ . | clean | dir }}
+          mountPath: /mnt/watch/file-{{ . | clean | sha1sum }}{{ . | clean | dir }}
           readOnly: true
         {{- end }}
         {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
         - name: kube-{{ . | clean | sha1sum }}
-          mountPath: /mnt/watch/kube-{{ . | clean | sha1sum }}/{{ . | clean | dir }}
+          mountPath: /mnt/watch/kube-{{ . | clean | sha1sum }}{{ . | clean | dir }}
           readOnly: true
         {{- end }}
         {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}

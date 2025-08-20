@@ -1,9 +1,9 @@
 package internal
 
 import (
+	"log/slog"
 	"runtime"
 	"time"
-	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -33,6 +33,10 @@ var (
 	certValidSinceHelp   = "Indicates the elapsed time since the certificate's not before timestamp"
 	certValidSinceDesc   = prometheus.NewDesc(certValidSinceMetric, certValidSinceHelp, nil, nil)
 
+	certSANMetric = "x509_cert_san"
+	certSANHelp   = "Indicates the Subject Alternative Names (DNS or IP) present in the certificate"
+	certSANDesc   = prometheus.NewDesc(certSANMetric, certSANHelp, nil, nil)
+
 	certErrorMetric = "x509_cert_error"
 	certErrorHelp   = "Indicates wether the corresponding secret has read failure(s)"
 	certErrorDesc   = prometheus.NewDesc(certErrorMetric, certErrorHelp, nil, nil)
@@ -60,7 +64,7 @@ func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- certNotAfterDesc
 	ch <- certErrorsDesc
 	ch <- infoDesc
-
+	ch <- certSANDesc
 	if collector.exporter.ExposeRelativeMetrics {
 		ch <- certExpiresInDesc
 		ch <- certValidSinceDesc
@@ -152,6 +156,26 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 			float64(certData.cert.NotAfter.Unix()),
 			labelValues...,
 		),
+	}
+
+	for _, dns := range certData.cert.DNSNames {
+		dnsLabelValues := append(labelValues, dns, "dns")
+		dnsLabelKeys := append(labelKeys, "SAN_value", "SAN_type")
+		metrics = append(metrics, prometheus.MustNewConstMetric(
+			prometheus.NewDesc(certSANMetric, certSANHelp, dnsLabelKeys, nil),
+			prometheus.GaugeValue,
+			1,
+			dnsLabelValues...))
+	}
+
+	for _, ip := range certData.cert.IPAddresses {
+		ipdnsLabelValues := append(labelValues, ip.String(), "address")
+		ipLabelKeys := append(labelKeys, "SAN_value", "SAN_type")
+		metrics = append(metrics, prometheus.MustNewConstMetric(
+			prometheus.NewDesc(certSANMetric, certSANHelp, ipLabelKeys, nil),
+			prometheus.GaugeValue,
+			1,
+			ipdnsLabelValues...))
 	}
 
 	if collector.exporter.ExposeRelativeMetrics {

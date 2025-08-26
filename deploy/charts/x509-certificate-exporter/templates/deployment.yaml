@@ -8,10 +8,12 @@ metadata:
   namespace: {{ include "x509-certificate-exporter.namespace" . }}
   labels:
     {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
+    app.kubernetes.io/component: exporter
 spec:
   selector:
     matchLabels:
       {{- include "x509-certificate-exporter.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: exporter
   {{- with .Values.secretsExporter.replicas }}
   replicas: {{ . }}
   {{- end }}
@@ -23,6 +25,7 @@ spec:
     metadata:
       labels:
         {{- include "x509-certificate-exporter.labels" . | nindent 8 }}
+        app.kubernetes.io/component: exporter
         {{- with .Values.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
         {{- end }}

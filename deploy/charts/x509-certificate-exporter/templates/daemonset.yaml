@@ -11,10 +11,12 @@ metadata:
   namespace: {{ include "x509-certificate-exporter.namespace" $ }}
   labels:
     {{- include "x509-certificate-exporter.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $dsName }}
 spec:
   selector:
     matchLabels:
       {{- include "x509-certificate-exporter.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $dsName }}
   {{- with default $.Values.hostPathsExporter.updateStrategy $dsDef.updateStrategy }}
   updateStrategy:
     {{- . | toYaml | trim | nindent 4 }}
@@ -23,6 +25,7 @@ spec:
     metadata:
       labels:
         {{- include "x509-certificate-exporter.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $dsName }}
         {{- with $.Values.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
         {{- end }}

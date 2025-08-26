@@ -15,10 +15,12 @@ metadata:
   namespace: {{ include "x509-certificate-exporter.namespace" $ }}
   labels:
     {{- include "x509-certificate-exporter.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ printf "node-%s" $dsName }}
 spec:
   selector:
     matchLabels:
       {{- include "x509-certificate-exporter.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ printf "node-%s" $dsName }}
   {{- $rl := $.Values.hostPathsExporter.revisionHistoryLimit }}
   {{- if not (kindIs "invalid" $dsDef.revisionHistoryLimit) }}
   {{- $rl = $dsDef.revisionHistoryLimit }}
@@ -34,6 +36,7 @@ spec:
     metadata:
       labels:
         {{- include "x509-certificate-exporter.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ printf "node-%s" $dsName }}
         {{- with $.Values.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
         {{- end }}

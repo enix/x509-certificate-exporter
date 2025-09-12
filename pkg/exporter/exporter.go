@@ -58,6 +58,30 @@ type Exporter struct {
 	configMapsCache *cache.Cache
 }
 
+type Options struct {
+	Directories                []string
+	Files                      []string
+	YAMLs                      []string
+	YAMLPaths                  []YAMLCertRef
+	TrimPathComponents         int
+	MaxCacheDuration           time.Duration
+	ExposeRelativeMetrics      bool
+	ExposeErrorMetrics         bool
+	ExposeLabels               []string
+	ConfigMapKeys              []string
+	KubeEnabled                bool
+	KubeConfigPath             string
+	KubeSecretTypes            []KubeSecretType
+	KubeIncludeNamespaces      []string
+	KubeExcludeNamespaces      []string
+	KubeIncludeNamespaceLabels []string
+	KubeExcludeNamespaceLabels []string
+	KubeIncludeLabels          []string
+	KubeExcludeLabels          []string
+	RateLimitQPS               int
+	RateLimitBurst             int
+}
+
 type KubeSecretType struct {
 	Type   string
 	Regexp *regexp.Regexp
@@ -94,30 +118,6 @@ func (exporter *Exporter) ListenAndServe() error {
 	}
 
 	return exporter.Serve()
-}
-
-type Options struct {
-	Directories                []string
-	Files                      []string
-	YAMLs                      []string
-	YAMLPaths                  []YAMLCertRef
-	TrimPathComponents         int
-	MaxCacheDuration           time.Duration
-	ExposeRelativeMetrics      bool
-	ExposeErrorMetrics         bool
-	ExposeLabels               []string
-	ConfigMapKeys              []string
-	KubeEnabled                bool
-	KubeConfigPath             string
-	KubeSecretTypes            []KubeSecretType
-	KubeIncludeNamespaces      []string
-	KubeExcludeNamespaces      []string
-	KubeIncludeNamespaceLabels []string
-	KubeExcludeNamespaceLabels []string
-	KubeIncludeLabels          []string
-	KubeExcludeLabels          []string
-	RateLimitQPS               int
-	RateLimitBurst             int
 }
 
 func New(options Options) (Exporter, error) {

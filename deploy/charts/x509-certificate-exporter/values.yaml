@@ -266,6 +266,8 @@ prometheusServiceMonitor:
   scrapeTimeout: 30s
   # -- Additional labels to add to ServiceMonitor objects
   extraLabels: {}
+  # -- Additional annotations to add to ServiceMonitor objects
+  extraAnnotations: {}
   # -- Metric relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
   metricRelabelings: []
   # -- Relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint

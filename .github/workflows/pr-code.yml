@@ -11,9 +11,9 @@ permissions:
   pull-requests: read
 
 env:
-  VERSION_KIND: v0.26.0
+  VERSION_KIND: v0.29.0
   VERSION_GOLANGCILINT: latest
-  VERSION_GOLANG: '1.23.4'
+  VERSION_GOLANG: '1.24.4'
 
 jobs:
   static-analysis:
@@ -72,7 +72,7 @@ jobs:
           go tool cover -html=coverage.cov -o coverage.html
 
       - name: Archive code coverage results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: code-coverage-report
           path: coverage.html

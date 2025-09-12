@@ -10,12 +10,12 @@ concurrency:
 env:
   COMMIT_NAME: Monkeynator
   COMMIT_EMAIL: monkeynator@enix.io
-  VERSION_KIND: v0.26.0
+  VERSION_KIND: v0.29.0
   VERSION_GOLANGCILINT: latest
-  VERSION_GOLANG: "1.23.4"
+  VERSION_GOLANG: "1.24.4"
   VERSION_CHARTRELEASER: "1.6.0"
   VERSION_OCI_BUSYBOX: "1.37.0-glibc"
-  VERSION_OCI_ALPINE: "3.21.0"
+  VERSION_OCI_ALPINE: "3.22.0"
 
 jobs:
   semver:
@@ -257,9 +257,9 @@ jobs:
           open(sum_path, 'x').write(hex_sum)
 
       - name: Upload assets to artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: binaries
+          name: build-${{ matrix.goos }}-${{ matrix.goarch }}
           path: assets/*
           retention-days: 1
 
@@ -287,10 +287,11 @@ jobs:
           persist-credentials: false
 
       - name: Retrieve assets from artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: binaries
           path: assets
+          pattern: build-*
+          merge-multiple: true
 
       - name: Run semantic-release
         id: release
@@ -407,10 +408,11 @@ jobs:
           password: ${{ secrets.QUAY_ROBOT_TOKEN }}
 
       - name: Retrieve assets from artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: binaries
           path: assets
+          pattern: build-*
+          merge-multiple: true
 
       - name: Build container images from binary assets
         id: build-oci
@@ -745,15 +747,3 @@ jobs:
 
           action('update repository index')
           run(os.environ['CR_PATH'], 'index', '--push', '-i', 'index.yaml', '--owner', 'enix', '--git-repo', 'helm-charts', cwd=charts_repo)
-
-  cleanup:
-    name: Cleanup
-    needs:
-      - draft-release
-      - containers
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Delete assets artifact
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          name: binaries

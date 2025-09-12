@@ -1,7 +1,7 @@
-FROM --platform=$BUILDPLATFORM golang:1.24.1 AS base
+FROM --platform=$BUILDPLATFORM golang:1.24.4 AS base
 WORKDIR /app
 
-FROM --platform=$BUILDPLATFORM cosmtrek/air:v1.61.7 AS air
+FROM --platform=$BUILDPLATFORM cosmtrek/air:v1.62.0 AS air
 
 FROM base AS dev
 ARG USER_ID=1000
@@ -35,13 +35,14 @@ RUN go build -v -a -buildvcs=false \
     " \
     -o /x509-certificate-exporter \
     ./cmd/x509-certificate-exporter
+
 FROM scratch AS distroless
 COPY --from=build --chown=0:0 --chmod=0555 /x509-certificate-exporter /x509-certificate-exporter
 USER 65534:65534
 EXPOSE 9793/tcp
 ENTRYPOINT [ "/x509-certificate-exporter" ]
 
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:54db2c1df599961424cff34b05fd4d852e73a029b19fcd3d4973fa0cb30fd8ec
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:b72df108f3388c82b0638bcfbad1511d85c60593e67fb8f8a968255f7e0588df
 COPY --from=build --chown=0:0 --chmod=0555 /x509-certificate-exporter /x509-certificate-exporter
 USER nobody:nobody
 EXPOSE 9793/tcp

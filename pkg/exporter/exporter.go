@@ -116,6 +116,8 @@ type Options struct {
 	KubeExcludeNamespaceLabels []string
 	KubeIncludeLabels          []string
 	KubeExcludeLabels          []string
+	RateLimitQPS               int
+	RateLimitBurst             int
 }
 
 func New(options Options) (Exporter, error) {
@@ -143,8 +145,12 @@ func New(options Options) (Exporter, error) {
 	exporter.DiscoverCertificates()
 
 	if options.KubeEnabled {
-		// TODO Set rate limiter only if both QPS and burst are set - copy from main.go
+		// Set rate limiter only if both QPS and burst are set
 		var rateLimiter flowcontrol.RateLimiter
+		if options.RateLimitQPS > 0 && options.RateLimitBurst > 0 {
+			slog.Info("Setting Kubernetes API rate limiter", "qps", options.RateLimitQPS, "burst", options.RateLimitBurst)
+			rateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(options.RateLimitQPS), options.RateLimitBurst)
+		}
 
 		err := exporter.ConnectToKubernetesCluster(options.KubeConfigPath, rateLimiter)
 		if err != nil {

@@ -109,6 +109,19 @@ func (exporter *Exporter) parseAllKubeObjects() ([]*certificateRef, []error) {
 }
 
 func (exporter *Exporter) listNamespacesToWatch() ([]string, error) {
+	if len(exporter.KubeIncludeNamespaces) > 0 &&
+		len(exporter.KubeIncludeNamespaceLabels) == 0 &&
+		len(exporter.KubeExcludeNamespaceLabels) == 0 {
+		slog.Debug("skipping namespace list API call; namespace existence is not validated when using --include-namespace without label filters")
+		result := []string{}
+		for _, ns := range exporter.KubeIncludeNamespaces {
+			if !slices.Contains(exporter.KubeExcludeNamespaces, ns) {
+				result = append(result, ns)
+			}
+		}
+		return result, nil
+	}
+
 	_, includedLabelsWithValue := exporter.prepareLabelFilters(exporter.KubeIncludeNamespaceLabels)
 	labelSelector := metav1.LabelSelector{MatchLabels: includedLabelsWithValue}
 	namespaces, err := exporter.kubeClient.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{

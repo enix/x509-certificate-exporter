@@ -15,8 +15,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	ktesting "k8s.io/client-go/testing"
 )
 
 func Init() {
@@ -228,45 +230,52 @@ func TestExporterFilterNamespaces(t *testing.T) {
 		{
 			Name:               "All namespaces (no filtering)",
 			ExpectedNamespaces: []string{"default", "kube-system", "x509-exporter"},
-		}, {
+		},
+		{
 			Name: "Include namespace",
 			Exporter: Exporter{
 				KubeIncludeNamespaces: []string{"default"},
 			},
 			ExpectedNamespaces: []string{"default"},
-		}, {
+		},
+		{
 			Name: "Include multiple namespaces",
 			Exporter: Exporter{
 				KubeIncludeNamespaces: []string{"default", "kube-system"},
 			},
 			ExpectedNamespaces: []string{"default", "kube-system"},
-		}, {
+		},
+		{
 			Name: "Exclude namespace",
 			Exporter: Exporter{
 				KubeExcludeNamespaces: []string{"default"},
 			},
 			ExpectedNamespaces: []string{"kube-system", "x509-exporter"},
-		}, {
+		},
+		{
 			Name: "Exclude multiple namespaces",
 			Exporter: Exporter{
 				KubeExcludeNamespaces: []string{"default", "kube-system"},
 			},
 			ExpectedNamespaces: []string{"x509-exporter"},
-		}, {
+		},
+		{
 			Name: "Include and exclude namespace mix",
 			Exporter: Exporter{
 				KubeIncludeNamespaces: []string{"default"},
 				KubeExcludeNamespaces: []string{"default"},
 			},
 			ExpectedNamespaces: []string{},
-		}, {
+		},
+		{
 			Name: "Include and exclude namespace mix 2",
 			Exporter: Exporter{
 				KubeIncludeNamespaces: []string{"default", "kube-system"},
 				KubeExcludeNamespaces: []string{"kube-system"},
 			},
 			ExpectedNamespaces: []string{"default"},
-		}, {
+		},
+		{
 			Name: "Exlucde labels",
 			Exporter: Exporter{
 				KubeExcludeNamespaceLabels: []string{"foo"},
@@ -318,6 +327,127 @@ func TestExporterFilterNamespaces(t *testing.T) {
 			assert.Equal(t, tt.ExpectedNamespaces, filteredNamespaces)
 		})
 	}
+}
+
+func TestListNamespacesToWatch(t *testing.T) {
+	tests := []struct {
+		Name               string
+		Exporter           Exporter
+		FastPath           bool
+		ExpectedNamespaces []string
+	}{
+		{
+			Name:               "Include namespace",
+			Exporter:           Exporter{KubeIncludeNamespaces: []string{"default"}},
+			FastPath:           true,
+			ExpectedNamespaces: []string{"default"},
+		}, {
+			Name:               "Include multiple namespaces",
+			Exporter:           Exporter{KubeIncludeNamespaces: []string{"default", "kube-system"}},
+			FastPath:           true,
+			ExpectedNamespaces: []string{"default", "kube-system"},
+		}, {
+			Name: "Include and exclude",
+			Exporter: Exporter{
+				KubeIncludeNamespaces: []string{"default", "kube-system"},
+				KubeExcludeNamespaces: []string{"kube-system"},
+			},
+			FastPath:           true,
+			ExpectedNamespaces: []string{"default"},
+		}, {
+			Name: "Include and exclude all,",
+			Exporter: Exporter{
+				KubeIncludeNamespaces: []string{"default"},
+				KubeExcludeNamespaces: []string{"default"},
+			},
+			FastPath:           true,
+			ExpectedNamespaces: []string{},
+		}, {
+			Name:               "Non-existent namespace, existence not validated",
+			Exporter:           Exporter{KubeIncludeNamespaces: []string{"does-not-exist"}},
+			FastPath:           true,
+			ExpectedNamespaces: []string{"does-not-exist"},
+		}, {
+			Name:     "No namespace filter",
+			Exporter: Exporter{},
+			FastPath: false,
+		}, {
+			Name:     "Exclude only",
+			Exporter: Exporter{KubeExcludeNamespaces: []string{"default"}},
+			FastPath: false,
+		}, {
+			Name: "Include namespace with include label filter",
+			Exporter: Exporter{
+				KubeIncludeNamespaces:      []string{"default"},
+				KubeIncludeNamespaceLabels: []string{"env=prod"},
+			},
+			FastPath: false,
+		}, {
+			Name: "Include namespace with exclude label filter",
+			Exporter: Exporter{
+				KubeIncludeNamespaces:      []string{"default"},
+				KubeExcludeNamespaceLabels: []string{"foo"},
+			},
+			FastPath: false,
+		}, {
+			Name:     "Include namespace label only",
+			Exporter: Exporter{KubeIncludeNamespaceLabels: []string{"env=prod"}},
+			FastPath: false,
+		}, {
+			Name:     "Exclude namespace label only",
+			Exporter: Exporter{KubeExcludeNamespaceLabels: []string{"foo"}},
+			FastPath: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			client := fake.NewClientset()
+			apiCalled := false
+			client.PrependReactor("list", "namespaces", func(action ktesting.Action) (bool, runtime.Object, error) {
+				apiCalled = true
+				return true, nil, fmt.Errorf("forbidden")
+			})
+
+			tt.Exporter.kubeClient = client
+			namespaces, err := tt.Exporter.listNamespacesToWatch()
+
+			if tt.FastPath {
+				assert.False(t, apiCalled, "expected no API call on fast path")
+				assert.NoError(t, err)
+				assert.Equal(t, tt.ExpectedNamespaces, namespaces)
+			} else {
+				assert.True(t, apiCalled, "expected API call on slow path")
+				assert.Error(t, err)
+			}
+		})
+	}
+}
+
+func TestKubeNonExistentNamespaceInclusion(t *testing.T) {
+	client := fake.NewClientset()
+	client.PrependReactor("list", "secrets", func(action ktesting.Action) (bool, runtime.Object, error) {
+		if action.GetNamespace() == "does-not-exist" {
+			return true, nil, fmt.Errorf("namespace not found")
+		}
+		return false, nil, nil
+	})
+
+	testRequest(t, &Exporter{
+		kubeClient:            client,
+		KubeIncludeNamespaces: []string{"does-not-exist"},
+	}, func(m []model.MetricFamily) {
+		metrics := getMetricsForName(m, "x509_read_errors")
+		assert.Equal(t, 1., metrics[0].GetGauge().GetValue())
+	})
+
+	testRequest(t, &Exporter{
+		kubeClient:            client,
+		KubeIncludeNamespaces: []string{"exists"},
+	}, func(m []model.MetricFamily) {
+		metrics := getMetricsForName(m, "x509_read_errors")
+		assert.Equal(t, 0., metrics[0].GetGauge().GetValue())
+	})
 }
 
 func checkMetricsCount(t *testing.T, allMetrics []model.MetricFamily, count int) {
@@ -412,7 +542,6 @@ func addCustomKubeSecret(client kubernetes.Interface) error {
 			Name: "test-custom-type",
 		},
 	}, metav1.CreateOptions{})
-
 	if err != nil {
 		return err
 	}
@@ -437,7 +566,6 @@ func addBrokenKubeSecret(client kubernetes.Interface) error {
 			Name: "corrupted-pem-data",
 		},
 	}, metav1.CreateOptions{})
-
 	if err != nil {
 		return err
 	}
@@ -465,7 +593,6 @@ func addBrokenKubeSecret2(client kubernetes.Interface) error {
 			},
 		},
 	}, metav1.CreateOptions{})
-
 	if err != nil {
 		return err
 	}

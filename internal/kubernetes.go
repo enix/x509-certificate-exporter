@@ -6,6 +6,7 @@ import (
 	"iter"
 	"log/slog"
 	"math/rand"
+	"slices"
 	"strings"
 	"time"
 
@@ -144,27 +145,11 @@ func (exporter *Exporter) listNamespacesToWatch() ([]string, error) {
 func (exporter *Exporter) filterNamespaces(namespaces []v1.Namespace) []string {
 	filteredNamespaces := []*v1.Namespace{}
 	for _, namespace := range namespaces {
-		found := false
-		for _, includeNs := range exporter.KubeIncludeNamespaces {
-			if namespace.Name == includeNs {
-				found = true
-				break
-			}
-		}
-
-		if len(exporter.KubeIncludeNamespaces) > 0 && !found {
+		if len(exporter.KubeIncludeNamespaces) > 0 && !slices.Contains(exporter.KubeIncludeNamespaces, namespace.Name) {
 			continue
 		}
 
-		found = false
-		for _, excludeNs := range exporter.KubeExcludeNamespaces {
-			if namespace.Name == excludeNs {
-				found = true
-				break
-			}
-		}
-
-		if !found {
+		if !slices.Contains(exporter.KubeExcludeNamespaces, namespace.Name) {
 			filteredNamespaces = append(filteredNamespaces, &namespace)
 		}
 	}

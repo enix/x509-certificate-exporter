@@ -1,15 +1,15 @@
-package internal
+package exporter
 
 import (
+	"log/slog"
 	"runtime"
 	"time"
-	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type collector struct {
-	exporter *Exporter
+type Collector struct {
+	Exporter *Exporter
 }
 
 var (
@@ -51,28 +51,28 @@ var (
 		"goos":      runtime.GOOS,
 		"goarch":    runtime.GOARCH,
 	}
-	infoDesc = prometheus.NewDesc(infoMetric, infoHelp, nil, infoConstLabels)
+	//infoDesc = prometheus.NewDesc(infoMetric, infoHelp, nil, infoConstLabels)
 )
 
-func (collector *collector) Describe(ch chan<- *prometheus.Desc) {
+func (collector Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- certExpiredDesc
 	ch <- certNotBeforeDesc
 	ch <- certNotAfterDesc
 	ch <- certErrorsDesc
-	ch <- infoDesc
+	//ch <- infoDesc
 
-	if collector.exporter.ExposeRelativeMetrics {
+	if collector.Exporter.ExposeRelativeMetrics {
 		ch <- certExpiresInDesc
 		ch <- certValidSinceDesc
 	}
 
-	if collector.exporter.ExposeErrorMetrics {
+	if collector.Exporter.ExposeErrorMetrics {
 		ch <- certErrorDesc
 	}
 }
 
-func (collector *collector) Collect(ch chan<- prometheus.Metric) {
-	certRefs, certErrors := collector.exporter.parseAllCertificates()
+func (collector Collector) Collect(ch chan<- prometheus.Metric) {
+	certRefs, certErrors := collector.Exporter.parseAllCertificates()
 
 	for _, certRef := range certRefs {
 		for _, cert := range certRef.certificates {
@@ -82,8 +82,8 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 			}
 		}
 
-		if collector.exporter.ExposeErrorMetrics && len(certRef.certificates) > 0 {
-			labelKeys, labelValues := collector.exporter.unzipLabels(collector.exporter.getBaseLabels(certRef))
+		if collector.Exporter.ExposeErrorMetrics && len(certRef.certificates) > 0 {
+			labelKeys, labelValues := collector.Exporter.unzipLabels(collector.Exporter.getBaseLabels(certRef))
 
 			ch <- prometheus.MustNewConstMetric(
 				prometheus.NewDesc(certErrorMetric, certErrorHelp, labelKeys, nil),
@@ -99,8 +99,8 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 			slog.Debug("Collect read error", "reason", err, "index", index)
 		}
 
-		if collector.exporter.ExposeErrorMetrics && err.ref != nil {
-			labelKeys, labelValues := collector.exporter.unzipLabels(collector.exporter.getBaseLabels(err.ref))
+		if collector.Exporter.ExposeErrorMetrics && err.ref != nil {
+			labelKeys, labelValues := collector.Exporter.unzipLabels(collector.Exporter.getBaseLabels(err.ref))
 
 			ch <- prometheus.MustNewConstMetric(
 				prometheus.NewDesc(certErrorMetric, certErrorHelp, labelKeys, nil),
@@ -117,22 +117,22 @@ func (collector *collector) Collect(ch chan<- prometheus.Metric) {
 		float64(len(certErrors)),
 	)
 
-	ch <- prometheus.MustNewConstMetric(
-		infoDesc,
-		prometheus.GaugeValue,
-		float64(1),
-	)
+	// ch <- prometheus.MustNewConstMetric(
+	// 	infoDesc,
+	// 	prometheus.GaugeValue,
+	// 	float64(1),
+	// )
 }
 
-func (collector *collector) getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
-	labels := collector.exporter.getLabels(certData, ref)
+func (collector Collector) getMetricsForCertificate(certData *parsedCertificate, ref *certificateRef) []prometheus.Metric {
+	labels := collector.Exporter.getLabels(certData, ref)
 
 	expired := 0.
 	if time.Now().After(certData.cert.NotAfter) {
 		expired = 1.
 	}
 
-	labelKeys, labelValues := collector.exporter.unzipLabels(labels)
+	labelKeys, labelValues := collector.Exporter.unzipLabels(labels)
 	metrics := []prometheus.Metric{
 		prometheus.MustNewConstMetric(
 			prometheus.NewDesc(certExpiredMetric, certExpiredHelp, labelKeys, nil),
@@ -154,7 +154,7 @@ func (collector *collector) getMetricsForCertificate(certData *parsedCertificate
 		),
 	}
 
-	if collector.exporter.ExposeRelativeMetrics {
+	if collector.Exporter.ExposeRelativeMetrics {
 		metrics = append(metrics, prometheus.MustNewConstMetric(
 			prometheus.NewDesc(certExpiresInMetric, certExpiresInHelp, labelKeys, nil),
 			prometheus.GaugeValue,

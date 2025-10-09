@@ -1,4 +1,4 @@
-package internal
+package exporter
 
 import (
 	"context"
@@ -24,6 +24,7 @@ import (
 	"github.com/dimiro1/health"
 	"github.com/prometheus/exporter-toolkit/web"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/flowcontrol"
 )
 
 // Exporter : Configuration (from command-line)
@@ -55,6 +56,30 @@ type Exporter struct {
 	isDiscovery     bool
 	secretsCache    *cache.Cache
 	configMapsCache *cache.Cache
+}
+
+type Options struct {
+	Directories                []string
+	Files                      []string
+	YAMLs                      []string
+	YAMLPaths                  []YAMLCertRef
+	TrimPathComponents         int
+	MaxCacheDuration           time.Duration
+	ExposeRelativeMetrics      bool
+	ExposeErrorMetrics         bool
+	ExposeLabels               []string
+	ConfigMapKeys              []string
+	KubeEnabled                bool
+	KubeConfigPath             string
+	KubeSecretTypes            []KubeSecretType
+	KubeIncludeNamespaces      []string
+	KubeExcludeNamespaces      []string
+	KubeIncludeNamespaceLabels []string
+	KubeExcludeNamespaceLabels []string
+	KubeIncludeLabels          []string
+	KubeExcludeLabels          []string
+	RateLimitQPS               int
+	RateLimitBurst             int
 }
 
 type KubeSecretType struct {
@@ -95,13 +120,55 @@ func (exporter *Exporter) ListenAndServe() error {
 	return exporter.Serve()
 }
 
+func New(options Options) (Exporter, error) {
+
+	exporter := Exporter{
+		Directories:                options.Directories,
+		Files:                      options.Files,
+		YAMLs:                      options.YAMLs,
+		YAMLPaths:                  options.YAMLPaths,
+		TrimPathComponents:         options.TrimPathComponents,
+		MaxCacheDuration:           options.MaxCacheDuration,
+		ExposeRelativeMetrics:      options.ExposeRelativeMetrics,
+		ExposeErrorMetrics:         options.ExposeErrorMetrics,
+		ExposeLabels:               options.ExposeLabels,
+		ConfigMapKeys:              options.ConfigMapKeys,
+		KubeSecretTypes:            options.KubeSecretTypes,
+		KubeIncludeNamespaces:      options.KubeIncludeNamespaces,
+		KubeExcludeNamespaces:      options.KubeExcludeNamespaces,
+		KubeIncludeNamespaceLabels: options.KubeIncludeNamespaceLabels,
+		KubeExcludeNamespaceLabels: options.KubeExcludeNamespaceLabels,
+		KubeIncludeLabels:          options.KubeIncludeLabels,
+		KubeExcludeLabels:          options.KubeExcludeLabels,
+	}
+
+	exporter.DiscoverCertificates()
+
+	if options.KubeEnabled {
+		// Set rate limiter only if both QPS and burst are set
+		var rateLimiter flowcontrol.RateLimiter
+		if options.RateLimitQPS > 0 && options.RateLimitBurst > 0 {
+			slog.Info("Setting Kubernetes API rate limiter", "qps", options.RateLimitQPS, "burst", options.RateLimitBurst)
+			rateLimiter = flowcontrol.NewTokenBucketRateLimiter(float32(options.RateLimitQPS), options.RateLimitBurst)
+		}
+
+		err := exporter.ConnectToKubernetesCluster(options.KubeConfigPath, rateLimiter)
+		if err != nil {
+			slog.Error("Failed to connect to Kubernetes API", "reason", err)
+			return exporter, err
+		}
+	}
+
+	return exporter, nil
+}
+
 // Listen : Listen for requests
 func (exporter *Exporter) Listen() error {
-	err := prometheus.Register(&collector{exporter: exporter})
+	err := prometheus.Register(&Collector{Exporter: exporter})
 	if err != nil {
 		if registered, ok := err.(prometheus.AlreadyRegisteredError); ok {
 			prometheus.Unregister(registered.ExistingCollector)
-			prometheus.MustRegister(&collector{exporter: exporter})
+			prometheus.MustRegister(&Collector{Exporter: exporter})
 		} else {
 			return err
 		}

@@ -1,4 +1,4 @@
-package internal
+package exporter
 
 import (
 	"crypto/x509"

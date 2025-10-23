@@ -3,7 +3,7 @@ module github.com/enix/x509-certificate-exporter/v3
 go 1.24.0
 
 require (
-	github.com/KimMachineGun/automemlimit v0.7.4
+	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/bmatcuk/doublestar/v4 v4.9.1
 	github.com/dimiro1/health v0.0.0-20231118160444-e388c68d7d7e
 	github.com/patrickmn/go-cache v2.1.0+incompatible

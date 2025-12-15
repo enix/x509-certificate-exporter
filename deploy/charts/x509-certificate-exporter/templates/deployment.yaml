@@ -19,6 +19,10 @@ spec:
   {{- with .Values.secretsExporter.replicas }}
   replicas: {{ . }}
   {{- end }}
+  {{- $rl := .Values.secretsExporter.revisionHistoryLimit }}
+  {{- if not (kindIs "invalid" $rl) }}
+  revisionHistoryLimit: {{ int $rl }}
+  {{- end }}
   {{- with .Values.secretsExporter.strategy }}
   strategy:
     {{- toYaml . | trim | nindent 4 }}

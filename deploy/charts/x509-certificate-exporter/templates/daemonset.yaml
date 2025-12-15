@@ -19,6 +19,13 @@ spec:
   selector:
     matchLabels:
       {{- include "x509-certificate-exporter.selectorLabels" $ | nindent 6 }}
+  {{- $rl := $.Values.hostPathsExporter.revisionHistoryLimit }}
+  {{- if not (kindIs "invalid" $dsDef.revisionHistoryLimit) }}
+  {{- $rl = $dsDef.revisionHistoryLimit }}
+  {{- end }}
+  {{- if not (kindIs "invalid" $rl) }}
+  revisionHistoryLimit: {{ int $rl }}
+  {{- end }}
   {{- with default $.Values.hostPathsExporter.updateStrategy $dsDef.updateStrategy }}
   updateStrategy:
     {{- . | toYaml | trim | nindent 4 }}

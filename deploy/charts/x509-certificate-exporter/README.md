@@ -373,6 +373,7 @@ hostPathsExporter:
 | secretsExporter.replicas | int | `1` | Desired number of TLS Secrets exporter Pod |
 | secretsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of the TLS Secrets exporter |
 | secretsExporter.strategy | object | `{}` | DeploymentStrategy for the TLS Secrets exporter |
+| secretsExporter.revisionHistoryLimit | int | `10` | Number of old ReplicaSets to retain for rollback |
 | secretsExporter.resources | object | check `values.yaml` | ResourceRequirements for containers of the TLS Secrets exporter |
 | secretsExporter.readinessProbe | object | check `values.yaml` | Readiness probe definition for the secrets exporter (.httpGet cannot be changed) |
 | secretsExporter.livenessProbe | object | check `values.yaml` | Liveness probe definition for the secrets exporter (.httpGet cannot be changed) |
@@ -404,6 +405,7 @@ hostPathsExporter:
 | hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.updateStrategy | object | `{}` | updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.revisionHistoryLimit | int | `10` | Number of old ReplicaSets to retain for rollback (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.resources | object | check `values.yaml` | ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.readinessProbe | object | check `values.yaml` | Readiness probe definition for the host paths exporter (.httpGet cannot be changed) |
 | hostPathsExporter.livenessProbe | object | check `values.yaml` | Liveness probe definition for the host paths exporter (.httpGet cannot be changed) |

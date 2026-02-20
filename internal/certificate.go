@@ -62,13 +62,14 @@ var DefaultYamlPaths = []YAMLCertRef{
 }
 
 type certificateRef struct {
-	path          string
-	format        certificateFormat
-	certificates  []*parsedCertificate
-	yamlPaths     []YAMLCertRef
-	kubeSecret    v1.Secret
-	kubeConfigMap v1.ConfigMap
-	kubeSecretKey string
+	path               string
+	format             certificateFormat
+	certificates       []*parsedCertificate
+	yamlPaths          []YAMLCertRef
+	kubeSecret         v1.Secret
+	kubeConfigMap      v1.ConfigMap
+	kubeSecretKey      string
+	kubeSecretLabels   map[string]string
 }
 
 type parsedCertificate struct {

@@ -48,6 +48,7 @@ type Exporter struct {
 	KubeExcludeNamespaceLabels []string
 	KubeIncludeLabels          []string
 	KubeExcludeLabels          []string
+	KubeSecretLabels           []string
 
 	kubeClient      kubernetes.Interface
 	listener        net.Listener
@@ -395,6 +396,16 @@ func (exporter *Exporter) compareCertificates(
 	if leftCert.userID != rightCert.userID {
 		return false
 	}
+	if leftRef.format == certificateFormatKubeSecret {
+		if len(leftRef.kubeSecretLabels) != len(rightRef.kubeSecretLabels) {
+			return false
+		}
+		for key, leftValue := range leftRef.kubeSecretLabels {
+			if rightValue, exists := rightRef.kubeSecretLabels[key]; !exists || leftValue != rightValue {
+				return false
+			}
+		}
+	}
 
 	return true
 }
@@ -473,6 +484,10 @@ func (exporter *Exporter) getBaseLabels(ref *certificateRef) map[string]string {
 		labels["secret_name"] = filepath.Base(ref.path)
 		labels["secret_namespace"] = strings.Split(ref.path, "/")[1]
 		labels["secret_key"] = ref.kubeSecretKey
+		for key, value := range ref.kubeSecretLabels {
+			sanitizedKey := regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(key, "_")
+			labels["secret_label_"+sanitizedKey] = value
+		}
 	}
 
 	return labels

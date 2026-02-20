@@ -47,11 +47,18 @@ func (exporter *Exporter) parseAllKubeObjects() ([]*certificateRef, []error) {
 	readCertificatesFromSecrets := func(secrets []v1.Secret) (outputs []*certificateRef) {
 		for _, secret := range secrets {
 			for key := range MatchingSecretKeys(exporter.KubeSecretTypes, &secret) {
+				filteredLabels := make(map[string]string)
+				for _, labelKey := range exporter.KubeSecretLabels {
+					if value, exists := secret.Labels[labelKey]; exists {
+						filteredLabels[labelKey] = value
+					}
+				}
 				output = append(output, &certificateRef{
 					path:          fmt.Sprintf("k8s/%s/%s", secret.GetNamespace(), secret.GetName()),
 					format:        certificateFormatKubeSecret,
 					kubeSecret:    secret,
 					kubeSecretKey: key,
+					kubeSecretLabels: filteredLabels,
 				})
 			}
 		}
@@ -265,6 +272,7 @@ func (exporter *Exporter) shrinkSecret(secret v1.Secret) v1.Secret {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secret.Name,
 			Namespace: secret.Namespace,
+			Labels:    secret.Labels,
 		},
 	}
 	for key := range MatchingSecretKeys(exporter.KubeSecretTypes, &secret) {

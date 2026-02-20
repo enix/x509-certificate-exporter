@@ -120,6 +120,8 @@ Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclud
      --expose-relative-metrics
                 expose additionnal metrics with relative durations instead
                 of absolute timestamps
+     --expose-secret-label=value
+                expose selected label from kube secrets as prometheus label
  -f, --watch-file=value
                 watch one or more x509 certificate file
  -h, --help     show this help message and exit

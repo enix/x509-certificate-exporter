@@ -81,6 +81,9 @@ func main() {
 	kubeExcludeLabels := stringArrayFlag{}
 	getopt.FlagLong(&kubeExcludeLabels, "exclude-label", 0, "removes the kube secrets with the given label (or label value if specified) from the watch list (applied after --include-label)")
 
+	kubeSecretLabels := stringArrayFlag{}
+	getopt.FlagLong(&kubeSecretLabels, "expose-secret-label", 0, "expose selected label from kube secrets as prometheus label")
+
 	getopt.Parse()
 
 	if *help {
@@ -153,6 +156,7 @@ func main() {
 		KubeExcludeNamespaceLabels: kubeExcludeNamespaceLabels,
 		KubeIncludeLabels:          kubeIncludeLabels,
 		KubeExcludeLabels:          kubeExcludeLabels,
+		KubeSecretLabels:           kubeSecretLabels,
 	}
 
 	if getopt.Lookup("expose-labels").Seen() {

@@ -396,16 +396,6 @@ func (exporter *Exporter) compareCertificates(
 	if leftCert.userID != rightCert.userID {
 		return false
 	}
-	if leftRef.format == certificateFormatKubeSecret {
-		if len(leftRef.kubeSecretLabels) != len(rightRef.kubeSecretLabels) {
-			return false
-		}
-		for key, leftValue := range leftRef.kubeSecretLabels {
-			if rightValue, exists := rightRef.kubeSecretLabels[key]; !exists || leftValue != rightValue {
-				return false
-			}
-		}
-	}
 
 	return true
 }

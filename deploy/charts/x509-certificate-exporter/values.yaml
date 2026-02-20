@@ -142,6 +142,8 @@ secretsExporter:
   includeLabels: []
   # -- Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   excludeLabels: []
+  # -- Expose selected labels from kubernetes secrets as prometheus label.
+  exposeSecretLabels: []
 
   cache:
     # -- Enable caching of Kubernetes objects to prevent scraping timeouts

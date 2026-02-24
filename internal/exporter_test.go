@@ -1015,7 +1015,7 @@ func testRequest(t *testing.T, exporter *Exporter, cb func(metrics []model.Metri
 		var metric model.MetricFamily
 		metrics := []model.MetricFamily{}
 
-		decoder := expfmt.NewDecoder(res.Body, expfmt.NewFormat(expfmt.TypeProtoText))
+		decoder := expfmt.NewDecoder(res.Body, expfmt.ResponseFormat(res.Header))
 		for {
 			if err := decoder.Decode(&metric); err != nil {
 				break

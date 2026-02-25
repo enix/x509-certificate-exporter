@@ -19,6 +19,9 @@ spec:
   {{- with .Values.secretsExporter.replicas }}
   replicas: {{ . }}
   {{- end }}
+  {{- with .Values.secretsExporter.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ . }}
+  {{- end }}
   {{- with .Values.secretsExporter.strategy }}
   strategy:
     {{- toYaml . | trim | nindent 4 }}

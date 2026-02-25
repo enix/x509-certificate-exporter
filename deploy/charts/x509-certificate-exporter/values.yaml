@@ -71,6 +71,8 @@ secretsExporter:
   restartPolicy: Always
   # -- DeploymentStrategy for the TLS Secrets exporter
   strategy: {}
+  # -- Number of old ReplicaSets to retain for rollback
+  revisionHistoryLimit: 10
   # -- ResourceRequirements for containers of the TLS Secrets exporter
   # @default -- check `values.yaml`
   resources:
@@ -173,6 +175,8 @@ hostPathsExporter:
   restartPolicy: Always
   # -- updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets)
   updateStrategy: {}
+  # -- Number of old ReplicaSets to retain for rollback (default for all hostPathsExporter.daemonSets)
+  revisionHistoryLimit: 10
   # -- ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets)
   # @default -- check `values.yaml`
   resources:

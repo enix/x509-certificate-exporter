@@ -27,10 +27,13 @@ import (
 	model "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-const listenAddress = "127.0.0.1:9793"
-const port = 9793
+const (
+	listenAddress = "127.0.0.1:9793"
+	port          = 9793
+)
 
 func TestRegularStartup(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
@@ -126,11 +129,13 @@ func TestMultiplePEM(t *testing.T) {
 		for _, m := range foundNaMetrics {
 			assert.Equal(t, naVal, m.GetGauge().GetValue(), fmt.Sprintf("x509_cert_not_after should be %f", naVal))
 		}
+	})
 
-		removeGeneratedCertificate("/tmp/test.pem")
-		removeGeneratedCertificate("/tmp/test2.pem")
-		removeGeneratedCertificate("/tmp/test3.pem")
-		removeGeneratedCertificate("/tmp/test4.pem")
+	t.Cleanup(func() {
+		removeGeneratedCertificate(t, "/tmp/test.pem")
+		removeGeneratedCertificate(t, "/tmp/test2.pem")
+		removeGeneratedCertificate(t, "/tmp/test3.pem")
+		removeGeneratedCertificate(t, "/tmp/test4.pem")
 	})
 }
 
@@ -197,7 +202,7 @@ func TestYAMLAbsolutePath(t *testing.T) {
 	assert.Nil(t, err)
 
 	data := strings.ReplaceAll(string(template), "{{PWD}}", path.Join(cwd, ".."))
-	err = os.WriteFile("/tmp/test-abs.yaml", []byte(data), 0644)
+	err = os.WriteFile("/tmp/test-abs.yaml", []byte(data), 0o644)
 	assert.Nil(t, err)
 
 	testRequest(t, &Exporter{
@@ -370,10 +375,14 @@ func TestErrorMetrics(t *testing.T) {
 }
 
 func TestBindAddrAlreadyInUse(t *testing.T) {
-	listener, _ := net.Listen("tcp", listenAddress)
+	listener, err := net.Listen("tcp", listenAddress)
+	require.NoError(t, err, "failed to create listener")
+	t.Cleanup(func() {
+		assert.NoError(t, listener.Close())
+	})
+
 	e := &Exporter{ListenAddress: listenAddress}
-	err := e.ListenAndServe()
-	listener.Close()
+	err = e.ListenAndServe()
 	assert.NotNil(t, err, "no error was returned for bind failure")
 }
 
@@ -605,8 +614,10 @@ func TestTrimPath(t *testing.T) {
 		foundNaMetrics := getMetricsForName(metrics, "x509_cert_not_after")
 		assert.Len(t, foundNaMetrics, 1, "missing x509_cert_not_after metric(s)")
 		checkLabels(t, foundNaMetrics[0].GetLabel(), "/test.pem", false, 15)
+	})
 
-		removeGeneratedCertificate(certPath)
+	t.Cleanup(func() {
+		removeGeneratedCertificate(t, certPath)
 	})
 }
 
@@ -698,7 +709,9 @@ func TestExposeLabels(t *testing.T) {
 		checkLabels(t, foundNaMetrics[0].GetLabel(), "/test.pem", false, 2)
 	})
 
-	removeGeneratedCertificate(certPath)
+	t.Cleanup(func() {
+		removeGeneratedCertificate(t, certPath)
+	})
 }
 
 func TestFileGlobbing(t *testing.T) {
@@ -959,8 +972,10 @@ func testSinglePEM(t *testing.T, expired float64, notBefore time.Time) {
 			assert.GreaterOrEqual(t, vsValue, 0.)
 			assert.LessOrEqual(t, vsValue, time.Minute.Seconds())
 		}
+	})
 
-		removeGeneratedCertificate(certPath)
+	t.Cleanup(func() {
+		removeGeneratedCertificate(t, certPath)
 	})
 }
 
@@ -1086,18 +1101,18 @@ func generateCertificate(path string, notBefore time.Time) {
 	//nolint:errcheck
 	pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	//nolint:errcheck
-	os.WriteFile(path, out.Bytes(), 00644)
+	os.WriteFile(path, out.Bytes(), 0o0644)
 	out.Reset()
 
 	//nolint:errcheck
 	pem.Encode(out, getPEMBlockForKey(priv))
 	//nolint:errcheck
-	os.WriteFile(path+".key", out.Bytes(), 00644)
+	os.WriteFile(path+".key", out.Bytes(), 0o0644)
 }
 
-func removeGeneratedCertificate(path string) {
-	os.Remove(path)
-	os.Remove(path + ".key")
+func removeGeneratedCertificate(t assert.TestingT, path string) {
+	assert.NoError(t, os.Remove(path))
+	assert.NoError(t, os.Remove(path+".key"))
 }
 
 func getPEMBlockForKey(priv interface{}) *pem.Block {

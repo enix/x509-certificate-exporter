@@ -26,6 +26,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+var (
+    invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
+)
+
 // Exporter : Configuration (from command-line)
 type Exporter struct {
 	ListenAddress              string
@@ -475,7 +479,7 @@ func (exporter *Exporter) getBaseLabels(ref *certificateRef) map[string]string {
 		labels["secret_namespace"] = strings.Split(ref.path, "/")[1]
 		labels["secret_key"] = ref.kubeSecretKey
 		for key, value := range ref.kubeSecretLabels {
-			sanitizedKey := regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(key, "_")
+			sanitizedKey := invalidLabelCharRE.ReplaceAllString(key, "_")
 			labels["secret_label_"+sanitizedKey] = value
 		}
 	}

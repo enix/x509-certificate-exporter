@@ -13,7 +13,7 @@ permissions:
 env:
   VERSION_KIND: v0.29.0
   VERSION_GOLANGCILINT: latest
-  VERSION_GOLANG: '1.24.4'
+  VERSION_GOLANG: '1.25.7'
 
 jobs:
   static-analysis:
@@ -31,7 +31,7 @@ jobs:
           go-version: ${{ env.VERSION_GOLANG }}
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: ${{ env.VERSION_GOLANGCILINT }}
           only-new-issues: true

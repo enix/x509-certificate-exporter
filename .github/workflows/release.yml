@@ -12,7 +12,7 @@ env:
   COMMIT_EMAIL: monkeynator@enix.io
   VERSION_KIND: v0.29.0
   VERSION_GOLANGCILINT: latest
-  VERSION_GOLANG: "1.24.4"
+  VERSION_GOLANG: "1.25.7"
   VERSION_CHARTRELEASER: "1.6.0"
   VERSION_OCI_BUSYBOX: "1.37.0-glibc"
   VERSION_OCI_ALPINE: "3.22.0"
@@ -99,7 +99,7 @@ jobs:
         uses: helm/chart-testing-action@v2.6.1
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: ${{ env.VERSION_GOLANGCILINT }}
           args: --timeout 3m --verbose --out-${NO_FUTURE}format colored-line-number

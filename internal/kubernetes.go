@@ -55,10 +55,10 @@ func (exporter *Exporter) parseAllKubeObjects() ([]*certificateRef, []error) {
 					}
 				}
 				output = append(output, &certificateRef{
-					path:          fmt.Sprintf("k8s/%s/%s", secret.GetNamespace(), secret.GetName()),
-					format:        certificateFormatKubeSecret,
-					kubeSecret:    secret,
-					kubeSecretKey: key,
+					path:             fmt.Sprintf("k8s/%s/%s", secret.GetNamespace(), secret.GetName()),
+					format:           certificateFormatKubeSecret,
+					kubeSecret:       secret,
+					kubeSecretKey:    key,
 					kubeSecretLabels: filteredLabels,
 				})
 			}
@@ -286,8 +286,8 @@ func connectToKubernetesCluster(kubeconfigPath string, insecure bool, rateLimite
 	}
 
 	if insecure {
-		config.TLSClientConfig.Insecure = true
-		config.TLSClientConfig.CAData = nil
+		config.Insecure = true
+		config.CAData = nil
 	}
 
 	if rateLimiter != nil {

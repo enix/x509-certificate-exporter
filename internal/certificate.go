@@ -62,14 +62,14 @@ var DefaultYamlPaths = []YAMLCertRef{
 }
 
 type certificateRef struct {
-	path               string
-	format             certificateFormat
-	certificates       []*parsedCertificate
-	yamlPaths          []YAMLCertRef
-	kubeSecret         v1.Secret
-	kubeConfigMap      v1.ConfigMap
-	kubeSecretKey      string
-	kubeSecretLabels   map[string]string
+	path             string
+	format           certificateFormat
+	certificates     []*parsedCertificate
+	yamlPaths        []YAMLCertRef
+	kubeSecret       v1.Secret
+	kubeConfigMap    v1.ConfigMap
+	kubeSecretKey    string
+	kubeSecretLabels map[string]string
 }
 
 type parsedCertificate struct {
@@ -131,83 +131,98 @@ func readAndParseYAMLFile(filePath string, yamlPaths []YAMLCertRef) ([]*parsedCe
 	output := []*parsedCertificate{}
 
 	for _, exprs := range yamlPaths {
-		file, err := os.Open(filePath)
+		certs, err := readAndParseYAMLEntry(filePath, exprs)
 		if err != nil {
 			return nil, err
 		}
-		defer file.Close()
+		output = append(output, certs...)
+	}
 
-		var raw interface{}
-		err = yaml.NewDecoder(file).Decode(&raw)
+	return output, nil
+}
+
+func readAndParseYAMLEntry(filePath string, exprs YAMLCertRef) (output []*parsedCertificate, retErr error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := file.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+
+	var raw interface{}
+	err = yaml.NewDecoder(file).Decode(&raw)
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := jsonpath.Read(raw, exprs.BasePathMatchExpr)
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries.([]interface{}) {
+		line, err := jsonpath.Read(entry, exprs.CertMatchSubExpr)
+		if err != nil {
+			continue
+		}
+		id, err := jsonpath.Read(entry, exprs.IDMatchSubExpr)
+		if err != nil {
+			continue
+		}
+		rawCerts, ok := line.(string)
+		if !ok {
+			return nil, err
+		}
+
+		var decodedCerts []byte
+		switch exprs.Format {
+		case YAMLCertFormatBase64:
+			decodedCerts = []byte{}
+			encodedCerts := strings.Split(rawCerts, "\n")
+
+			for _, encodedCert := range encodedCerts {
+				decodedCert, err := base64.StdEncoding.DecodeString(encodedCert)
+				if err != nil {
+					return nil, err
+				}
+
+				decodedCerts = append(decodedCerts, decodedCert...)
+				decodedCerts = append(decodedCerts, '\n')
+			}
+		case YAMLCertFormatFile:
+			rawCertPaths := strings.TrimRight(string(rawCerts), "\n")
+
+			for _, certPath := range strings.Split(rawCertPaths, "\n") {
+				if !path.IsAbs(certPath) {
+					certPath = path.Join(filepath.Dir(filePath), rawCertPaths)
+				}
+
+				data, err := readFile(certPath)
+				if err != nil {
+					return nil, err
+				}
+
+				decodedCerts = append(decodedCerts, data...)
+			}
+		}
+
+		certs, err := parsePEM(decodedCerts)
 		if err != nil {
 			return nil, err
 		}
 
-		entries, err := jsonpath.Read(raw, exprs.BasePathMatchExpr)
-		if err != nil {
-			return nil, err
-		}
-		for _, entry := range entries.([]interface{}) {
-			line, err := jsonpath.Read(entry, exprs.CertMatchSubExpr)
-			if err != nil {
-				continue
+		for index, cert := range certs {
+			displayName := id.(string)
+			if len(certs) > 1 {
+				displayName = fmt.Sprintf("%s(%d)", id, index)
 			}
-			id, err := jsonpath.Read(entry, exprs.IDMatchSubExpr)
-			if err != nil {
-				continue
-			}
-			rawCerts, ok := line.(string)
-			if !ok {
-				return nil, err
-			}
-
-			var decodedCerts []byte
-			if exprs.Format == YAMLCertFormatBase64 {
-				decodedCerts = []byte{}
-				encodedCerts := strings.Split(rawCerts, "\n")
-
-				for _, encodedCert := range encodedCerts {
-					decodedCert, err := base64.StdEncoding.DecodeString(encodedCert)
-					if err != nil {
-						return nil, err
-					}
-
-					decodedCerts = append(decodedCerts, decodedCert...)
-					decodedCerts = append(decodedCerts, '\n')
-				}
-			} else if exprs.Format == YAMLCertFormatFile {
-				rawCertPaths := strings.TrimRight(string(rawCerts), "\n")
-
-				for _, certPath := range strings.Split(rawCertPaths, "\n") {
-					if !path.IsAbs(certPath) {
-						certPath = path.Join(filepath.Dir(filePath), rawCertPaths)
-					}
-
-					data, err := readFile(certPath)
-					if err != nil {
-						return nil, err
-					}
-
-					decodedCerts = append(decodedCerts, data...)
-				}
-			}
-
-			certs, err := parsePEM(decodedCerts)
-			if err != nil {
-				return nil, err
-			}
-
-			for index, cert := range certs {
-				displayName := id.(string)
-				if len(certs) > 1 {
-					displayName = fmt.Sprintf("%s(%d)", id, index)
-				}
-				output = append(output, &parsedCertificate{
-					cert:        cert,
-					userID:      displayName,
-					yqMatchExpr: fmt.Sprintf("%s[:]%s", exprs.BasePathMatchExpr, exprs.CertMatchSubExpr[1:]),
-				})
-			}
+			output = append(output, &parsedCertificate{
+				cert:        cert,
+				userID:      displayName,
+				yqMatchExpr: fmt.Sprintf("%s[:]%s", exprs.BasePathMatchExpr, exprs.CertMatchSubExpr[1:]),
+			})
 		}
 	}
 

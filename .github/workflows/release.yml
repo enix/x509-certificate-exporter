@@ -102,7 +102,7 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: ${{ env.VERSION_GOLANGCILINT }}
-          args: --timeout 3m --verbose --output.formats colored-line-number
+          args: --timeout 3m --verbose --output.text.path stdout --output.text.colors --output.text.print-linter-name --output.text.print-issued-lines
 
       - name: Run unit tests
         run: |

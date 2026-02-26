@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.25.7 AS base
+FROM --platform=$BUILDPLATFORM golang:1.26.0 AS base
 WORKDIR /app
 
 FROM --platform=$BUILDPLATFORM cosmtrek/air:v1.63.0 AS air

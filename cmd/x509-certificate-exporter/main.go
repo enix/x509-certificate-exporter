@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"path"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/KimMachineGun/automemlimit/memlimit"
@@ -190,9 +193,26 @@ func main() {
 		}
 	}
 
-	err = exporter.ListenAndServe()
-	if err != nil {
-		slog.Error("Failed to start server", "reason", err)
+	go func() {
+		err := exporter.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			slog.Error("Failed to start server", "reason", err)
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	slog.Info("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := exporter.ShutdownWithContext(ctx); err != nil {
+		slog.Error("Failed to gracefully shutdown server", "reason", err)
 		os.Exit(1)
 	}
+
+	slog.Info("Server stopped")
 }

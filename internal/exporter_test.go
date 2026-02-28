@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -922,6 +923,32 @@ func TestMultipleShutdown(t *testing.T) {
 	err = exporter.Shutdown()
 	assert.NoError(t, err)
 	err = exporter.Shutdown()
+	assert.NoError(t, err)
+}
+
+func TestShutdownWithContext(t *testing.T) {
+	exporter := &Exporter{ListenAddress: "127.0.0.1:4243"}
+	err := exporter.Listen()
+	assert.NoError(t, err)
+
+	// Shutdown with normal context
+	ctx := context.Background()
+	err = exporter.ShutdownWithContext(ctx)
+	assert.NoError(t, err)
+
+	// Should be safe to call shutdown again even after server is already shutdown
+	err = exporter.ShutdownWithContext(ctx)
+	assert.NoError(t, err)
+
+	// Test with timeout context
+	exporter = &Exporter{ListenAddress: "127.0.0.1:4244"}
+	err = exporter.Listen()
+	assert.NoError(t, err)
+
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = exporter.ShutdownWithContext(timeoutCtx)
 	assert.NoError(t, err)
 }
 

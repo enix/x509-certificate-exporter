@@ -87,7 +87,7 @@ spec:
         {{- end }}
         image: {{ include "x509-certificate-exporter.image" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        {{- if or $extraVolumes .Values.webConfiguration .Values.webConfigurationExistingSecret }}
+        {{- if or $extraVolumeMounts .Values.webConfiguration .Values.webConfigurationExistingSecret }}
         volumeMounts:
         {{- range $extraVolumeMounts }}
         - {{ tpl (. | toYaml) $ | indent 10 | trim }}

@@ -16,8 +16,8 @@ spec:
   selector:
     matchLabels:
       {{- include "x509-certificate-exporter.selectorLabels" . | nindent 6 }}
-  {{- with .Values.secretsExporter.replicas }}
-  replicas: {{ . }}
+  {{- if not (kindIs "invalid" .Values.secretsExporter.replicas) }}
+  replicas: {{ int .Values.secretsExporter.replicas }}
   {{- end }}
   {{- $rl := .Values.secretsExporter.revisionHistoryLimit }}
   {{- if not (kindIs "invalid" $rl) }}

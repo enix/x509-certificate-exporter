@@ -45,6 +45,7 @@ type Exporter struct {
 	ExposeErrorMetrics         bool
 	ExposeLabels               []string
 	ConfigMapKeys              []string
+	SkipSymlinks               bool
 	KubeSecretTypes            []KubeSecretType
 	KubeIncludeNamespaces      []string
 	KubeExcludeNamespaces      []string
@@ -294,14 +295,36 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 					continue
 				}
 
+				filePath := path.Clean(path.Join(dir, file.Name()))
+
+				// Check if symlink following is disabled and file is a symlink
+				if exporter.SkipSymlinks {
+					info, err := os.Lstat(filePath)
+					if err == nil && info.Mode()&os.ModeSymlink != 0 {
+						slog.Info("skipping symlink", "path", filePath)
+						continue
+					}
+				}
+
 				output = append(output, &certificateRef{
-					path:   path.Clean(path.Join(dir, file.Name())),
+					path:   filePath,
 					format: certificateFormatPEM,
 				})
 			}
 		} else {
+			fullPath := path.Clean(path.Join(basepath, filepath))
+
+			// Check if symlink following is disabled and file is a symlink
+			if exporter.SkipSymlinks {
+				info, err := os.Lstat(fullPath)
+				if err == nil && info.Mode()&os.ModeSymlink != 0 {
+					slog.Info("skipping symlink", "path", fullPath)
+					return nil
+				}
+			}
+
 			output = append(output, &certificateRef{
-				path:      path.Clean(path.Join(basepath, filepath)),
+				path:      fullPath,
 				format:    format,
 				yamlPaths: exporter.YAMLPaths,
 			})
@@ -329,6 +352,16 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 	)
 	if err != nil {
 		if errors.Is(err, doublestar.ErrPatternNotExist) {
+			// When skipping symlinks, a broken symlink can cause ErrPatternNotExist
+			// Check if the pattern itself is a symlink that should be skipped
+			if exporter.SkipSymlinks {
+				fullPath := path.Clean(pattern)
+				info, lstatErr := os.Lstat(fullPath)
+				if lstatErr == nil && info.Mode()&os.ModeSymlink != 0 {
+					slog.Info("skipping symlink", "path", fullPath)
+					return output, outputErrors
+				}
+			}
 			return nil, []error{errors.New("no files match \"" + pattern + "\"")}
 		}
 
@@ -336,6 +369,17 @@ func (exporter *Exporter) collectMatchingPaths(pattern string, format certificat
 	}
 
 	if len(output) == 0 && len(outputErrors) == 0 {
+		// When skipping symlinks, the pattern might be a symlink that was skipped
+		// In that case, we should return empty output without error
+		if exporter.SkipSymlinks && !directories {
+			fullPath := path.Clean(pattern)
+			info, err := os.Lstat(fullPath)
+			if err == nil && info.Mode()&os.ModeSymlink != 0 {
+				slog.Info("skipping symlink", "path", fullPath)
+				return output, outputErrors
+			}
+		}
+
 		// the pattern evaluated to the opposite of what we want
 		// i.e. we wanted files but the pattern only matched directories
 

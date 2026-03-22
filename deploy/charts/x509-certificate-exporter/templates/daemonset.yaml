@@ -90,6 +90,9 @@ spec:
         {{- with default $.Values.hostPathsExporter.debugMode $dsDef.debugMode }}
         - --debug
         {{- end }}
+        {{- if default $.Values.hostPathsExporter.skipSymlinks $dsDef.skipSymlinks }}
+        - --skip-symlinks
+        {{- end }}
         {{- if $.Values.exposeRelativeMetrics }}
         - --expose-relative-metrics
         {{- end }}

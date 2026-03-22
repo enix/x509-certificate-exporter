@@ -100,7 +100,7 @@ rules:
 For advanced configuration, see the program's `--help`:
 
 ```
-Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [--expose-per-cert-error-metrics] [--expose-relative-metrics] [-f value] [--include-label value] [--include-namespace value] [--kubeconfig path] [-k value] [-l value] [--max-cache-duration value] [--profile] [-s value] [--trim-path-components value] [--watch-kube-secrets] [--web.config.file value] [--web.systemd-socket] [parameters ...]
+Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclude-label value] [--exclude-namespace value] [--expose-per-cert-error-metrics] [--expose-relative-metrics] [-f value] [--skip-symlinks] [--include-label value] [--include-namespace value] [--kubeconfig path] [-k value] [-l value] [--max-cache-duration value] [--profile] [-s value] [--trim-path-components value] [--watch-kube-secrets] [--web.config.file value] [--web.systemd-socket] [parameters ...]
  -b, --listen-address=value
                 address on which to bind and expose metrics [:9793]
      --debug    enable debug mode
@@ -146,7 +146,10 @@ Usage: x509-certificate-exporter [-hv] [-b value] [--debug] [-d value] [--exclud
                 namespace and randomized to avoid massive requests.
      --profile  optionally enable a pprof server to monitor cpu and memory
                 usage at runtime
- -s, --secret-type=value
+     --skip-symlinks
+                skip symlinks when scanning files and directories. Does not
+                apply to Kubernetes secrets.
+  -s, --secret-type=value
                 one or more kubernetes secret type & key to watch (e.g.
                 "kubernetes.io/tls:tls.crt"
      --trim-path-components=value

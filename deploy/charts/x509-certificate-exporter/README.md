@@ -405,6 +405,7 @@ hostPathsExporter:
 | secretsExporter.env | list | `[]` | Additional environment variables for container |
 | hostPathsExporter.annotations | object | `{}` | Additional DaemonSet annotations |
 | hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.skipSymlinks | bool | `false` | Skip symlinks when scanning files and directories. Does not apply to Kubernetes secrets. |
 | hostPathsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.updateStrategy | object | `{}` | updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.revisionHistoryLimit | int | `nil` | Number of old ReplicaSets to retain for rollback (default for all hostPathsExporter.daemonSets) |

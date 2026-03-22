@@ -98,6 +98,70 @@ func TestSinglePEMBehindSymlink(t *testing.T) {
 	})
 }
 
+func TestSkipSymlinksFlag(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+
+	// Test 1: Valid symlink to certificate file - should be skipped when SkipSymlinks=false
+	testRequest(t, &Exporter{
+		Files:        []string{path.Join(filepath.Dir(filename), "../test/link.pem")},
+		SkipSymlinks: true,
+	}, func(metrics []model.MetricFamily) {
+		metric := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, metric, 0, "symlink should be skipped when SkipSymlinks=false")
+	})
+
+	// Test 2: Broken symlink - should be skipped gracefully when SkipSymlinks=false (no error)
+	testRequest(t, &Exporter{
+		Files:        []string{path.Join(filepath.Dir(filename), "../test/badlink.pem")},
+		SkipSymlinks: true,
+	}, func(metrics []model.MetricFamily) {
+		metric := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, metric, 0, "broken symlink should be skipped when SkipSymlinks=false")
+		errors := getMetricsForName(metrics, "x509_read_errors")
+		assert.Len(t, errors, 1, "x509_read_errors metric should exist")
+		assert.Equal(t, 0., errors[0].GetGauge().GetValue(), "no read errors should occur when not following symlinks")
+	})
+
+	// Test 3: Broken relative symlink - should be skipped gracefully when SkipSymlinks=false
+	testRequest(t, &Exporter{
+		Files:        []string{path.Join(filepath.Dir(filename), "../test/badlink-relative.pem")},
+		SkipSymlinks: true,
+	}, func(metrics []model.MetricFamily) {
+		metric := getMetricsForName(metrics, "x509_cert_expired")
+		assert.Len(t, metric, 0, "broken symlink should be skipped when SkipSymlinks=false")
+		errors := getMetricsForName(metrics, "x509_read_errors")
+		assert.Len(t, errors, 1, "x509_read_errors metric should exist")
+		assert.Equal(t, 0., errors[0].GetGauge().GetValue(), "no read errors should occur when not following symlinks")
+	})
+}
+
+func TestSkipSymlinksInDirectory(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+	testDir := path.Join(filepath.Dir(filename), "../test")
+
+	// Test 1: Directory scan with SkipSymlinks=true (default) - should include symlink
+	testRequest(t, &Exporter{
+		Directories:  []string{testDir},
+		SkipSymlinks: false,
+	}, func(metrics []model.MetricFamily) {
+		metric := getMetricsForName(metrics, "x509_cert_expired")
+		// Should have 6 certs: badlink-relative.pem (1), badlink.pem (1), basic.pem (1), double.pem (2), and link.pem (1)
+		// Note: broken symlinks are resolved to their targets (badlink*.pem -> basic.pem)
+		assert.Len(t, metric, 6, "should include symlink when SkipSymlinks=true")
+	})
+
+	// Test 2: Directory scan with SkipSymlinks=false - should exclude symlink
+	testRequest(t, &Exporter{
+		Directories:  []string{testDir},
+		SkipSymlinks: true,
+	}, func(metrics []model.MetricFamily) {
+		metric := getMetricsForName(metrics, "x509_cert_expired")
+		// Should have 3 certs: basic.pem (1) and double.pem (2)
+		// Note: all symlinks (link.pem, badlink.pem, badlink-relative.pem) are skipped
+		assert.Len(t, metric, 3, "should exclude symlink when SkipSymlinks=false")
+	})
+}
+
 func TestMultiplePEM(t *testing.T) {
 	notBefore := time.Now()
 	notAfter := notBefore.Add(time.Hour)

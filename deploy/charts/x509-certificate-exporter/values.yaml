@@ -173,6 +173,8 @@ hostPathsExporter:
   annotations: {}
   # -- Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets)
   debugMode: false
+  # -- Skip symlinks when scanning files and directories. Does not apply to Kubernetes secrets.
+  skipSymlinks: false
   # -- restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   restartPolicy: Always
   # -- updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets)

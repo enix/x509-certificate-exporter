@@ -244,8 +244,8 @@ jobs:
                   tarinfo.uid = tarinfo.gid = 1000
                   tarinfo.uname = tarinfo.gname = 'user'
                   return tarinfo
-              with tarfile.open(asset_path, 'x:gz') as tarfile:
-                  tarfile.add(binary_output_path, arcname=binary_name, filter=reset)
+              with tarfile.open(asset_path, 'x:gz') as tf:
+                  tf.add(binary_output_path, arcname=binary_name, filter=reset)
 
           action('compute archive checksums')
           hex_sum = sha256(open(asset_path, 'rb').read()).hexdigest()
@@ -508,9 +508,9 @@ jobs:
                   asset_path = os.path.join(os.environ['WORKSPACE'], 'assets',
                           'x509-certificate-exporter-{}-{}.tar.gz'.format(container_os, container_arch))
                   binary_path = os.path.join(os.environ['WORKSPACE'], 'x509-certificate-exporter')
-                  with tarfile.open(asset_path, 'r:gz') as tarfile:
+                  with tarfile.open(asset_path, 'r:gz') as tf:
                       with open(binary_path, 'xb') as binfile:
-                          bin_data = tarfile.extractfile('x509-certificate-exporter')
+                          bin_data = tf.extractfile('x509-certificate-exporter')
                           binfile.write(bin_data.read())
 
                   action('copy binary and delete source')

@@ -490,7 +490,7 @@ jobs:
                       '--label', 'org.opencontainers.image.description=A Prometheus exporter for certificates focusing on expiration monitoring.',
                       '--label', 'org.opencontainers.image.url=https://github.com/enix/x509-certificate-exporter',
                       '--label', 'org.opencontainers.image.documentation=https://github.com/enix/x509-certificate-exporter#readme',
-                      '--label', 'org.opencontainers.image.sources=https://github.com/enix/sandbox-x509-certificate-exporter/blob/test-github-actions/.github/workflows/release.yml',
+                      '--label', 'org.opencontainers.image.sources=https://github.com/enix/x509-certificate-exporter/blob/main/Dockerfile',
                       '--label', 'org.opencontainers.image.authors=Enix <contact@enix.fr>',
                       '--label', 'org.opencontainers.image.licenses=MIT',
                       '--label', 'org.opencontainers.image.version={}'.format(version),

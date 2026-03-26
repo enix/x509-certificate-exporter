@@ -379,21 +379,6 @@ jobs:
           path: repository
           persist-credentials: false
 
-      - name: Cache for chart-releaser
-        id: cache-cr
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: bin/cr
-          key: ${{ runner.os }}-cr-${{ env.VERSION_CHARTRELEASER }}
-
-      - name: Set up chart-releaser
-        if: steps.cache-cr.outputs.cache-hit != 'true'
-        run: |
-          set -euo pipefail
-          [ -d bin ] || mkdir bin
-          URL='https://github.com/helm/chart-releaser/releases/download/v${{ env.VERSION_CHARTRELEASER }}/chart-releaser_${{ env.VERSION_CHARTRELEASER }}_linux_amd64.tar.gz'
-          curl -sSL "${URL}" | tar xz -C bin cr
-
       - name: Login to Docker Hub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
@@ -668,16 +653,11 @@ jobs:
               outfile.write(output)
               outfile.write('EOF\n')
 
-      # TODO
-      # - OCI releases?
-      # - signing?
-      - name: Run chart-releaser
+      - name: Prepare Helm chart
         shell: python
         env:
           WORKSPACE: ${{ github.workspace }}
           PYTHONPATH: ${{ github.workspace }}/repository/.github
-          CR_PATH: ${{ github.workspace }}/bin/cr
-          CR_TOKEN: ${{ secrets.CHARTSREPO_GITHUB_TOKEN }}
           CHART_NAME: x509-certificate-exporter
           VERSION: ${{ needs.draft-release.outputs.version }}
           PRERELEASE: ${{ needs.draft-release.outputs.prerelease }}
@@ -729,21 +709,40 @@ jobs:
               action('YAML: {}'.format(yaml_file))
               print(yaml.safe_load(open(yaml_file, 'r')))
 
-          header('release the chart')
+      - name: Build Helm chart
+        uses: appany/helm-oci-chart-releaser@dd0551c15abe174eb57824ecde62e976091094da # v0.4.2
+        with:
+          path: repository/deploy/charts/x509-certificate-exporter
+          name: x509-certificate-exporter
+          repository: enix/charts
+          tag: ${{ needs.draft-release.outputs.version }}
+          # app_version: ${{ needs.draft-release.outputs.version }}
+          registry: quay.io
+          registry_username: ${{ secrets.QUAY_USERNAME }}
+          registry_password: ${{ secrets.QUAY_ROBOT_TOKEN }}
+          update_dependencies: "true"
 
-          action('clone helm charts repository')
-          charts_repo = os.path.join(os.environ['WORKSPACE'], 'enix-charts')
-          run('git', 'clone', 'https://github.com/enix/helm-charts', charts_repo)
+      - name: Setup Oras
+        uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6 # v1.2.4
 
-          action('copy chart files')
-          repo_chart_path = os.path.join(charts_repo, 'charts', os.environ['CHART_NAME'])
-          shutil.copytree(chart_path, repo_chart_path, symlinks=True, dirs_exist_ok=False)
+      - name: Push Helm index
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN_PUBLISH_HELM_CHART }}
+          REPO_LOGIN: ${{ secrets.QUAY_USERNAME }}
+          REPO_TOKEN: ${{ secrets.QUAY_ROBOT_TOKEN }}
+          CHART_NAME: x509-certificate-exporter
+          CHART_VERSION: ${{ needs.draft-release.outputs.version }}
+        run: |
+          # Create repo index file
+          helm repo index .
 
-          action('create the chart package')
-          run(os.environ['CR_PATH'], 'package', repo_chart_path, cwd=charts_repo)
+          # Replace HTTP URL by OCI URL
+          yq e ".entries.${CHART_NAME}[0].urls[0] = \"oci://quay.io/enix/charts/${CHART_NAME}:${CHART_VERSION}\"" -i index.yaml
 
-          action('upload the chart')
-          run(os.environ['CR_PATH'], 'upload', '--skip-existing', '--owner', 'enix', '--git-repo', 'helm-charts', cwd=charts_repo)
+          # Push index to project repo
+          mv index.yaml index-latest.yaml
+          echo "${REPO_TOKEN}" | oras login --username "${REPO_LOGIN}" --password-stdin quay.io
+          oras push "quay.io/enix/charts/${CHART_NAME}:index-latest.yaml" --artifact-type application/yaml index-latest.yaml:application/yaml
 
-          action('update repository index')
-          run(os.environ['CR_PATH'], 'index', '--push', '-i', 'index.yaml', '--owner', 'enix', '--git-repo', 'helm-charts', cwd=charts_repo)
+          # Trigger index publish
+          gh workflow run helmchart-publish.yml -f "index_path=enix/charts/${CHART_NAME}:index-latest.yaml" --repo enix/helm-charts

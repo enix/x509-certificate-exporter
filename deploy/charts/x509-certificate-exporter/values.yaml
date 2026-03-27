@@ -65,7 +65,7 @@ secretsExporter:
   annotations: {}
   # -- Should debug messages be produced by the TLS Secrets exporter
   debugMode: false
-  # -- Desired number of TLS Secrets exporter Pod
+  # -- Desired number of TLS Secrets exporter Pods
   replicas: 1
   # -- restartPolicy for Pods of the TLS Secrets exporter
   restartPolicy: Always
@@ -74,7 +74,7 @@ secretsExporter:
   # -- (int) Number of old ReplicaSets to retain for rollback
   revisionHistoryLimit:
   # -- ResourceRequirements for containers of the TLS Secrets exporter
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   resources:
     limits:
       cpu: 1
@@ -83,18 +83,18 @@ secretsExporter:
       cpu: 20m
       memory: 20Mi
   # -- Readiness probe definition for the secrets exporter (.httpGet cannot be changed)
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 3
   # -- Liveness probe definition for the secrets exporter (.httpGet cannot be changed)
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   livenessProbe:
     initialDelaySeconds: 5
     periodSeconds: 3
   # -- Node selector for Pods of the TLS Secrets exporter
   nodeSelector: {}
-  # -- Toleration for Pods of the TLS Secrets exporter
+  # -- Tolerations for Pods of the TLS Secrets exporter
   tolerations: []
   # -- Affinity for Pods of the TLS Secrets exporter
   affinity: {}
@@ -105,11 +105,11 @@ secretsExporter:
   # -- Annotations added to Pods of the TLS Secrets exporter
   podAnnotations: {}
   # -- PodSecurityContext for Pods of the TLS Secrets exporter
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   podSecurityContext:
     runAsNonRoot: true
   # -- SecurityContext for containers of the TLS Secrets exporter
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   securityContext:
     runAsUser: 65534
     runAsGroup: 65534
@@ -123,13 +123,13 @@ secretsExporter:
   extraVolumeMounts: []
 
   # -- Which type of Secrets should be watched ; "key" is the map key in the secret data
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   secretTypes:
   - type: kubernetes.io/tls
     key: tls.crt
 
-  # -- If the exporter should for certificates in configmaps, just specify the keys it needs to watch. E.g.: `configMapKeys: ["tls.crt"]`
-  # @default -- check `values.yaml`
+  # -- If the exporter should watch for certificates in ConfigMaps, just specify the keys it needs to watch. E.g.: `configMapKeys: ["tls.crt"]`
+  # @default -- see `values.yaml`
   configMapKeys: []
 
   # -- Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty)
@@ -144,9 +144,9 @@ secretsExporter:
   includeLabels: []
   # -- Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   excludeLabels: []
-  # -- Expose selected labels from kubernetes secrets as prometheus label.
+  # -- Expose selected labels from Kubernetes Secrets as Prometheus labels.
   exposeSecretLabels: []
-  # -- Includes extra arguments. Items can be a list of extra arguments that should be added to the command line such as `--watch-file="/extra-cert/tls.crt`.
+  # -- Additional arguments to append to the exporter command line. E.g.: `--watch-file="/extra-cert/tls.crt"`.
   extraArgs: []
 
   cache:
@@ -163,7 +163,7 @@ secretsExporter:
     # -- Burst bucket size for queries sent to the API server
     burstQueries: 10
 
-  # -- Additional environment variables for container
+  # -- Additional environment variables for containers
   env: []
   # - name: GOMAXPROCS
   #   value: "1"
@@ -177,12 +177,12 @@ hostPathsExporter:
   skipSymlinks: false
   # -- restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   restartPolicy: Always
-  # -- updateStrategy for DaemonSet of hostPath exporters (default for all hostPathsExporter.daemonSets)
+  # -- updateStrategy for DaemonSets of hostPath exporters (default for all hostPathsExporter.daemonSets)
   updateStrategy: {}
   # -- (int) Number of old ReplicaSets to retain for rollback (default for all hostPathsExporter.daemonSets)
   revisionHistoryLimit:
   # -- ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets)
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   resources:
     limits:
       cpu: 1
@@ -191,18 +191,18 @@ hostPathsExporter:
       cpu: 10m
       memory: 20Mi
   # -- Readiness probe definition for the host paths exporter (.httpGet cannot be changed)
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 3
   # -- Liveness probe definition for the host paths exporter (.httpGet cannot be changed)
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   livenessProbe:
     initialDelaySeconds: 5
     periodSeconds: 3
   # -- Node selector for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   nodeSelector: {}
-  # -- Toleration for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
+  # -- Tolerations for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   tolerations: []
   # -- Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   affinity: {}
@@ -215,7 +215,7 @@ hostPathsExporter:
   # -- PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   podSecurityContext: {}
   # -- SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets)
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   securityContext:
     runAsUser: 0
     runAsGroup: 0
@@ -225,7 +225,7 @@ hostPathsExporter:
       - ALL
   # -- Additional volumes added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`)
   extraVolumes: []
-  # -- Additional volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`)
+  # -- Additional volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumeMounts`)
   extraVolumeMounts: []
 
   # -- Type for HostPath volumes used with watched paths. Can be set to `""` or null to use Kubernetes defaults. May be required with RKE if Pods don't start.
@@ -239,7 +239,7 @@ hostPathsExporter:
   # -- [SEE README] List of Kubeconf file paths of the host to scan for embedded certificates to export metrics about
   watchKubeconfFiles: []
 
-  # -- Additional environment variables for container
+  # -- Additional environment variables for containers
   env: []
   # - name: GOMAXPROCS
   #   value: "1"
@@ -256,11 +256,11 @@ hostNetwork: false
 # -- HTTP server configuration for enabling TLS and authentication (password, mTLS) ; see [documentation at Exporter Toolkit](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md)
 webConfiguration: ""
 
-# -- Load the HTTP server configuration from an existing Secret instead of `webConfiguration`. Key must `webconfig.yaml`.
+# -- Load the HTTP server configuration from an existing Secret instead of `webConfiguration`. Key must be `webconfig.yaml`.
 webConfigurationExistingSecret: ""
 
 service:
-  # -- Should a Service be installed, targets all instances Deployment and DaemonSets (required for ServiceMonitor)
+  # -- Should a Service be installed, targeting all Deployment and DaemonSet instances (required for ServiceMonitor)
   create: true
   # -- Should the Service be headless
   headless: false
@@ -324,9 +324,9 @@ prometheusRules:
   certificateRenewalsSeverity: warning
   # -- Severity for the CertificateExpiration alerting rule
   certificateExpirationsSeverity: critical
-  # -- Raise a warning alert when this little days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)
+  # -- Raise a warning alert when this few days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)
   warningDaysLeft: 28
-  # -- Raise a critical alert when this little days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)
+  # -- Raise a critical alert when this few days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)
   criticalDaysLeft: 14
   # -- Additional labels to add to PrometheusRule objects
   extraLabels: {}
@@ -362,7 +362,7 @@ podAnnotations: {}
 #  prometheus.io/port: "9793"
 #  prometheus.io/scrape: "true"
 
-# -- PriorityClassName set for all Pods by default (could be overrided with `secretsExporter` and `hostPathsExporter` specific values)
+# -- PriorityClassName set for all Pods by default (can be overridden with `secretsExporter` and `hostPathsExporter` specific values)
 priorityClassName: ""
 
 # -- Additional volumes added to all Pods (see also the `secretsExporter` and `hostPathsExporter` variants)
@@ -414,7 +414,7 @@ rbacProxy:
   # -- Listen port for the exporter running inside kube-rbac-proxy exposed Pods
   upstreamListenPort: 9091
   # -- ResourceRequirements for all containers of kube-rbac-proxy
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   resources:
     limits:
       cpu: 100m
@@ -423,7 +423,7 @@ rbacProxy:
       cpu: 10m
       memory: 20Mi
   # -- SecurityContext for all containers of kube-rbac-proxy
-  # @default -- check `values.yaml`
+  # @default -- see `values.yaml`
   securityContext:
     runAsUser: 65534
     runAsGroup: 65534
@@ -433,5 +433,5 @@ rbacProxy:
       drop:
       - ALL
 
-# -- Override Kubernetes version detection ; usefull with "helm template"
+# -- Override Kubernetes version detection ; useful with "helm template"
 kubeVersion: ""

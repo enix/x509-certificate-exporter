@@ -173,3 +173,17 @@ Web configuration Secret name
 {{- define "x509-certificate-exporter.webConfigurationSecretName" -}}
 {{ include "x509-certificate-exporter.fullname" . }}-webconf
 {{- end -}}
+
+{{/*
+kubectl image for hook jobs (digest > explicit tag > auto-detected cluster version)
+*/}}
+{{- define "migration.kubectlImage" -}}
+{{- if .Values.migration.image.digest -}}
+{{ .Values.migration.image.repository }}@{{ .Values.migration.image.digest }}
+{{- else if .Values.migration.image.tag -}}
+{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}
+{{- else -}}
+{{ .Values.migration.image.repository }}:{{ template "capabilities.kubeVersion" . }}
+{{- end -}}
+{{- end -}}
+

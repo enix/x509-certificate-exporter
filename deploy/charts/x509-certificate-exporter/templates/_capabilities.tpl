@@ -1,5 +1,9 @@
 {{- define "capabilities.kubeVersion" -}}
-{{- default .Capabilities.KubeVersion.Version .Values.kubeVersion -}}
+{{- if .Values.kubeVersion -}}
+{{- .Values.kubeVersion | regexFind "v[0-9]+\\.[0-9]+\\.[0-9]+" -}}
+{{- else -}}
+{{- .Capabilities.KubeVersion.Version | regexFind "v[0-9]+\\.[0-9]+\\.[0-9]+" -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "capabilities.deployment.apiVersion" -}}

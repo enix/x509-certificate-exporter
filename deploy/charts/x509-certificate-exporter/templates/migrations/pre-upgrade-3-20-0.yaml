@@ -1,0 +1,123 @@
+{{- $needsMigration := false }}
+{{- if .Release.IsUpgrade }}
+  {{- $ns := include "x509-certificate-exporter.namespace" . }}
+  {{- $existingResource := lookup "apps/v1" "Deployment" $ns (include "x509-certificate-exporter.secretsExporterName" .) }}
+  {{- if not $existingResource }}
+    {{- range $name, $_ := .Values.hostPathsExporter.daemonSets }}
+      {{- if not $existingResource }}
+        {{- $dsName := printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $name }}
+        {{- $existingResource = lookup "apps/v1" "DaemonSet" $ns $dsName }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- if $existingResource }}
+    {{- $chartLabel := index $existingResource.metadata.labels "helm.sh/chart" }}
+    {{- if $chartLabel }}
+      {{- $prevVersion := trimPrefix "x509-certificate-exporter-" $chartLabel }}
+      {{- if semverCompare "<3.20.0" $prevVersion }}
+        {{- $needsMigration = true }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $needsMigration }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "x509-certificate-exporter.fullname" . }}-pre-upgrade
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
+  labels:
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "x509-certificate-exporter.fullname" . }}-pre-upgrade
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
+  labels:
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+- apiGroups: ["apps"]
+  resources: ["daemonsets", "deployments"]
+  verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "x509-certificate-exporter.fullname" . }}-pre-upgrade
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
+  labels:
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "x509-certificate-exporter.fullname" . }}-pre-upgrade
+subjects:
+- kind: ServiceAccount
+  name: {{ include "x509-certificate-exporter.fullname" . }}-pre-upgrade
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "x509-certificate-exporter.fullname" . }}-pre-upgrade
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
+  labels:
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      {{- with .Values.migration.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.migration.extraLabels }}
+      labels:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "x509-certificate-exporter.fullname" . }}-pre-upgrade
+      restartPolicy: OnFailure
+      {{- with .Values.migration.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: kubectl
+        image: {{ include "migration.kubectlImage" . | quote }}
+        {{- with .Values.migration.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.migration.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        command:
+        - kubectl
+        - delete
+        - --ignore-not-found=true
+        - -n
+        - {{ include "x509-certificate-exporter.namespace" . }}
+        - deployment/{{ include "x509-certificate-exporter.secretsExporterName" . }}
+        {{- range $name, $_ := .Values.hostPathsExporter.daemonSets }}
+        - daemonset/{{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $name }}
+        {{- end }}
+{{- end }}

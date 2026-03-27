@@ -36,7 +36,42 @@ image:
   # -- x509-certificate-exporter image pull policy
   pullPolicy: IfNotPresent
 
-# -- Enable additional metrics to report per-certificate errors ; helps with identifying read errors origin not having to look at exporter logs, at the expense of additional storage on Prometheus
+migration:
+  image:
+    # -- kubectl image repository for Helm hook Jobs
+    repository: registry.k8s.io/kubectl
+    # -- kubectl image tag. If set, takes precedence over auto-detected cluster version.
+    tag: ""
+    # -- kubectl image digest. If set, takes precedence over tag and auto-detected cluster version.
+    digest: ""
+  # -- Annotations added to Helm hook Pods
+  annotations: {}
+  # -- Additional labels added to Helm hook Pods
+  extraLabels: {}
+  # -- ResourceRequirements for containers of Helm hooks
+  # @default -- see `values.yaml`
+  resources:
+    limits:
+      cpu: 1
+      memory: 150Mi
+    requests:
+      cpu: 20m
+      memory: 20Mi
+  # -- PodSecurityContext for Pods of Helm hooks
+  # @default -- see `values.yaml`
+  podSecurityContext:
+    runAsNonRoot: true
+  # -- SecurityContext for containers of Helm hooks
+  # @default -- see `values.yaml`
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+      - ALL
+
+# -- Enable additional metrics to report per-certificate errors ; helps with identifying the origin of read errors without having to look at exporter logs, at the expense of additional storage on Prometheus
 exposePerCertificateErrorMetrics: false
 
 # -- Enable additional metrics with relative durations instead of absolute timestamps ; not recommended with Prometheus

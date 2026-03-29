@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -10,16 +11,19 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -970,9 +974,11 @@ func TestDirectoryGlobbing(t *testing.T) {
 }
 
 func TestListenError(t *testing.T) {
-	exporter := &Exporter{ListenAddress: "127.0.0.1:4242"}
+	exporter := &Exporter{ListenAddress: "127.0.0.1:0"}
 	err := exporter.Listen()
 	assert.NoError(t, err)
+
+	exporter.ListenAddress = exporter.listener.Addr().String()
 	err = exporter.Listen()
 	assert.Error(t, err)
 	err = exporter.listener.Close()
@@ -980,13 +986,103 @@ func TestListenError(t *testing.T) {
 }
 
 func TestMultipleShutdown(t *testing.T) {
-	exporter := &Exporter{ListenAddress: "127.0.0.1:4242"}
+	exporter := &Exporter{ListenAddress: "127.0.0.1:0"}
 	err := exporter.Listen()
 	assert.NoError(t, err)
 	err = exporter.Shutdown()
 	assert.NoError(t, err)
 	err = exporter.Shutdown()
 	assert.NoError(t, err)
+}
+
+func TestShutdownWithContext(t *testing.T) {
+	exporter, serveErr := startTestServer(t)
+
+	// Shutdown with normal context
+	ctx := context.Background()
+	err := exporter.ShutdownWithContext(ctx)
+	assert.NoError(t, err)
+	assertServeStopped(t, serveErr)
+
+	// Should be safe to call shutdown again even after server is already shutdown
+	err = exporter.ShutdownWithContext(ctx)
+	assert.NoError(t, err)
+
+	// Verify timeout context is honored while requests are still in flight.
+	releaseRequest := make(chan struct{})
+	var requestStarted atomic.Bool
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestStarted.Store(true)
+		<-releaseRequest
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer testServer.Close()
+
+	exporter = &Exporter{}
+	exporter.serverMu.Lock()
+	exporter.server = testServer.Config
+	exporter.serverMu.Unlock()
+
+	requestErr := make(chan error, 1)
+	go func() {
+		resp, reqErr := http.Get(testServer.URL)
+		if resp != nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}
+		requestErr <- reqErr
+	}()
+
+	require.Eventually(t, requestStarted.Load, time.Second, 10*time.Millisecond)
+
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	err = exporter.ShutdownWithContext(timeoutCtx)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+
+	close(releaseRequest)
+	err = exporter.ShutdownWithContext(context.Background())
+	assert.NoError(t, err)
+
+	select {
+	case reqErr := <-requestErr:
+		assert.NoError(t, reqErr)
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for in-flight request to finish")
+	}
+}
+
+func startTestServer(t *testing.T) (*Exporter, <-chan error) {
+	t.Helper()
+
+	exporter := &Exporter{ListenAddress: "127.0.0.1:0"}
+	require.NoError(t, exporter.Listen())
+
+	serveErr := make(chan error, 1)
+	go func() {
+		serveErr <- exporter.Serve()
+	}()
+
+	require.Eventually(t, func() bool {
+		exporter.serverMu.RLock()
+		defer exporter.serverMu.RUnlock()
+		return exporter.server != nil
+	}, time.Second, 10*time.Millisecond)
+
+	return exporter, serveErr
+}
+
+func assertServeStopped(t *testing.T, serveErr <-chan error) {
+	t.Helper()
+
+	select {
+	case err := <-serveErr:
+		if err != nil {
+			assert.ErrorIs(t, err, http.ErrServerClosed)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for server to stop")
+	}
 }
 
 func testSinglePEM(t *testing.T, expired float64, notBefore time.Time) {

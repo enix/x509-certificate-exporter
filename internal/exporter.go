@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -27,7 +28,7 @@ import (
 )
 
 var (
-    invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 )
 
 // Exporter : Configuration (from command-line)
@@ -57,6 +58,7 @@ type Exporter struct {
 
 	kubeClient      kubernetes.Interface
 	listener        net.Listener
+	serverMu        sync.RWMutex
 	server          *http.Server
 	isDiscovery     bool
 	secretsCache    *cache.Cache
@@ -128,9 +130,12 @@ func (exporter *Exporter) Serve() error {
 	mux.Handle("/healthz", health.NewHandler())
 	mux.Handle("/metrics", promhttp.Handler())
 
-	exporter.server = &http.Server{
+	exporter.serverMu.Lock()
+	server := &http.Server{
 		Handler: mux,
 	}
+	exporter.server = server
+	exporter.serverMu.Unlock()
 
 	toolkitFlags := web.FlagConfig{
 		WebListenAddresses: &[]string{exporter.ListenAddress},
@@ -138,16 +143,34 @@ func (exporter *Exporter) Serve() error {
 		WebConfigFile:      &exporter.ConfigFile,
 	}
 
-	return web.Serve(exporter.listener, exporter.server, &toolkitFlags, slog.Default())
+	return web.Serve(exporter.listener, server, &toolkitFlags, slog.Default())
 }
 
-// Shutdown : Properly tear down server
+// Shutdown tears down the server using a default background context.
 func (exporter *Exporter) Shutdown() error {
-	if exporter.server != nil {
-		return exporter.server.Shutdown(context.Background())
+	return exporter.ShutdownWithContext(context.Background())
+}
+
+// ShutdownWithContext properly tears down the server using the provided context
+// This allows for setting timeouts and other context-specific configurations
+func (exporter *Exporter) ShutdownWithContext(ctx context.Context) error {
+	exporter.serverMu.RLock()
+	server := exporter.server
+	exporter.serverMu.RUnlock()
+
+	if server == nil {
+		return nil
 	}
 
-	return nil
+	err := server.Shutdown(ctx)
+
+	exporter.serverMu.Lock()
+	if exporter.server == server {
+		exporter.server = nil
+	}
+	exporter.serverMu.Unlock()
+
+	return err
 }
 
 // DiscoverCertificates : Parse all certs in a dry run with verbose logging

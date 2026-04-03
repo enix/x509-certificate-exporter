@@ -92,11 +92,13 @@ func (kst *KubeSecretType) Matches(secretType, key string) bool {
 
 // ListenAndServe : Convenience function to start exporter
 func (exporter *Exporter) ListenAndServe() error {
-	exporter.DiscoverCertificates()
+	exporter.initCaches()
 
 	if err := exporter.Listen(); err != nil {
 		return err
 	}
+
+	go exporter.DiscoverCertificates()
 
 	return exporter.Serve()
 }
@@ -150,10 +152,18 @@ func (exporter *Exporter) Shutdown() error {
 	return nil
 }
 
+func (exporter *Exporter) initCaches() {
+	if exporter.secretsCache == nil {
+		exporter.secretsCache = cache.New(exporter.MaxCacheDuration, 5*time.Minute)
+	}
+	if exporter.configMapsCache == nil {
+		exporter.configMapsCache = cache.New(exporter.MaxCacheDuration, 5*time.Minute)
+	}
+}
+
 // DiscoverCertificates : Parse all certs in a dry run with verbose logging
 func (exporter *Exporter) DiscoverCertificates() {
-	exporter.secretsCache = cache.New(exporter.MaxCacheDuration, 5*time.Minute)
-	exporter.configMapsCache = cache.New(exporter.MaxCacheDuration, 5*time.Minute)
+	exporter.initCaches()
 	exporter.isDiscovery = true
 	certs, errs := exporter.parseAllCertificates()
 

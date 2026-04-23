@@ -392,6 +392,13 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_ROBOT_TOKEN }}
 
+      - name: Login to GHCR
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        with:
+          registry: https://ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Retrieve assets from artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -516,6 +523,7 @@ jobs:
               repositories = (
                   'docker.io/{}'.format(os.environ['REPOSITORY']),
                   'quay.io/{}'.format(os.environ['REPOSITORY']),
+                  'ghcr.io/{}'.format(os.environ['REPOSITORY']),
               )
               tags = [ version ]
               if not prerelease:

@@ -7,7 +7,13 @@
     ":semanticCommitsDisabled",
   ],
 
-  prConcurrentLimit: 10,
+  // Defaults are conservative (10 concurrent, 2/hour) to protect heavily
+  // multi-tenant Renovate hosts from spamming reviewers. We self-host on
+  // GHA and control the cron, so the anti-spam guard isn't load-bearing
+  // — bump both to 20 so Dependency Dashboard checkbox approvals
+  // materialize in one run instead of dripping over hours.
+  prConcurrentLimit: 20,
+  prHourlyLimit: 20,
 
   // config:recommended inherits prCreation:"not-pending" (open PR only after
   // branch CI is green, on the next Renovate run). Override globally so every

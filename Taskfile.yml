@@ -22,7 +22,7 @@ vars:
   DEV_REGISTRY: x509ce-dev-registry
   DEV_REGISTRY_PORT: 5000
   # Renovate-tracked (custom regex manager in renovate.json5).
-  DEV_K3S_IMAGE: rancher/k3s:v1.35.3-k3s1
+  DEV_K3S_IMAGE: rancher/k3s:v1.35.4-k3s1
 
 tasks:
   default:

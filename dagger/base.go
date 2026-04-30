@@ -13,7 +13,7 @@ const (
 	renovateImage     = "renovate/renovate:43.142.1"
 	helmDocsImage     = "jnorwood/helm-docs:v1.14.2"
 	markdownlintImage = "davidanson/markdownlint-cli2:v0.22.1"
-	trivyImage        = "aquasec/trivy:0.58.0"
+	trivyImage        = "aquasec/trivy:0.70.0"
 	golangciLint      = "v2.11.4" // installed via `go install`
 	gotestsumModule   = "v1.13.0" // ditto
 	govulncheckPath   = "latest"  // tracking latest, no Renovate pin

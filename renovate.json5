@@ -1,0 +1,178 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  extends: [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommitsDisabled",
+  ],
+
+  prConcurrentLimit: 10,
+
+  // config:recommended inherits prCreation:"not-pending" (open PR only after
+  // branch CI is green, on the next Renovate run). Override globally so every
+  // PR is opened in the same run that creates the branch.
+  prCreation: "immediate",
+
+  // Trigger cadence is daily (see .github/workflows/renovate.yaml) so security
+  // alerts are detected within 24 h, but routine bumps are batched once a week
+  // on Monday to avoid drowning reviewers in mid-week churn. Vulnerability
+  // alerts override this below with `schedule: "at any time"`.
+  schedule: ["on monday"],
+  timezone: "Europe/Paris",
+
+  vulnerabilityAlerts: {
+    enabled: true,
+    labels: ["security"],
+    // Explicit bypass of the top-level Monday schedule — the docs don't
+    // guarantee an implicit override, and users have hit cases where security
+    // PRs got blocked by the global schedule (renovatebot#14289).
+    schedule: "at any time",
+  },
+  osvVulnerabilityAlerts: true,
+
+  // Refresh flake.lock and transitive go.sum entries every time Renovate
+  // runs. Inherits the top-level Monday schedule.
+  lockFileMaintenance: {
+    enabled: true,
+  },
+
+  customManagers: [
+    // K3s image pinned for the dev cluster bootstrap (Taskfile var
+    // DEV_K3S_IMAGE). Tag format `v<sem>-k3s<n>`.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^Taskfile\\.ya?ml$/"],
+      matchStrings: [
+        "DEV_K3S_IMAGE:\\s*rancher/k3s:(?<currentValue>v\\d+\\.\\d+\\.\\d+-k3s\\d+)",
+      ],
+      depNameTemplate: "rancher/k3s",
+      datasourceTemplate: "docker",
+      versioningTemplate: "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-k3s(?<build>\\d+)$",
+    },
+    // kube-prometheus-stack chart pinned in the dev Tiltfile
+    // (KUBE_PROMETHEUS_VERSION). Helm datasource — Renovate fetches
+    // available versions from the prometheus-community repo index.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^Tiltfile$/"],
+      matchStrings: [
+        "KUBE_PROMETHEUS_VERSION\\s*=\\s*['\"](?<currentValue>\\d[\\w.-]*)['\"]",
+      ],
+      depNameTemplate: "kube-prometheus-stack",
+      datasourceTemplate: "helm",
+      registryUrlTemplate: "https://prometheus-community.github.io/helm-charts",
+    },
+    // Container images and tool versions pinned as Go constants in the
+    // Dagger module's base.go (golang/alpine/helm/renovate/helm-docs
+    // images, golangci-lint and gotestsum tool versions). Two regex
+    // managers — one for Docker images, one for `go install` tools —
+    // since the datasource differs.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^dagger/base\\.go$/"],
+      matchStrings: [
+        "(?<depName>[a-zA-Z0-9./_-]+)Image\\s*=\\s*\"(?<packageName>[a-zA-Z0-9./_-]+):(?<currentValue>[\\w.-]+)\"",
+      ],
+      datasourceTemplate: "docker",
+    },
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^dagger/base\\.go$/"],
+      matchStrings: [
+        "golangciLint\\s*=\\s*\"(?<currentValue>v\\d[\\w.-]*)\"",
+      ],
+      depNameTemplate: "github.com/golangci/golangci-lint/v2",
+      datasourceTemplate: "go",
+    },
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^dagger/base\\.go$/"],
+      matchStrings: [
+        "gotestsumModule\\s*=\\s*\"(?<currentValue>v\\d[\\w.-]*)\"",
+      ],
+      depNameTemplate: "gotest.tools/gotestsum",
+      datasourceTemplate: "go",
+    },
+  ],
+
+  packageRules: [
+    // Pin digests on every Docker FROM (Dockerfiles) for reproducibility.
+    {
+      matchCategories: ["docker"],
+      pinDigests: true,
+    },
+    // Pin GitHub Actions to commit SHAs. Renovate will rewrite floating
+    // tags (e.g. `actions/checkout@v4`) to `@<sha> # v4` on its next run,
+    // and keep them pinned thereafter.
+    {
+      matchManagers: ["github-actions"],
+      pinDigests: true,
+    },
+    // Exception: the SLSA reusable workflow MUST stay tag-pinned. Its
+    // internal logic uses the tag to download the matching release
+    // binary (`slsa-generator-generic-linux-amd64`); a SHA-pinned ref
+    // breaks the download. SLSA's own docs require `@vX.Y.Z` here.
+    // See the long comment above the `slsa:` job in
+    // .github/workflows/release.yaml for details.
+    {
+      matchManagers: ["github-actions"],
+      matchPackageNames: ["slsa-framework/slsa-github-generator"],
+      pinDigests: false,
+    },
+
+    // Single PR for all Go-toolchain bumps: go.mod's `go X.Y.Z` and the
+    // dagger/base.go `golangImage` constant land together. CI workflows
+    // resolve the Go version via `setup-go` + `go-version-file: go.mod`,
+    // so they need no separate bump. flake.nix is intentionally unpinned
+    // (GOTOOLCHAIN=auto downloads the toolchain declared in go.mod), so
+    // no manual edit there either.
+    {
+      matchPackageNames: ["golang", "go"],
+      groupName: "golang toolchain",
+      commitMessageTopic: "Go toolchain",
+      labels: ["dependencies", "golang"],
+    },
+    // Major Go-toolchain bumps require manual approval via the dashboard.
+    {
+      matchPackageNames: ["golang", "go"],
+      matchUpdateTypes: ["major"],
+      dependencyDashboardApproval: true,
+    },
+
+    // Group all variant base images (busybox, alpine, registry) together.
+    {
+      matchPackageNames: ["busybox", "alpine", "registry"],
+      groupName: "container base images",
+      labels: ["dependencies", "docker"],
+    },
+
+    // Go modules: split patch / minor into two predictable PRs.
+    {
+      matchManagers: ["gomod"],
+      matchUpdateTypes: ["patch"],
+      groupName: "go modules (patch)",
+      labels: ["dependencies", "go"],
+    },
+    {
+      matchManagers: ["gomod"],
+      matchUpdateTypes: ["minor"],
+      groupName: "go modules (minor)",
+      labels: ["dependencies", "go"],
+    },
+
+    // One rolling PR for GitHub Actions bumps.
+    {
+      matchManagers: ["github-actions"],
+      groupName: "github-actions",
+      labels: ["dependencies", "ci"],
+    },
+
+    // Nix flake lock maintenance.
+    {
+      matchManagers: ["nix"],
+      groupName: "nix flake inputs",
+      labels: ["dependencies", "nix"],
+    },
+  ],
+}

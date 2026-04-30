@@ -1,0 +1,547 @@
+# 🔏 X.509 Certificate Exporter
+
+[![License MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Brought by Enix](https://img.shields.io/badge/Brought%20to%20you%20by-ENIX-%23377dff?labelColor=888&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAQAAAC1QeVaAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAHdElNRQfkBAkQIg/iouK/AAABZ0lEQVQY0yXBPU8TYQDA8f/zcu1RSDltKliD0BKNECYZmpjgIAOLiYtubn4EJxI/AImzg3E1+AGcYDIMJA7lxQQQQRAiSSFG2l457+655x4Gfz8B45zwipWJ8rPCQ0g3+p9Pj+AlHxHjnLHAbvPW2+GmLoBN+9/+vNlfGeU2Auokd8Y+VeYk/zk6O2fP9fcO8hGpN/TUbxpiUhJiEorTgy+6hUlU5N1flK+9oIJHiKNCkb5wMyOFw3V9o+zN69o0Exg6ePh4/GKr6s0H72Tc67YsdXbZ5gENNjmigaXbMj0tzEWrZNtqigva5NxjhFP6Wfw1N1pjqpFaZQ7FAY6An6zxTzHs0BGqY/NQSnxSBD6WkDRTf3O0wG2Ztl/7jaQEnGNxZMdy2yET/B2xfGlDagQE1OgRRvL93UOHqhLnesPKqJ4NxLLn2unJgVka/HBpbiIARlHFq1n/cWlMZMne1ZfyD5M/Aa4BiyGSwP4Jl3UAAAAldEVYdGRhdGU6Y3JlYXRlADIwMjAtMDQtMDlUMTQ6MzQ6MTUrMDI6MDDBq8/nAAAAJXRFWHRkYXRlOm1vZGlmeQAyMDIwLTA0LTA5VDE0OjM0OjE1KzAyOjAwsPZ3WwAAAABJRU5ErkJggg==)](https://enix.io)
+
+A Prometheus exporter for X.509 certificates, focused on **expiration
+monitoring inside Kubernetes**. Watch your TLS material everywhere it lives:
+
+* `kubernetes.io/tls` and Opaque Secrets — PEM bundles or PKCS#12 keystores
+* ConfigMaps with `ca.crt` / custom keys
+* On-disk PKI on cluster nodes (kubelet, etcd, kube-apiserver) via DaemonSet
+* Kubeconfig files with embedded base64 certs or PEM file references
+
+The chart deploys a **Deployment** for cluster-wide Secret/ConfigMap watching
+plus, optionally, one or more **DaemonSets** for node-local PKI. Both reuse
+the same exporter binary and observe the same metric schema.
+
+Use it with the [Grafana Dashboard](https://grafana.com/grafana/dashboards/13922)
+ID `13922`:
+
+![Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/docs/grafana-dashboard.jpg)
+
+## What's new in v4
+
+If you're upgrading from chart 3.x, the operational behaviour stays
+familiar but a number of things were unlocked:
+
+* **YAML configuration** under the hood. The chart renders a single
+  `config.yaml` ConfigMap; no more flag explosion. Day-to-day values keys
+  are unchanged where possible.
+* **ConfigMap watching** — point `secretsExporter.configMapKeys` at the keys
+  you care about and they're parsed alongside Secrets.
+* **PKCS#12** keystores and truststores out of the box, with passphrases
+  pulled from a sibling Secret key (`passphraseKey`), an external file,
+  or no passphrase at all (`tryEmptyPassphrase`).
+* **Server-side filtering**: `includeLabels` / `excludeLabels` and namespace
+  label rules push selectors all the way to the Kubernetes API, so
+  informers don't even see filtered-out objects.
+* **Surface Secret labels as Prometheus labels** via `exposeSecretLabels` —
+  drop your `environment` / `team` / `app` labels straight onto cert
+  metrics.
+* **Health, readiness, and per-source signals**: `/healthz`, `/readyz`,
+  `x509_source_up`, `x509_source_bundles`, `x509_source_errors_total`.
+  The `PrometheusRule` shipped here uses them.
+* **Native TLS / BasicAuth on `/metrics`** through Prometheus
+  exporter-toolkit (`webConfiguration` value). The `kube-rbac-proxy`
+  sidecar option remains for legacy setups but is no longer required.
+
+## 🏃 TL;DR
+
+Two commands to get going, then read on for everything else:
+
+```sh
+helm repo add enix https://charts.enix.io
+helm install x509-certificate-exporter enix/x509-certificate-exporter
+```
+
+Without prometheus-operator installed, opt out of the CRDs and rely on Pod
+annotations:
+
+```yaml
+secretsExporter:
+  podAnnotations:
+    prometheus.io/port: "9793"
+    prometheus.io/scrape: "true"
+service:
+  create: false
+prometheusServiceMonitor:
+  create: false
+prometheusRules:
+  create: false
+```
+
+## 📜 Configuring the chart
+
+### Watching Secrets
+
+The default install runs a single Deployment that watches
+`kubernetes.io/tls` Secrets across all namespaces. That's enough to keep
+tabs on `cert-manager` issuances or anything else providing TLS to your
+workloads.
+
+Disable Secret watching entirely with `secretsExporter.enabled: false`.
+
+#### Multiple Secret types and PKCS#12
+
+`secretsExporter.secretTypes` accepts any combination of types and key
+patterns. Either `key` (a literal data key, regex `^<key>$` is built for
+you) or `keyPatterns` (full regex control), with optional `format: pkcs12`
+and a `pkcs12:` block:
+
+```yaml
+secretsExporter:
+  secretTypes:
+    # Standard kubernetes.io/tls
+    - type: kubernetes.io/tls
+      key: tls.crt
+    # Opaque PEM with a custom key
+    - type: Opaque
+      key: cert.pem
+    # PKCS#12 keystore — passphrase stored as `keystore-passphrase` in the same Secret
+    - type: Opaque
+      key: keystore.p12
+      format: pkcs12
+      pkcs12:
+        passphraseKey: keystore-passphrase
+    # PKCS#12 truststore (multiple CAs, no leaf), same passphrase pattern
+    - type: Opaque
+      key: truststore.p12
+      format: pkcs12
+      pkcs12:
+        passphraseKey: keystore-passphrase
+    # Passwordless PKCS#12 — try empty passphrase before failing
+    - type: Opaque
+      key: keystore-empty.p12
+      format: pkcs12
+      pkcs12:
+        tryEmptyPassphrase: true
+```
+
+#### Watching ConfigMaps
+
+ConfigMaps are watched as soon as `secretsExporter.configMapKeys` is set:
+
+```yaml
+secretsExporter:
+  configMapKeys:
+    - tls.crt
+    - ca.crt
+```
+
+Series come out under the `configmap_namespace` / `configmap_name` /
+`configmap_key` label set instead of the `secret_*` one — same `subject_CN`,
+same `not_after`, same alerts.
+
+#### Filtering by namespace and label
+
+Four orthogonal axes, all evaluated server-side:
+
+```yaml
+secretsExporter:
+  # Namespace by name (globs supported).
+  includeNamespaces: []
+  excludeNamespaces: ["kube-system", "kube-public"]
+  # Namespace by label (key or key=value).
+  includeNamespaceLabels: []
+  excludeNamespaceLabels: ["x509-exporter/ignore=true"]
+  # Secret by label (server-side selector).
+  includeLabels: []
+  excludeLabels: ["x509-exporter/ignore=true"]
+```
+
+`exclude*` is applied after `include*`. When `includeNamespaceLabels` /
+`excludeNamespaceLabels` are set, the exporter watches Namespaces too and
+re-evaluates accepted Secrets when a namespace's labels change.
+
+#### Surfacing Secret labels as Prometheus labels
+
+`secretsExporter.exposeSecretLabels` lifts selected Secret labels onto every
+cert metric, prefixed with `secret_label_`:
+
+```yaml
+secretsExporter:
+  exposeSecretLabels:
+    - environment
+    - team
+```
+
+→ `x509_cert_not_after{..., secret_label_environment="prod", secret_label_team="payments"}`.
+
+### Metrics for node certificates (hostPath)
+
+Kubernetes components rely on a long list of certificates that, left
+unattended, *will* expire and bring down a cluster. This is one of the
+most common preventable outages.
+
+`hostPathsExporter` deploys one or more **DaemonSets** with a hostPath
+volume mount, so each node can publish metrics for its own PKI. All the
+defaults under `hostPathsExporter.*` flow into every DaemonSet defined in
+`hostPathsExporter.daemonSets`, which can override individually.
+
+Minimal kubeadm-style setup with a single DaemonSet:
+
+```yaml
+hostPathsExporter:
+  daemonSets:
+    nodes:
+      watchFiles:
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+        - /etc/kubernetes/pki/apiserver.crt
+        - /etc/kubernetes/pki/apiserver-etcd-client.crt
+        - /etc/kubernetes/pki/apiserver-kubelet-client.crt
+        - /etc/kubernetes/pki/ca.crt
+        - /etc/kubernetes/pki/front-proxy-ca.crt
+        - /etc/kubernetes/pki/front-proxy-client.crt
+        - /etc/kubernetes/pki/etcd/ca.crt
+        - /etc/kubernetes/pki/etcd/healthcheck-client.crt
+        - /etc/kubernetes/pki/etcd/peer.crt
+        - /etc/kubernetes/pki/etcd/server.crt
+      watchKubeconfFiles:
+        - /etc/kubernetes/admin.conf
+        - /etc/kubernetes/controller-manager.conf
+        - /etc/kubernetes/scheduler.conf
+```
+
+When nodes have specialised roles (control plane, dedicated ingress,
+etc.), spawn a DaemonSet per role and attach the right `nodeSelector` /
+`tolerations`:
+
+```yaml
+hostPathsExporter:
+  podAnnotations:
+    prometheus.io/port: "9793"
+    prometheus.io/scrape: "true"
+
+  daemonSets:
+    cp:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+      watchFiles:
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+        - /etc/kubernetes/pki/apiserver.crt
+        # ... full control-plane PKI list
+      watchKubeconfFiles:
+        - /etc/kubernetes/admin.conf
+        - /etc/kubernetes/controller-manager.conf
+        - /etc/kubernetes/scheduler.conf
+
+    nodes:
+      watchFiles:
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+        - /etc/kubernetes/pki/ca.crt
+```
+
+The three "watch" knobs:
+
+* `watchDirectories` — every PEM file in a directory (no recursion)
+* `watchFiles` — explicit paths, recommended whenever paths are
+  predictable
+* `watchKubeconfFiles` — kubeconfig files with embedded certs or PEM
+  references
+
+### Custom Resources for the Prometheus Operator
+
+When [prometheus-operator](https://github.com/prometheus-operator/prometheus-operator)
+is installed, the chart creates a `ServiceMonitor` (or `PodMonitor` if
+`podMonitor.create=true`) and a `PrometheusRule` with batteries-included
+alerts.
+
+Without the operator's CRDs, Helm will fail to render those resources —
+disable them:
+
+```yaml
+prometheusServiceMonitor:
+  create: false
+prometheusRules:
+  create: false
+```
+
+The shipped alerts:
+
+| Alert | Trigger | Severity |
+|---|---|---|
+| `X509ExporterReadErrors` | `delta(x509_source_errors_total[15m]) > 0` for 5m | warning |
+| `CertificateError` | `x509_cert_error == 1` | warning |
+| `CertificateRenewal` | `(x509_cert_not_after - time()) / 86400 < 28` | warning |
+| `CertificateExpiration` | `(x509_cert_not_after - time()) / 86400 < 14` | critical |
+
+Tunable via `prometheusRules.warningDaysLeft` /
+`criticalDaysLeft`. Disable any of them with
+`prometheusRules.alertOn{ReadErrors,CertificateError,CertificateRenewal,CertificateExpiration}`.
+
+> ⚠️ `X509ExporterReadErrors` is the early-warning canary for
+> misconfigurations (RBAC, missing files, malformed Secrets). Keep it on,
+> and split your `hostPathsExporter` DaemonSets along role boundaries
+> rather than disabling the alert.
+
+### Securing the `/metrics` endpoint
+
+v4 supports `prometheus/exporter-toolkit` natively — set
+`webConfiguration` to the contents of a [web-config](https://prometheus.io/docs/prometheus/latest/configuration/https/)
+file (TLS cert/key, BasicAuth users) and the chart wires it as a Secret +
+volume mount + `--web.config.file`:
+
+```yaml
+webConfiguration: |
+  basic_auth_users:
+    prometheus: $2y$10$...    # bcrypt hash
+```
+
+For an existing Secret, use `webConfigurationExistingSecret`.
+
+The legacy `kube-rbac-proxy` sidecar (`rbacProxy.enabled`) is still
+available for clusters that authenticate scrapes via TokenReview, but
+exporter-toolkit is the recommended path on new installs.
+
+## Installing & upgrading
+
+```sh
+helm repo add enix https://charts.enix.io
+helm repo update
+
+# Initial install with custom values
+helm install x509-certificate-exporter enix/x509-certificate-exporter \
+  --values x509-certificate-exporter.values.yaml
+
+# Apply changes / bump chart version
+helm upgrade x509-certificate-exporter enix/x509-certificate-exporter \
+  --values x509-certificate-exporter.values.yaml
+```
+
+## 📝 Notes & caveats
+
+### `watchFiles` and inode change
+
+CRIs expose host files via mount-binding, so we cannot use `subPath` on
+`volumeMounts` — that would break the moment a certificate file is replaced
+out of place (new inode), which is exactly what most rotators do. Instead,
+the exporter container is granted read access to the **parent directory**
+of every `watchFiles` entry, while only the listed paths are exposed as
+metrics.
+
+If you treat your file layout as a security boundary, keep secret keys in
+a different directory from public certificates.
+
+### Watching symbolic links
+
+Kubelet's certificate rotation puts a symlink (e.g.
+`kubelet-client-current.pem`) in front of dated files. As long as the
+target lives in the same directory, the exporter resolves the link itself
+on every scrape — no extra configuration needed.
+
+```yaml
+watchFiles:
+  - /var/lib/kubelet/pki/kubelet-client-current.pem
+```
+
+### HostPath types and Rancher Kubernetes Engine (RKE)
+
+By default, `hostPath` volumes are typed as `Directory`, which fails fast
+on misconfigurations. RKE's kubelet probe doesn't always agree:
+
+```
+MountVolume.SetUp failed for volume "...":
+  hostPath type check failed: /opt/rke/etc/kubernetes/ssl is not a directory
+```
+
+Set `hostPathVolumeType: null` (per-DaemonSet or as a default) to fall
+back to the unspecified type:
+
+```yaml
+hostPathsExporter:
+  hostPathVolumeType: null
+  daemonSets:
+    nodes:
+      watchFiles:
+        - /etc/kubernetes/pki/*.crt
+```
+
+## Values
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| nameOverride | string | `""` | Partially override x509-certificate-exporter.fullname template (will prepend the release name) |
+| fullnameOverride | string | `""` | Fully override x509-certificate-exporter.fullname template |
+| namespaceOverride | string | `""` | Override the deployment namespace |
+| extraDeploy | list | `[]` | Additional objects to deploy with the release |
+| extraDeployVerbatim | list | `[]` | Same as `extraDeploy` but objects won't go through the templating engine |
+| imagePullSecrets | list | `[]` | Specify docker-registry secret names as an array |
+| image.registry | string | `"docker.io"` | x509-certificate-exporter image registry |
+| image.repository | string | `"enix/x509-certificate-exporter"` | x509-certificate-exporter image repository |
+| image.tag | string | `""` | x509-certificate-exporter image tag (defaults to Chart appVersion) |
+| image.tagSuffix | string | `""` | Suffix added to image tags for container flavor selection (could be `-busybox`, `-alpine`, or `-scratch`) |
+| image.pullPolicy | string | `"IfNotPresent"` | x509-certificate-exporter image pull policy |
+| migration.image.repository | string | `"registry.k8s.io/kubectl"` | kubectl image repository for Helm hook Jobs |
+| migration.image.tag | string | `""` | kubectl image tag. If set, takes precedence over auto-detected cluster version. |
+| migration.image.digest | string | `""` | kubectl image digest. If set, takes precedence over tag and auto-detected cluster version. |
+| migration.annotations | object | `{}` | Annotations added to Helm hook Pods |
+| migration.extraLabels | object | `{}` | Additional labels added to Helm hook Pods |
+| migration.resources | object | see `values.yaml` | ResourceRequirements for containers of Helm hooks |
+| migration.podSecurityContext | object | see `values.yaml` | PodSecurityContext for Pods of Helm hooks |
+| migration.securityContext | object | see `values.yaml` | SecurityContext for containers of Helm hooks |
+| exposePerCertificateErrorMetrics | bool | `false` | Enable additional metrics to report per-certificate errors ; helps with identifying the origin of read errors without having to look at exporter logs, at the expense of additional storage on Prometheus |
+| exposeRelativeMetrics | bool | `false` | Enable additional metrics with relative durations instead of absolute timestamps ; not recommended with Prometheus |
+| metricLabelsFilterList | list | `nil` | Restrict metric labels to this list if set. **Warning** : use with caution as reducing cardinality may yield metrics collisions and force the exporter to ignore certificates. This will also degrade the usability of the Grafana dashboard. This list should always include at least `filepath`, `secret_namespace` and `secret_name`. Also `subject_CN` is highly recommended for when a file contains multiple certificates. |
+| grafana.createDashboard | bool | `false` | Should the Grafana dashboard be deployed as a ConfigMap (requires Grafana sidecar) |
+| grafana.sidecarLabel | string | `"grafana_dashboard"` | ConfigMap label name the Grafana sidecar is looking for |
+| grafana.sidecarLabelValue | string | `"1"` | ConfigMap label value the Grafana sidecar is looking for |
+| grafana.annotations | object | `{}` | Annotations added to the Grafana dashboard ConfigMap (example in `values.yaml`) |
+| grafana.extraLabels | object | `{}` | Additional labels added to the Grafana dashboard ConfigMap |
+| secretsExporter.enabled | bool | `true` | Should the TLS Secrets exporter be running |
+| secretsExporter.annotations | object | `{}` | Additional Deployment annotations |
+| secretsExporter.debugMode | bool | `false` | Should debug messages be produced by the TLS Secrets exporter |
+| secretsExporter.replicas | int | `1` | Desired number of TLS Secrets exporter Pods |
+| secretsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of the TLS Secrets exporter |
+| secretsExporter.strategy | object | `{}` | DeploymentStrategy for the TLS Secrets exporter |
+| secretsExporter.revisionHistoryLimit | int | `nil` | Number of old ReplicaSets to retain for rollback |
+| secretsExporter.resources | object | see `values.yaml` | ResourceRequirements for containers of the TLS Secrets exporter |
+| secretsExporter.readinessProbe | object | see `values.yaml` | Readiness probe definition for the secrets exporter (.httpGet cannot be changed) |
+| secretsExporter.livenessProbe | object | see `values.yaml` | Liveness probe definition for the secrets exporter (.httpGet cannot be changed) |
+| secretsExporter.nodeSelector | object | `{}` | Node selector for Pods of the TLS Secrets exporter |
+| secretsExporter.tolerations | list | `[]` | Tolerations for Pods of the TLS Secrets exporter |
+| secretsExporter.affinity | object | `{}` | Affinity for Pods of the TLS Secrets exporter |
+| secretsExporter.priorityClassName | string | `""` | PriorityClassName for Pods of the TLS Secrets exporter |
+| secretsExporter.podExtraLabels | object | `{}` | Additional labels added to Pods of the TLS Secrets exporter |
+| secretsExporter.podAnnotations | object | `{}` | Annotations added to Pods of the TLS Secrets exporter |
+| secretsExporter.podSecurityContext | object | see `values.yaml` | PodSecurityContext for Pods of the TLS Secrets exporter |
+| secretsExporter.securityContext | object | see `values.yaml` | SecurityContext for containers of the TLS Secrets exporter |
+| secretsExporter.extraVolumes | list | `[]` | Additional volumes added to Pods of the TLS Secrets exporter (combined with global `extraVolumes`) |
+| secretsExporter.extraVolumeMounts | list | `[]` | Additional volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`) |
+| secretsExporter.secretTypes | list | see `values.yaml` | Which type of Secrets should be watched. Each entry takes either `key` (a single Secret data key — the matching regex `^<key>$` is built for you) or `keyPatterns` (a list of regexes, full control). Optional `format` is "pem" (default) or "pkcs12"; `pkcs12` block accepts `passphrase`, `passphraseKey` (read passphrase from a sibling key in the same Secret), `passphraseFile`, `passphraseSecretRef`, `tryEmptyPassphrase`. |
+| secretsExporter.configMapKeys | list | see `values.yaml` | If the exporter should watch for certificates in ConfigMaps, just specify the keys it needs to watch. E.g.: `configMapKeys: ["tls.crt"]` |
+| secretsExporter.includeNamespaces | list | `[]` | Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty) |
+| secretsExporter.excludeNamespaces | list | `[]` | Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`) |
+| secretsExporter.includeNamespaceLabels | list | `[]` | Only watch namespaces having these labels (all namespaces if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
+| secretsExporter.excludeNamespaceLabels | list | `[]` | Exclude namespaces having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
+| secretsExporter.includeLabels | list | `[]` | Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
+| secretsExporter.excludeLabels | list | `[]` | Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
+| secretsExporter.exposeSecretLabels | list | `[]` | Expose selected labels from Kubernetes Secrets as Prometheus labels. |
+| secretsExporter.extraArgs | list | `[]` | Additional arguments to append to the exporter command line. E.g.: `--watch-file="/extra-cert/tls.crt"`. |
+| secretsExporter.cache.enabled | bool | `true` | Enable caching of Kubernetes objects to prevent scraping timeouts |
+| secretsExporter.cache.maxDuration | int | `300` | Maximum time an object can stay in cache unrefreshed (seconds) - it will be at least half of that |
+| secretsExporter.kubeApiRateLimits.enabled | bool | `false` | Should requests to the Kubernetes API server be rate-limited |
+| secretsExporter.kubeApiRateLimits.queriesPerSecond | int | `5` | Maximum rate of queries sent to the API server (per second) |
+| secretsExporter.kubeApiRateLimits.burstQueries | int | `10` | Burst bucket size for queries sent to the API server |
+| secretsExporter.env | list | `[]` | Additional environment variables for containers |
+| hostPathsExporter.annotations | object | `{}` | Additional DaemonSet annotations |
+| hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.skipSymlinks | bool | `false` | Skip symlinks when scanning files and directories. Does not apply to Kubernetes secrets. |
+| hostPathsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.updateStrategy | object | `{}` | updateStrategy for DaemonSets of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.revisionHistoryLimit | int | `nil` | Number of old ReplicaSets to retain for rollback (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.resources | object | see `values.yaml` | ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.readinessProbe | object | see `values.yaml` | Readiness probe definition for the host paths exporter (.httpGet cannot be changed) |
+| hostPathsExporter.livenessProbe | object | see `values.yaml` | Liveness probe definition for the host paths exporter (.httpGet cannot be changed) |
+| hostPathsExporter.nodeSelector | object | `{}` | Node selector for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.tolerations | list | `[]` | Tolerations for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.affinity | object | `{}` | Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.priorityClassName | string | `""` | PriorityClassName for Pods of hostPath exporters |
+| hostPathsExporter.podExtraLabels | object | `{}` | Additional labels added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.podAnnotations | object | `{}` | Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.securityContext | object | see `values.yaml` | SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.extraVolumes | list | `[]` | Additional volumes added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`) |
+| hostPathsExporter.extraVolumeMounts | list | `[]` | Additional volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumeMounts`) |
+| hostPathsExporter.hostPathVolumeType | string | `"Directory"` | Type for HostPath volumes used with watched paths. Can be set to `""` or null to use Kubernetes defaults. May be required with RKE if Pods don't start. |
+| hostPathsExporter.watchDirectories | list | `[]` | [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep) |
+| hostPathsExporter.watchSpecificExtensionDirectories | list | `[]` | [SEE README] List of directory paths of the host to scan for specific extension files to be watched and exported as metrics (one level deep) |
+| hostPathsExporter.watchFiles | list | `[]` | [SEE README] List of file paths of the host for PEM encoded certificates to be watched and exported as metrics (one level deep) |
+| hostPathsExporter.watchKubeconfFiles | list | `[]` | [SEE README] List of Kubeconf file paths of the host to scan for embedded certificates to export metrics about |
+| hostPathsExporter.env | list | `[]` | Additional environment variables for containers |
+| hostPathsExporter.daemonSets | object | `{}` | [SEE README] Map to define one or many DaemonSets running hostPath exporters. Key is used as a name ; value is a map to override all default settings set by `hostPathsExporter.*`. |
+| podListenPort | int | `9793` | TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not) |
+| hostNetwork | bool | `false` | Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster |
+| web.enableStats | bool | `true` | Expose internal cache statistics via HTML on the root endpoint (/) |
+| webConfiguration | string | `""` | HTTP server configuration for enabling TLS and authentication (password, mTLS) ; see [documentation at Exporter Toolkit](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md) |
+| webConfigurationExistingSecret | string | `""` | Load the HTTP server configuration from an existing Secret instead of `webConfiguration`. Key must be `webconfig.yaml`. |
+| service.create | bool | `true` | Should a Service be installed, targeting all Deployment and DaemonSet instances (required for ServiceMonitor) |
+| service.headless | bool | `false` | Should the Service be headless |
+| service.port | int | `9793` | TCP port to expose the Service on |
+| service.annotations | object | `{}` | Annotations to add to the Service |
+| service.extraLabels | object | `{}` | Additional labels to add to the Service |
+| prometheusServiceMonitor.create | bool | `true` | Should a ServiceMonitor object be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |
+| prometheusServiceMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the ServiceMonitor |
+| prometheusServiceMonitor.scrapeTimeout | string | `"30s"` | Target scrape timeout set in the ServiceMonitor |
+| prometheusServiceMonitor.extraLabels | object | `{}` | Additional labels to add to ServiceMonitor objects |
+| prometheusServiceMonitor.extraAnnotations | object | `{}` | Additional annotations to add to ServiceMonitor objects |
+| prometheusServiceMonitor.metricRelabelings | list | `[]` | Metric relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusServiceMonitor.relabelings | list | `[]` | Relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusServiceMonitor.scheme | string | `"http"` | Scheme config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusServiceMonitor.tlsConfig | object | `{}` | Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig |
+| prometheusPodMonitor.create | bool | `false` | Should a PodMonitor object be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |
+| prometheusPodMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the PodMonitor |
+| prometheusPodMonitor.scrapeTimeout | string | `"30s"` | Target scrape timeout set in the PodMonitor |
+| prometheusPodMonitor.extraLabels | object | `{}` | Additional labels to add to PodMonitor objects |
+| prometheusPodMonitor.metricRelabelings | list | `[]` | Metric relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusPodMonitor.relabelings | list | `[]` | Relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusPodMonitor.scheme | string | `"http"` | Scheme config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusPodMonitor.tlsConfig | object | `{}` | Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig |
+| prometheusRules.create | bool | `true` | Should a PrometheusRule object be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users. |
+| prometheusRules.alertOnReadErrors | bool | `true` | Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions. |
+| prometheusRules.readErrorsSeverity | string | `"warning"` | Severity for the X509ExporterReadErrors alerting rule |
+| prometheusRules.alertOnCertificateErrors | bool | `true` | Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too. |
+| prometheusRules.certificateErrorsSeverity | string | `"warning"` | Severity for the CertificateError alerting rule |
+| prometheusRules.certificateRenewalsSeverity | string | `"warning"` | Severity for the CertificateRenewal alerting rule |
+| prometheusRules.certificateExpirationsSeverity | string | `"critical"` | Severity for the CertificateExpiration alerting rule |
+| prometheusRules.warningDaysLeft | int | `28` | Raise a warning alert when this few days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29) |
+| prometheusRules.criticalDaysLeft | int | `14` | Raise a critical alert when this few days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue) |
+| prometheusRules.extraLabels | object | `{}` | Additional labels to add to PrometheusRule objects |
+| prometheusRules.alertExtraLabels | object | `{}` | Additional labels to add to PrometheusRule rules |
+| prometheusRules.alertExtraAnnotations | object | `{}` | Additional annotations to add to PrometheusRule rules |
+| prometheusRules.rulePrefix | string | `""` | Additional rulePrefix to PrometheusRule rules |
+| prometheusRules.disableBuiltinAlertGroup | bool | `false` | Skip all built-in alerts when using extraAlertGroups |
+| prometheusRules.extraAlertGroups | list | `[]` | Additional alert groups for custom configuration (example in `values.yaml`) |
+| extraLabels | object | `{}` | Additional labels added to all chart objects |
+| podExtraLabels | object | `{}` | Additional labels added to all Pods |
+| podAnnotations | object | `{}` | Annotations added to all Pods |
+| priorityClassName | string | `""` | PriorityClassName set for all Pods by default (can be overridden with `secretsExporter` and `hostPathsExporter` specific values) |
+| extraVolumes | list | `[]` | Additional volumes added to all Pods (see also the `secretsExporter` and `hostPathsExporter` variants) |
+| extraVolumeMounts | list | `[]` | Additional volume mounts added to all Pod containers (see also the `secretsExporter` and `hostPathsExporter` variants) |
+| psp.create | bool | `false` | Should Pod Security Policy objects be created |
+| rbac.create | bool | `true` | Should RBAC objects be created |
+| rbac.secretsExporter.serviceAccountName | string | `nil` | Name of the ServiceAccount for the Secrets exporter (required if `rbac.create=false`) |
+| rbac.secretsExporter.serviceAccountAnnotations | object | `{}` | Annotations added to the ServiceAccount for the Secrets exporter |
+| rbac.secretsExporter.clusterRoleAnnotations | object | `{}` | Annotations added to the ClusterRole for the Secrets exporter |
+| rbac.secretsExporter.clusterRoleBindingAnnotations | object | `{}` | Annotations added to the ClusterRoleBinding for the Secrets exporter |
+| rbac.hostPathsExporter.serviceAccountName | string | `nil` | Name of the ServiceAccount for hostPath exporters (required if `rbac.create=false`) |
+| rbac.hostPathsExporter.serviceAccountAnnotations | object | `{}` | Annotations added to the ServiceAccount for the hostPath exporters |
+| rbac.hostPathsExporter.clusterRoleAnnotations | object | `{}` | Annotations added to the ClusterRole for the hostPath exporters |
+| rbac.hostPathsExporter.clusterRoleBindingAnnotations | object | `{}` | Annotations added to the ClusterRoleBinding for the hostPath exporters |
+| rbacProxy.enabled | bool | `false` | Should kube-rbac-proxy be used to expose exporters |
+| rbacProxy.image.registry | string | `"quay.io"` | kube-rbac-proxy image registry |
+| rbacProxy.image.repository | string | `"brancz/kube-rbac-proxy"` | kube-rbac-proxy image repository |
+| rbacProxy.image.tag | string | `"v0.13.1"` | kube-rbac-proxy image version |
+| rbacProxy.image.pullPolicy | string | `"IfNotPresent"` | kube-rbac-proxy image pull policy |
+| rbacProxy.upstreamListenPort | int | `9091` | Listen port for the exporter running inside kube-rbac-proxy exposed Pods |
+| rbacProxy.resources | object | see `values.yaml` | ResourceRequirements for all containers of kube-rbac-proxy |
+| rbacProxy.securityContext | object | see `values.yaml` | SecurityContext for all containers of kube-rbac-proxy |
+| kubeVersion | string | `""` | Override Kubernetes version detection ; useful with "helm template" |
+
+## ⚖️ License
+
+```
+Copyright (c) 2020-2026 ENIX
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://storage.googleapis.com/coderabbit_public_assets/schema.v2.json
+
+# CodeRabbit configuration. The GitHub App reads this on every PR.
+# Docs: https://docs.coderabbit.ai/configuration/
+
+language: en-US
+
+chat:
+  # Replies to "@coderabbitai" comments without a leading slash command.
+  auto_reply: true
+
+# Style cadre applied to every review.
+tone_instructions: |
+  Be concise and technical. No promotional content, no references to
+  CodeRabbit features in comments, no suggestions to upgrade tier or
+  invite collaborators.
+
+reviews:
+  # 'chill' = friendly, suggests improvements; 'assertive' = nitpickier.
+  # Chill is the right default for a small team — assertive generates a
+  # lot of style noise that drowns the actually-useful findings.
+  profile: chill
+
+  # Don't request changes on the PR — leave merge gating to humans + CI.
+  # CodeRabbit flags issues as comments; the reviewer decides what blocks.
+  request_changes_workflow: false
+
+  # Top-level summary at the start of each review (the "Walkthrough"
+  # block). Useful for skim-reading what changed without opening every
+  # file diff.
+  high_level_summary: true
+
+  # No poems / no ASCII art. Keep the reviews professional.
+  poem: false
+
+  # Status posted as a check at the bottom of the PR.
+  review_status: true
+
+  # Auto-review every new PR (including from forks). Set drafts:false
+  # so we don't burn budget on WIP branches.
+  auto_review:
+    enabled: true
+    drafts: false
+    # Skip Renovate's bot PRs — bumps are mechanical, the diff is just a
+    # version number change, and CodeRabbit has nothing useful to say.
+    # Same for release-please which only edits CHANGELOG.md + manifest.
+    ignore_title_keywords:
+      - "bump(deps):"
+      - "chore(deps):"
+      - "chore: release"
+      - "release-please"
+
+  # Auto-generated files: don't waste tokens reviewing them, the source
+  # of truth is elsewhere.
+  path_filters:
+    - "!CHANGELOG.md"
+    - "!chart/README.md"
+    - "!dagger/dagger.gen.go"
+    - "!dagger/internal/**"
+    - "!flake.lock"
+    - "!go.sum"
+
+  # Per-path guidance fed to the model alongside the diff. Keep these
+  # short and load-bearing — long instructions get diluted.
+  path_instructions:
+    - path: "**/*.go"
+      instructions: |
+        This is a Prometheus exporter that parses x509 certificates from
+        Kubernetes Secrets/ConfigMaps and from disk. Treat the parser
+        and source packages as security-critical: flag any unchecked
+        input, panic-prone parsing, or path traversal. Tests live next
+        to the code (*_test.go).
+
+    - path: "chart/**/*.{yaml,tpl}"
+      instructions: |
+        Helm chart for the exporter. Flag changes that would break
+        upgrades from a previous chart version (renamed values,
+        removed defaults, changed selectors), and any RBAC widening
+        beyond what the exporter strictly needs (it reads Secrets +
+        ConfigMaps cluster-wide).
+
+    - path: ".github/workflows/**"
+      instructions: |
+        Flag unpinned actions (`@v4` instead of `@<sha>`), missing
+        `permissions:` blocks, and overly broad token scopes. Workflow
+        SHAs are managed by `task ratchet:pin` — don't suggest
+        floating tags.
+
+    - path: "dagger/**/*.go"
+      instructions: |
+        Dagger module functions exposed via `dagger call`. Each
+        exported method on X509Ce becomes a CLI function — be strict
+        about parameter naming and defaults since they're part of the
+        public surface.

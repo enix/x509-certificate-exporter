@@ -1,0 +1,18 @@
+# Trivy ignore file — applied to both `fs` and `config` scans via the
+# `--ignorefile=/src/.trivyignore` flag in dagger/security.go.
+#
+# Format: one finding ID per line, optional `# comment` lines.
+# Each suppression MUST carry an explicit justification — Trivy doesn't
+# require it but we do, so future maintainers can audit the exception.
+
+# AVD-KSV-0041: ClusterRole shouldn't have access to manage 'secrets'.
+# https://avd.aquasec.com/misconfig/ksv041
+#
+# Accepted: this exporter's primary function IS to watch Secrets
+# cluster-wide for x509 certificate expiration monitoring. Read access
+# to Secrets is fundamental to the workload, not incidental. Cluster
+# admins who want a tighter blast radius scope down via the chart's
+# `secretsLabelSelector` value — the API server then filters list/watch
+# results at request time, so the ClusterRole's `list`/`watch` verbs
+# only see the labelled subset in practice.
+AVD-KSV-0041

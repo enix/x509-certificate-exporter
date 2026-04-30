@@ -1,0 +1,117 @@
+name: Security Checks
+
+# Same shape as lint.yaml: scoped on PR via path detection, runs everything
+# when called from another workflow (e.g. release).
+on:
+  pull_request:
+  workflow_call:
+
+# Read-only by default — every job here just scans the source tree and
+# reports findings. Override at the job level if a future job ever
+# needs to write back (it shouldn't).
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changed paths
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      deps: ${{ steps.filter.outputs.deps }}
+      chart: ${{ steps.filter.outputs.chart }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # ratchet:dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'dagger/**'
+            deps:
+              - 'go.mod'
+              - 'go.sum'
+              - 'dagger/**'
+            chart:
+              - 'chart/**'
+              - 'dagger/**'
+
+  # Secret leak detection on the full diff. Always runs — any file can leak.
+  secrets:
+    name: Secret leaks (Gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # gitleaks-action posts the leaks summary as a PR comment
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks needs history to walk the diff
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # ratchet:gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Required for orgs since gitleaks-action v2 (the action is free
+          # for personal accounts but org-scoped repos need a key — see
+          # https://github.com/gitleaks/gitleaks-action#-announcement).
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # Reachability-based vulnerability check for Go code. Routed through
+  # the Dagger Module so the govulncheck version + flags stay aligned
+  # with `task security:govulncheck` locally — single source of truth
+  # in dagger/security.go (the `govulncheckPath` const in dagger/base.go).
+  govulncheck:
+    name: Reachable vulnerabilities (govulncheck)
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name == 'workflow_call' || needs.changes.outputs.go == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
+        with:
+          version: latest
+          verb: call
+          args: govulncheck
+
+  # Filesystem scan: Go module deps + lockfiles. Catches CVEs that
+  # govulncheck would miss because they don't lie on a reachable path.
+  # Routed through the Dagger Module's `Trivy` function — same Trivy
+  # version + same flags locally and in CI.
+  vuln-deps:
+    name: Vulnerable dependencies (Trivy)
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name == 'workflow_call' || needs.changes.outputs.deps == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
+        with:
+          version: latest
+          verb: call
+          args: trivy --scan-type=fs
+
+  # Helm/Kubernetes misconfig scan against the rendered chart.
+  chart-misconfig:
+    name: Chart misconfiguration (Trivy)
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name == 'workflow_call' || needs.changes.outputs.chart == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
+        with:
+          version: latest
+          verb: call
+          args: trivy --scan-type=config --scan-ref=chart

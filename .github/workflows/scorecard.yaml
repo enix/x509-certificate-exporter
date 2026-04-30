@@ -1,0 +1,62 @@
+name: Scorecard
+
+# OpenSSF Scorecard runs a battery of OSS security best-practice checks
+# (branch protection, SAST configured, signed releases, dependency pinning,
+# code review, dangerous workflow patterns, vulnerabilities, ...) and
+# produces a 0-10 score. Findings show up in the repo's Security tab as
+# code-scanning alerts, and the score is published to scorecard.dev so the
+# public README badge stays current.
+#
+# Reference: https://github.com/ossf/scorecard-action
+
+on:
+  # Weekly cron + on every push to main keeps the score fresh and surfaces
+  # posture regressions introduced by a single PR.
+  schedule:
+    - cron: "32 4 * * 1"
+  push:
+    branches: [main]
+  # Re-run when branch-protection rules change so the corresponding check
+  # reflects the current settings without waiting for the cron.
+  branch_protection_rule:
+
+# Default permissions for this workflow: everything read-only. Each job
+# elevates only what it needs.
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Analysis (OpenSSF)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # upload SARIF to GitHub Code Scanning
+      id-token: write # OIDC token for sigstore-signed publication
+      contents: read
+      actions: read
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          # Don't persist GITHUB_TOKEN in .git/config — Scorecard re-reads
+          # the repo via API and any persisted token broadens our exposure.
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # ratchet:ossf/scorecard-action@v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Optional fine-grained PAT that unlocks the Branch-Protection
+          # and Webhooks checks (GITHUB_TOKEN lacks the required scopes).
+          # Without it, those two checks are skipped — the rest still runs.
+          # See "Authentication" section of the action's README for scopes.
+          repo_token: ${{ secrets.SCORECARD_TOKEN }}
+          # Publish to the public Scorecards dataset so the badge URL stays
+          # live. Public repos only — set to false on private repos.
+          publish_results: true
+
+      # Surface findings as alerts in the repo's Security tab. The
+      # upload-sarif action lives under the codeql-action repo but
+      # works for any tool's SARIF output — it isn't tied to CodeQL.
+      - uses: github/codeql-action/upload-sarif@ce64ddcb0d8d890d2df4a9d1c04ff297367dea2a # ratchet:github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif

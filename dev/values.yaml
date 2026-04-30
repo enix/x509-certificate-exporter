@@ -1,0 +1,73 @@
+# Helm values shared by the Tilt dev loop and `task test:e2e`. These extend the
+# chart's defaults to cover every fixture in dev/scenarios:
+#
+#   - kubernetes.io/tls (PEM in tls.crt) — default behaviour
+#   - Opaque PEM with custom data keys
+#   - Opaque PKCS#12 (encrypted via passphraseKey + passwordless via
+#     tryEmptyPassphrase)
+#   - ConfigMaps holding tls.crt
+#   - Per-cert error metrics, relative-time metrics
+#   - exposeSecretLabels for the rich-DN scenario
+#   - excludeNamespaceLabels to verify the negative case
+---
+secretsExporter:
+  enabled: true
+
+  secretTypes:
+    # PEM in standard TLS secrets
+    - type: kubernetes.io/tls
+      key: tls.crt
+    # PEM in Opaque secrets (custom data key)
+    - type: Opaque
+      key: cert.pem
+    - type: Opaque
+      key: tls.crt
+    - type: Opaque
+      key: ca.crt
+    # Encrypted PKCS#12 — passphrase pulled from a sibling key in the same Secret
+    - type: Opaque
+      key: keystore.p12
+      format: pkcs12
+      pkcs12:
+        passphraseKey: keystore-passphrase
+    # PKCS#12 truststore (multiple CAs, no leaf)
+    - type: Opaque
+      key: truststore.p12
+      format: pkcs12
+      pkcs12:
+        passphraseKey: keystore-passphrase
+    # Passwordless PKCS#12 — tryEmptyPassphrase falls back to ""
+    - type: Opaque
+      key: keystore-empty.p12
+      format: pkcs12
+      pkcs12:
+        tryEmptyPassphrase: true
+
+  # Watch ConfigMaps holding a tls.crt key.
+  configMapKeys:
+    - tls.crt
+
+  # Skip the negatively-named namespace (proves namespace name exclusion).
+  excludeNamespaces:
+    - x509ce-excl-name
+
+  # Skip the negatively-labelled namespace (proves namespace label exclusion).
+  excludeNamespaceLabels:
+    - x509ce-test/ignore=true
+
+  # Skip individual Secrets carrying the x509ce-test/ignore=true label
+  # (proves secret-level label exclusion is wired server-side).
+  excludeLabels:
+    - x509ce-test/ignore=true
+
+  # Surface a few labels from labelled Secrets as Prometheus labels.
+  exposeSecretLabels:
+    - environment
+    - team
+
+# Enable both extra metric families so the e2e suite can assert on them.
+exposePerCertificateErrorMetrics: true
+exposeRelativeMetrics: true
+
+image:
+  pullPolicy: Always

@@ -1,1 +1,17 @@
-/.github/   @enix/internal-contributors
+* @enix/internal-contributors
+
+# Most sensible files
+/.*/                @npdgm
+/.*                 @npdgm
+/Taskfile*          @npdgm
+/Tiltfile*          @npdgm
+/test/e2e/Tiltfile  @npdgm
+/build/             @npdgm
+/.goreleaser.yaml   @npdgm
+/dagger/            @npdgm
+/dagger.json        @npdgm
+/flake.*            @npdgm
+/go.*               @npdgm
+/renovate.*         @npdgm
+/release-please*    @npdgm
+/CLAUDE.md          @npdgm

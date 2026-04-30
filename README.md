@@ -1,7 +1,7 @@
 # 🔏 X.509 Certificate Exporter
 
-[![Go Report](https://goreportcard.com/badge/github.com/enix/sandbox-x509-certificate-exporter)](https://goreportcard.com/report/github.com/enix/sandbox-x509-certificate-exporter)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/enix/sandbox-x509-certificate-exporter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/enix/sandbox-x509-certificate-exporter)
+[![Go Report](https://goreportcard.com/badge/github.com/enix/x509-certificate-exporter)](https://goreportcard.com/report/github.com/enix/x509-certificate-exporter)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/enix/x509-certificate-exporter/badge)](https://securityscorecards.dev/viewer/?uri=github.com/enix/x509-certificate-exporter)
 [![License MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Brought by Enix](https://img.shields.io/badge/Brought%20to%20you%20by-ENIX-%23377dff?labelColor=888&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAQAAAC1QeVaAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAHdElNRQfkBAkQIg/iouK/AAABZ0lEQVQY0yXBPU8TYQDA8f/zcu1RSDltKliD0BKNECYZmpjgIAOLiYtubn4EJxI/AImzg3E1+AGcYDIMJA7lxQQQQRAiSSFG2l457+655x4Gfz8B45zwipWJ8rPCQ0g3+p9Pj+AlHxHjnLHAbvPW2+GmLoBN+9/+vNlfGeU2Auokd8Y+VeYk/zk6O2fP9fcO8hGpN/TUbxpiUhJiEorTgy+6hUlU5N1flK+9oIJHiKNCkb5wMyOFw3V9o+zN69o0Exg6ePh4/GKr6s0H72Tc67YsdXbZ5gENNjmigaXbMj0tzEWrZNtqigva5NxjhFP6Wfw1N1pjqpFaZQ7FAY6An6zxTzHs0BGqY/NQSnxSBD6WkDRTf3O0wG2Ztl/7jaQEnGNxZMdy2yET/B2xfGlDagQE1OgRRvL93UOHqhLnesPKqJ4NxLLn2unJgVka/HBpbiIARlHFq1n/cWlMZMne1ZfyD5M/Aa4BiyGSwP4Jl3UAAAAldEVYdGRhdGU6Y3JlYXRlADIwMjAtMDQtMDlUMTQ6MzQ6MTUrMDI6MDDBq8/nAAAAJXRFWHRkYXRlOm1vZGlmeQAyMDIwLTA0LTA5VDE0OjM0OjE1KzAyOjAwsPZ3WwAAAABJRU5ErkJggg==)](https://enix.io)
 
@@ -47,7 +47,7 @@ The [Helm chart](./chart) is the primary way to deploy on Kubernetes:
 
 ```sh
 helm repo add enix https://charts.enix.io
-helm install x509-certificate-exporter enix/sandbox-x509-certificate-exporter
+helm install x509-certificate-exporter enix/x509-certificate-exporter
 ```
 
 For configuration, fixtures, and node-PKI DaemonSets, head to the
@@ -57,11 +57,11 @@ documentation lives.
 ## 🔀 Other ways to run it
 
 - **OCI** container images on
-  [Docker Hub](https://hub.docker.com/r/enix/sandbox-x509-certificate-exporter),
-  [GHCR](https://github.com/enix/sandbox-x509-certificate-exporter/pkgs/container/x509-certificate-exporter)
-  and [Quay](https://quay.io/repository/enix/sandbox-x509-certificate-exporter).
+  [Docker Hub](https://hub.docker.com/r/enix/x509-certificate-exporter),
+  [GHCR](https://github.com/enix/x509-certificate-exporter/pkgs/container/x509-certificate-exporter)
+  and [Quay](https://quay.io/repository/enix/x509-certificate-exporter).
 - **Pre-built binaries** for Linux/macOS/Windows on every
-  [release](https://github.com/enix/sandbox-x509-certificate-exporter/releases).
+  [release](https://github.com/enix/x509-certificate-exporter/releases).
 - **Building from source**:
 
   ```sh
@@ -86,14 +86,14 @@ Actions. Consumers can verify what they pull before trusting it.
 
 ```sh
 # Verify the signature
-cosign verify ghcr.io/enix/sandbox-x509-certificate-exporter:4.0.0 \
-  --certificate-identity-regexp '^https://github\.com/enix/sandbox-x509-certificate-exporter/' \
+cosign verify ghcr.io/enix/x509-certificate-exporter:4.0.0 \
+  --certificate-identity-regexp '^https://github\.com/enix/x509-certificate-exporter/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
 # Inspect the SBOM
-cosign verify-attestation ghcr.io/enix/sandbox-x509-certificate-exporter:4.0.0 \
+cosign verify-attestation ghcr.io/enix/x509-certificate-exporter:4.0.0 \
   --type cyclonedx \
-  --certificate-identity-regexp '^https://github\.com/enix/sandbox-x509-certificate-exporter/' \
+  --certificate-identity-regexp '^https://github\.com/enix/x509-certificate-exporter/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   | jq -r '.payload | @base64d | fromjson | .predicate'
 ```
@@ -107,7 +107,7 @@ GitHub Release). Verify with [`slsa-verifier`](https://github.com/slsa-framework
 ```sh
 slsa-verifier verify-artifact x509-certificate-exporter-v4.0.0-linux-amd64.tar.gz \
   --provenance-path x509-certificate-exporter.intoto.jsonl \
-  --source-uri github.com/enix/sandbox-x509-certificate-exporter \
+  --source-uri github.com/enix/x509-certificate-exporter \
   --source-tag v4.0.0
 ```
 
@@ -119,7 +119,7 @@ Binary checksums are also published as `checksums.txt` alongside each release.
 # Pull, then verify the signature on the chart's OCI ref
 helm pull oci://quay.io/enix/charts/x509-certificate-exporter --version 4.0.0
 cosign verify quay.io/enix/charts/x509-certificate-exporter:4.0.0 \
-  --certificate-identity-regexp '^https://github\.com/enix/sandbox-x509-certificate-exporter/' \
+  --certificate-identity-regexp '^https://github\.com/enix/x509-certificate-exporter/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -243,7 +243,7 @@ x509-certificate-exporter --config /etc/x509-exporter.yaml
 ```
 
 Pre-built binaries for many OS are published on every
-[release](https://github.com/enix/sandbox-x509-certificate-exporter/releases).
+[release](https://github.com/enix/x509-certificate-exporter/releases).
 
 ## 🧰 Development
 

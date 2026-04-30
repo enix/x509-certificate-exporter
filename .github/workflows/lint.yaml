@@ -1,0 +1,132 @@
+name: Linting
+
+# Run only what's relevant to the change. On a PR, dorny/paths-filter
+# inspects the diff against the base ref to decide which linters to fire.
+# When called from another workflow (e.g. release), every linter runs —
+# release time is not where to be clever about scope.
+#
+# Not wired on `push: main` on purpose: the same diff already ran on the
+# PR that produced that commit.
+on:
+  pull_request:
+  workflow_call:
+
+# Read-only by default — every job here just inspects the source tree
+# and reports findings. Override at the job level if a future job ever
+# needs to write back (it shouldn't).
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changed paths
+    # On workflow_call there is no "base ref" semantics; skip detection
+    # and let each linter run unconditionally via the if: guard below.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      helm: ${{ steps.filter.outputs.helm }}
+      renovate: ${{ steps.filter.outputs.renovate }}
+      markdown: ${{ steps.filter.outputs.markdown }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # ratchet:dorny/paths-filter@v3
+        id: filter
+        with:
+          # `dagger/**` is included in every filter because a change to
+          # the pipeline definition (image versions, lint args, etc.)
+          # affects what the linter actually does.
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '.golangci.yml'
+              - 'dagger/**'
+            helm:
+              - 'chart/**'
+              - 'dagger/**'
+            renovate:
+              - 'renovate.json5'
+              - 'dagger/**'
+            markdown:
+              # Auto-generated files (CHANGELOG.md, chart/README.md) are
+              # ignored by markdownlint via .markdownlint-cli2.jsonc, so
+              # excluding them from the trigger here as well avoids firing
+              # the linter for nothing on release-please / chart-readme PRs.
+              - '**/*.md'
+              - '!CHANGELOG.md'
+              - '!chart/README.md'
+              - '.markdownlint-cli2.jsonc'
+              - 'dagger/**'
+
+  lint-go:
+    name: Go
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name == 'workflow_call' || needs.changes.outputs.go == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
+        with:
+          version: latest
+          verb: call
+          args: lint-go
+
+  lint-helm:
+    name: Helm
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name == 'workflow_call' || needs.changes.outputs.helm == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
+        with:
+          version: latest
+          verb: call
+          args: lint-helm
+
+  lint-renovate:
+    name: Renovate config
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name == 'workflow_call' || needs.changes.outputs.renovate == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
+        with:
+          version: latest
+          verb: call
+          args: lint-renovate
+
+  lint-markdown:
+    name: Markdown
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name == 'workflow_call' || needs.changes.outputs.markdown == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
+        with:
+          version: latest
+          verb: call
+          args: lint-markdown

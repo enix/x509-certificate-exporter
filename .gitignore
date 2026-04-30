@@ -1,14 +1,31 @@
-*.out
-*.so
-*.dylib
+# direnv
+.direnv/
+
+# GoReleaser
+dist/
+
+# Binaries
+bin/
 *.exe
-*.exe~
-*.dll
-*.test
-*.cov
-*.debug
+
+# Air temp dirs
+.air_tmp/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE and assistants
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes
 *.kubeconfig.yaml
 kubeconfig.yaml
-coverage.html
-/vendor
-/tmp

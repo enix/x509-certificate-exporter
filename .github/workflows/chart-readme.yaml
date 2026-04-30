@@ -1,0 +1,77 @@
+name: Chart README
+
+# Keep chart/README.md in lockstep with chart/README.md.gotmpl. The gotmpl
+# is the source of truth; helm-docs renders it (with values.yaml) into
+# chart/README.md. Both jobs run only when the template has been touched.
+#
+# - On a PR: regenerate in CI and fail if the result drifts from what the
+#   author committed. Tells contributors to run `task doc:helm` locally.
+# - On main: regenerate and commit the result back if it differs.
+# - Reusable: another workflow (e.g. release) can `uses:` this file to
+#   force a verify regardless of which paths changed — workflow_call does
+#   not honor `paths:` filters, which is the intended behavior at release
+#   time.
+on:
+  push:
+    branches: [main]
+    paths:
+      - chart/README.md.gotmpl
+      - chart/values.yaml
+  pull_request:
+    paths:
+      - chart/README.md.gotmpl
+      - chart/values.yaml
+  workflow_call:
+
+# Read-only by default. The `regenerate` job overrides with
+# contents:write because it commits chart/README.md back to main.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
+        with:
+          version: latest
+          verb: call
+          args: helm-docs export --path=chart/README.md
+      - name: Fail if chart/README.md is stale
+        run: |
+          if ! git diff --exit-code -- chart/README.md; then
+            echo "::error file=chart/README.md::chart/README.md is out of date relative to chart/README.md.gotmpl or chart/values.yaml. Run 'task doc:helm' locally and commit the result."
+            exit 1
+          fi
+
+  regenerate:
+    name: Regenerate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
+        with:
+          version: latest
+          verb: call
+          args: helm-docs export --path=chart/README.md
+      - name: Commit regenerated README if changed
+        run: |
+          if git diff --quiet -- chart/README.md; then
+            echo "No changes to chart/README.md; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add chart/README.md
+          git commit -m "docs(chart): regenerate README from values.yaml"
+          git push

@@ -1,0 +1,43 @@
+# Path-based PR labels. Consumed by .github/workflows/labeler.yaml on every
+# pull_request event. The "sensitive" label is purely a visibility cue —
+# enforcement of the two-pair-of-eyes rule lives in CODEOWNERS + branch
+# protection. The label makes it easy to:
+#   - filter PRs in the repo UI: ?q=is:pr+is:open+label:sensitive
+#   - subscribe to notifications scoped to that label
+#   - flag risky PRs in dashboards / external tooling
+#
+# Reference: https://github.com/actions/labeler#create-labelsyml
+
+sensitive:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - ".envrc"
+          - ".gitignore"
+          - ".gitattributes"
+          - ".editorconfig"
+          - ".golangci.yml"
+          - "Taskfile*"
+          - "Tiltfile*"
+          - "test/e2e/Tiltfile"
+          - "build/**"
+          - "dagger/**"
+          - "dagger.json"
+          - ".goreleaser.yaml"
+          - "renovate.*"
+          - "release-please*"
+          - "flake.*"
+          - "go.*"
+          - "CLAUDE.md"
+
+chart:
+  - changed-files:
+      - any-glob-to-any-file: ["chart/**"]
+
+go:
+  - changed-files:
+      - any-glob-to-any-file: ["**/*.go", "go.mod", "go.sum"]
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ["**/*.md", "docs/**"]

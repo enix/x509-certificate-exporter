@@ -9,7 +9,7 @@ import (
 const (
 	golangImage       = "golang:1.26.2-alpine"
 	alpineImage       = "alpine:3.23.4"
-	helmImage         = "alpine/helm:3.18.0"
+	helmImage         = "alpine/helm:3.20.2"
 	renovateImage     = "renovate/renovate:43.142.1"
 	helmDocsImage     = "jnorwood/helm-docs:v1.14.2"
 	markdownlintImage = "davidanson/markdownlint-cli2:v0.14.0"

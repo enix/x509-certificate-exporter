@@ -10,6 +10,7 @@
     { "type": "perf", "section": "Performance" },
     { "type": "deps", "section": "Dependencies" },
     { "type": "doc", "section": "Documentation" },
+    { "type": "docs", "section": "Documentation" },
     { "type": "ci", "hidden": true },
     { "type": "chore", "hidden": true },
     { "type": "refactor", "hidden": true },

@@ -23,8 +23,11 @@ name: Release PR
 #       Contents: Read & write
 #       Pull requests: Read & write
 #       Metadata: Read
-#   - App ID + private key as repo secrets:
-#       RELEASE_PLEASE_APP_ID
+#   - Client ID + private key as repo secrets (the Client ID is on the
+#     App's settings page under "About" → "Client ID"; it is NOT the
+#     numeric App ID — those are different identifiers, and
+#     actions/create-github-app-token v3+ prefers the Client ID):
+#       RELEASE_PLEASE_APP_CLIENT_ID
 #       RELEASE_PLEASE_APP_PRIVATE_KEY
 
 on:
@@ -60,7 +63,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         with:
-          app-id: ${{ secrets.RELEASE_PLEASE_APP_ID }}
+          client-id: ${{ secrets.RELEASE_PLEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
 
       # Checkout with the App token — `actions/checkout` persists the

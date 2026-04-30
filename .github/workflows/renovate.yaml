@@ -28,11 +28,15 @@ name: Renovate
 #      GitHub Apps → Install). Restrict to "Only select repositories →
 #      x509-certificate-exporter".
 #
-#   3. Generate a private key for the App. Add its App ID and the full
-#      PEM contents as repo secrets (Settings → Secrets and variables
-#      → Actions):
-#        RENOVATE_APP_ID            (numeric App ID)
-#        RENOVATE_APP_PRIVATE_KEY   (paste the .pem file contents verbatim)
+#   3. Generate a private key for the App. Grab its Client ID (App
+#      settings page → "About" panel → "Client ID", string starting
+#      with `Iv1.` or `Iv23li...`) and the .pem; add both as repo
+#      secrets (Settings → Secrets and variables → Actions):
+#        RENOVATE_APP_CLIENT_ID    (Client ID, NOT the numeric App ID
+#                                   — those are different identifiers;
+#                                   actions/create-github-app-token v3+
+#                                   prefers the Client ID)
+#        RENOVATE_APP_PRIVATE_KEY  (paste the .pem file contents verbatim)
 #
 #   4. Push this workflow to `main`. The first scheduled run picks it up
 #      automatically; you can also fire `workflow_dispatch` to trigger
@@ -110,7 +114,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         with:
-          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
 
       - name: Run Renovate

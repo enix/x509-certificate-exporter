@@ -328,9 +328,10 @@ Verification commands for downstream consumers are documented in the
 **Self-hosted on GitHub Actions** (no Mend app installed). The
 [`renovate` workflow](.github/workflows/renovate.yaml) invokes the
 Renovate CLI on a weekly cron + `workflow_dispatch` + on every push that
-modifies `renovate.json5`. Auth is via a GitHub App (`RENOVATE_APP_ID` +
-`RENOVATE_APP_PRIVATE_KEY` secrets) so PRs/commits come from the bot
-identity and downstream workflows trigger on them.
+modifies `renovate.json5`. Auth is via a GitHub App
+(`RENOVATE_APP_CLIENT_ID` + `RENOVATE_APP_PRIVATE_KEY` secrets) so
+PRs/commits come from the bot identity and downstream workflows trigger
+on them.
 
 `renovate.json5` deliberately has **no top-level `schedule:`** — the
 workflow's cron is the single source of timing truth. Adding a schedule

@@ -77,6 +77,7 @@ jobs:
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
         with:
           version: latest
+          dagger-flags: --progress=logs
           verb: call
           args: lint-go
 
@@ -94,6 +95,7 @@ jobs:
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
         with:
           version: latest
+          dagger-flags: --progress=logs
           verb: call
           args: lint-helm
 
@@ -111,6 +113,7 @@ jobs:
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
         with:
           version: latest
+          dagger-flags: --progress=logs
           verb: call
           args: lint-renovate
 
@@ -128,5 +131,6 @@ jobs:
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
         with:
           version: latest
+          dagger-flags: --progress=logs
           verb: call
           args: lint-markdown

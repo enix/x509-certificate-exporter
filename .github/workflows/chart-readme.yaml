@@ -40,6 +40,7 @@ jobs:
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
         with:
           version: latest
+          dagger-flags: --progress=logs
           verb: call
           args: helm-docs export --path=chart/README.md
       - name: Fail if chart/README.md is stale
@@ -62,6 +63,7 @@ jobs:
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
         with:
           version: latest
+          dagger-flags: --progress=logs
           verb: call
           args: helm-docs export --path=chart/README.md
       - name: Commit regenerated README if changed

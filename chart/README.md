@@ -18,7 +18,7 @@ the same exporter binary and observe the same metric schema.
 Use it with the [Grafana Dashboard](https://grafana.com/grafana/dashboards/13922)
 ID `13922`:
 
-![Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/docs/assets/grafana-dashboard.jpg)
+![Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/docs/assets/grafana-dashboard.webp)
 
 ## What's new in v4
 

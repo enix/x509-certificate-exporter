@@ -1,0 +1,12 @@
+# See Dockerfile.busybox for the GoReleaser dockers_v2 context conventions.
+# `FROM scratch` means no shell, no libc, no nothing — the tiniest
+# possible image around the static Go binary.
+
+FROM scratch
+
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/x509-certificate-exporter /x509-certificate-exporter
+
+USER 65534:65534
+
+ENTRYPOINT ["/x509-certificate-exporter"]

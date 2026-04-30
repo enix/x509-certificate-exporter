@@ -1,0 +1,270 @@
+# GoReleaser config — drives the entire `Release` workflow:
+# binaries × OS/arch, archives, checksums, container images (multi-arch,
+# multi-registry, two variants), cosign keyless on everything, GitHub
+# Release with auto-detected prerelease.
+#
+# Image SBOMs (CycloneDX via syft) are produced in a separate workflow
+# step, not here — GoReleaser's image SBOM integration is less mature
+# than its binary SBOM, and a post-loop is more flexible.
+#
+# IMAGE_NAME is the only overridable knob: forks set it via the
+# `release` Environment's `vars.IMAGE_NAME`. Registries (ghcr/quay/
+# docker.io) and namespace (`enix`) are hardcoded — change in this file
+# if a fork needs different ones.
+#
+# Reference: https://goreleaser.com/customization/
+
+version: 2
+
+project_name: x509-certificate-exporter
+
+# `go mod tidy` before the release. Catches dirty go.sum on a release tag.
+before:
+  hooks:
+    - go mod tidy
+
+# ─── Binaries ────────────────────────────────────────────────────────────────
+# Two entries gated by GORELEASER_LOCAL_PLATFORM=1: full cross-OS
+# matrix (CI / `task image`) vs. Linux-only with the three supported
+# arches (`task image:local` — fast iteration). Cross-compiling to all
+# three Linux archs is essentially free in Go, but skipping the 20+
+# non-Linux targets shaves real seconds. dockers_v2's local entries
+# pick the right one via `.Runtime.Goarch`. Build flags are reused
+# across both entries via YAML anchors.
+builds:
+  - id: x509ce
+    skip: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") }}true{{ end }}'
+    main: &build-main ./cmd/x509-certificate-exporter
+    binary: &build-binary x509-certificate-exporter
+    env: &build-env
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - freebsd
+      - illumos
+      - netbsd
+      - openbsd
+      - solaris
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - riscv64
+      - "386"
+    ignore:
+      - { goos: darwin, goarch: riscv64 }
+      - { goos: darwin, goarch: "386" }
+      - { goos: illumos, goarch: arm64 }
+      - { goos: illumos, goarch: riscv64 }
+      - { goos: illumos, goarch: "386" }
+      - { goos: netbsd, goarch: riscv64 }
+      - { goos: openbsd, goarch: riscv64 }
+      - { goos: solaris, goarch: arm64 }
+      - { goos: solaris, goarch: riscv64 }
+      - { goos: solaris, goarch: "386" }
+      - { goos: windows, goarch: riscv64 }
+    flags: &build-flags
+      - -tags=netgo,osusergo
+      - -trimpath
+    ldflags: &build-ldflags
+      - -s -w
+      - -X github.com/enix/x509-certificate-exporter/v4/internal/product.version={{.Version}}
+      - -X github.com/enix/x509-certificate-exporter/v4/internal/product.buildTime={{.Date}}
+      - -X github.com/enix/x509-certificate-exporter/v4/internal/product.gitCommit={{.FullCommit}}
+
+  - id: x509ce-local
+    skip: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") }}{{ else }}true{{ end }}'
+    main: *build-main
+    binary: *build-binary
+    env: *build-env
+    goos: [linux]
+    goarch: [amd64]
+    flags: *build-flags
+    ldflags: *build-ldflags
+
+# ─── Archives ────────────────────────────────────────────────────────────────
+archives:
+  - id: default
+    ids: [x509ce, x509ce-local]
+    name_template: "x509-certificate-exporter-{{ .Tag }}-{{ .Os }}-{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+
+# ─── Checksums ───────────────────────────────────────────────────────────────
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# ─── Cosign signature on the checksums file ──────────────────────────────────
+# Signing the checksums (rather than each archive individually) is the
+# canonical SLSA-friendly pattern. Verifiers fetch checksums.txt + .sig
+# + .pem, verify the signature, then verify each archive's hash from
+# the checksums file.
+signs:
+  - id: checksum-cosign
+    cmd: cosign
+    artifacts: checksum
+    args:
+      - sign-blob
+      - --yes
+      - --output-signature=${signature}
+      - --output-certificate=${certificate}
+      - ${artifact}
+    output: true
+
+# ─── Container images ────────────────────────────────────────────────────────
+# Two variants (busybox, scratch). Each entry runs a single
+# `docker buildx build` with all platforms + all registries +
+# all tags resolved in one go — no manual manifest stitching.
+#
+# Tag layout (preserved from the previous dockers + docker_manifests setup):
+#   busybox: :VERSION  + :latest        (latest skipped on snapshots)
+#   scratch: :VERSION-scratch + :scratch  (floating ":scratch" skipped on snapshots)
+#
+# Built-in `sbom: false` because the release.yaml post-loop produces
+# CycloneDX SBOMs via syft + cosign attestation — that's the canonical
+# artifact for this project. Keeping dockers_v2's default in-toto
+# attestation off avoids duplicate, conflicting SBOM payloads.
+#
+# build/Dockerfile.busybox / build/Dockerfile.scratch use
+# $TARGETPLATFORM/<binary> (required by dockers_v2's per-platform
+# context layout).
+#
+# Each variant has TWO entries, gated by GORELEASER_LOCAL_PLATFORM=1:
+#   - default (env unset): full multi-arch (linux/amd64,arm64,riscv64).
+#     Used by CI and `task image`.
+#   - local (env=1):       host-arch only. Used by `task image:local`
+#     for fast iteration, skipping QEMU cross-builds.
+# Exactly one entry per variant is active per run via the `disable:`
+# template. Labels are reused across pairs via YAML anchors.
+dockers_v2:
+  - id: busybox
+    disable: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") }}true{{ end }}'
+    ids: [x509ce]
+    dockerfile: build/Dockerfile.busybox
+    platforms:
+      - linux/amd64
+      - linux/arm64
+      - linux/riscv64
+    images:
+      - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .IsSnapshot }}latest{{ end }}"
+    sbom: false
+    labels: &busybox-labels
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.source: "https://github.com/enix/x509-certificate-exporter"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.licenses: "MIT"
+
+  - id: busybox-local
+    disable: '{{ if eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1" }}{{ else }}true{{ end }}'
+    ids: [x509ce-local]
+    dockerfile: build/Dockerfile.busybox
+    platforms:
+      - "linux/{{ .Runtime.Goarch }}"
+    images:
+      - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .IsSnapshot }}latest{{ end }}"
+    sbom: false
+    labels: *busybox-labels
+
+  - id: scratch
+    disable: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") }}true{{ end }}'
+    ids: [x509ce]
+    dockerfile: build/Dockerfile.scratch
+    platforms:
+      - linux/amd64
+      - linux/arm64
+      - linux/riscv64
+    images:
+      - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
+    tags:
+      - "{{ .Version }}-scratch"
+      - "{{ if not .IsSnapshot }}scratch{{ end }}"
+    sbom: false
+    labels: &scratch-labels
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.source: "https://github.com/enix/x509-certificate-exporter"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.licenses: "MIT"
+
+  - id: scratch-local
+    disable: '{{ if eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1" }}{{ else }}true{{ end }}'
+    ids: [x509ce-local]
+    dockerfile: build/Dockerfile.scratch
+    platforms:
+      - "linux/{{ .Runtime.Goarch }}"
+    images:
+      - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
+    tags:
+      - "{{ .Version }}-scratch"
+      - "{{ if not .IsSnapshot }}scratch{{ end }}"
+    sbom: false
+    labels: *scratch-labels
+
+  # Tilt mode: single image consumed by `Tiltfile`'s custom_build. Only
+  # the busybox variant (no scratch — we want a shell in the dev pod for
+  # debugging), only host arch. The image+tag are read from the env
+  # vars Tilt sets via the wrapper script in the Tiltfile, so the
+  # resulting image lands in local Docker under exactly the ref Tilt
+  # expects (skips_local_docker=False).
+  - id: tilt
+    disable: '{{ if eq (envOrDefault "GORELEASER_TILT" "") "1" }}{{ else }}true{{ end }}'
+    ids: [x509ce-local]
+    dockerfile: build/Dockerfile.busybox
+    platforms:
+      - "linux/{{ .Runtime.Goarch }}"
+    images:
+      - '{{ envOrDefault "TILT_IMAGE_REPO" "x509-certificate-exporter" }}'
+    tags:
+      - '{{ envOrDefault "TILT_IMAGE_TAG" "tilt" }}'
+    sbom: false
+    labels: *busybox-labels
+
+# ─── Cosign on container images ──────────────────────────────────────────────
+# Sign by digest (anchored to immutable content). Consumers verify the
+# same ref they pull. With dockers_v2 there's no separate "manifest"
+# artifact category — each pushed multi-arch index manifest appears as
+# a "Docker Image" artifact, which `artifacts: images` targets.
+docker_signs:
+  - id: image-cosign
+    cmd: cosign
+    artifacts: images
+    args:
+      - sign
+      - --yes
+      - "${artifact}@${digest}"
+    output: true
+
+# ─── GitHub Release ──────────────────────────────────────────────────────────
+release:
+  github:
+    owner: enix
+    name: x509-certificate-exporter
+  # Auto-detect prerelease from semver suffix (-alpha, -beta, -rc).
+  prerelease: auto
+  # release-please created an empty Release stub at tag-merge time.
+  # `mode: append` adds our assets to it instead of complaining that
+  # the release already exists.
+  mode: append

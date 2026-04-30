@@ -1,0 +1,129 @@
+name: Renovate
+
+# Self-hosted Renovate running on GitHub Actions. The Mend-hosted Renovate
+# App is not used here; instead, this workflow runs `renovate-cli` on a
+# schedule (and on demand) under a GitHub App identity that we own.
+#
+# Why self-hosted on Actions:
+#   - Full control over the runtime (Renovate version, log retention,
+#     network egress, presets/cache).
+#   - No dependency on Mend's hosted scheduler — bumps run when WE say.
+#   - Same `renovate.json5` config — no migration of repo-level rules.
+#   - Auditable: every run is a workflow execution with logs in this repo.
+#
+# Manual setup (one-time):
+#
+#   1. Create a GitHub App ("Renovate Bot" or similar) at
+#        https://github.com/organizations/<org>/settings/apps/new
+#      Permissions (Repository):
+#        - Contents:        Read & write   (commit, push branches)
+#        - Pull requests:   Read & write   (open, update, close PRs)
+#        - Issues:          Read & write   (Dependency Dashboard issue)
+#        - Workflows:       Read & write   (modify .github/workflows/* PRs)
+#        - Metadata:        Read           (mandatory)
+#      Subscribe to events: none required.
+#      User permissions: none.
+#
+#   2. Install the App on this repository (Settings → Integrations →
+#      GitHub Apps → Install). Restrict to "Only select repositories →
+#      x509-certificate-exporter".
+#
+#   3. Generate a private key for the App. Add its App ID and the full
+#      PEM contents as repo secrets (Settings → Secrets and variables
+#      → Actions):
+#        RENOVATE_APP_ID            (numeric App ID)
+#        RENOVATE_APP_PRIVATE_KEY   (paste the .pem file contents verbatim)
+#
+#   4. Push this workflow to `main`. The first scheduled run picks it up
+#      automatically; you can also fire `workflow_dispatch` to trigger
+#      manually.
+#
+# Why a GitHub App rather than a PAT:
+#   - Bot identity ("renovate-bot[bot]") rather than a human's account.
+#   - Token is minted per-run, short-lived (~1h), can't be exfiltrated
+#     long-term.
+#   - Commits made by the App's installation token DO trigger workflows
+#     downstream — necessary so CI runs on Renovate PRs.
+
+on:
+  # Adjust here, not in renovate.json5 — repo config's `schedule:` is for
+  # within-window timing, not for triggering the bot. Daily cadence keeps
+  # the reaction window to ≤24 h; Renovate is idempotent so runs with no
+  # changes are cheap (~30 s).
+  #
+  # GitHub Actions cron is UTC-only (no timezone support). 08:00 UTC =
+  # 09:00 Europe/Paris in winter (CET) / 10:00 in summer (CEST) — anchor
+  # to winter time so the "PRs land at the start of the workday" intent
+  # holds for half the year, drifts +1h the other half.
+  schedule:
+    - cron: "0 8 * * *"
+
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: "Renovate log level for this run"
+        type: choice
+        default: info
+        options: [debug, info, warn, error]
+      dryRun:
+        description: "Dry run mode (skip opening PRs)"
+        type: choice
+        default: disabled
+        options: [disabled, extract, lookup, full]
+
+  # Catch malformed config or workflow updates on the same merge that
+  # introduces them — without this, a broken renovate.json5 sits unnoticed
+  # until the next weekly cron.
+  push:
+    branches: [main]
+    paths:
+      - "renovate.json5"
+      - ".github/workflows/renovate.yaml"
+
+# Default to read-only. The App token below carries the actual write
+# capabilities — never the runner's GITHUB_TOKEN.
+permissions:
+  contents: read
+
+# Two concurrent Renovate runs race on branches like renovate/golang-toolchain
+# and produce duplicate or conflicting PRs. Queue them strictly.
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    name: Renovate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+
+      # Mint a short-lived installation token for the App. This is the
+      # identity Renovate uses to push branches and open PRs. The token
+      # expires automatically when the job ends; nothing persists.
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # ratchet:actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
+      - name: Run Renovate
+        uses: renovatebot/github-action@f66d8679fcfcfa051abde6e7a623007173bf5164 # ratchet:renovatebot/github-action@v46.1.12
+        env:
+          LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+          # Scope strictly to this repo. The App may have access to
+          # others; this prevents an accidental cross-repo run.
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_AUTODISCOVER: "false"
+          # Treat a missing or malformed renovate.json5 as a hard error
+          # rather than silently doing nothing.
+          RENOVATE_REQUIRE_CONFIG: required
+          # Dry run only when explicitly requested via workflow_dispatch.
+          # GHA ternary `cond && '' || x` is broken: empty-string is falsy so
+          # the `||` always fires. Invert: pass the value when it's a real mode,
+          # leave unset (empty) otherwise — which is Renovate's "no dry-run".
+          RENOVATE_DRY_RUN: ${{ (inputs.dryRun != '' && inputs.dryRun != 'disabled') && inputs.dryRun || '' }}
+        with:
+          token: ${{ steps.app-token.outputs.token }}

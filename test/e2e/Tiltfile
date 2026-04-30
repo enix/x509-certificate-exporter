@@ -1,0 +1,108 @@
+# -*- mode: Python -*-
+# E2e Tiltfile, run by `task test:e2e` via `tilt -f test/e2e/Tiltfile ci`.
+# The cluster + registry lifecycle is owned by the `test:e2e` task in
+# Taskfile.yml — its `defer:` cleanup guarantees teardown even if
+# anything below fails or the user aborts. Everything in here assumes
+# a fresh, dedicated cluster.
+#
+# Pipeline (resources run in dep order; `tilt ci` exits 0 iff every
+# resource reaches Ready):
+#   1. goreleaser release --snapshot (tilt mode) → exports busybox
+#                                                  image to local Docker
+#   2. tilt push                                  → tags + pushes to 127.0.0.1:5001
+#   3. helm install                               → chart deployed with dev + e2e overrides
+#   4. seed                                       → applies dev/scenarios to the cluster
+#   5. e2e-test                                   → go test -tags=e2e against /metrics
+#
+# Tilt resolves relative paths against the Tiltfile's directory, so
+# every path that points at the repo root goes through the ROOT
+# constant below. Local-dir paths (./values.yaml) stay unprefixed.
+ROOT = "../.."
+
+# Constants below must match the e2e vars in Taskfile.yml's `e2e` task
+# (CLUSTER, REGISTRY, REGISTRY_PORT). If they drift, the cluster created
+# by the task and the cluster Tilt deploys to will not be the same.
+CLUSTER_NAME = "x509ce-e2e"
+REGISTRY_HOST_PORT = 5001
+REGISTRY_NAME = "x509ce-e2e-registry"
+
+allow_k8s_contexts("k3d-" + CLUSTER_NAME)
+default_registry(
+    "127.0.0.1:%d" % REGISTRY_HOST_PORT,
+    host_from_cluster="k3d-%s:%d" % (REGISTRY_NAME, REGISTRY_HOST_PORT),
+)
+
+IMAGE = "x509-certificate-exporter"
+
+# 1. Build via GoReleaser in "tilt mode" — same Dockerfile.busybox as
+# the release pipeline (one image-build codepath for dev + e2e + release).
+# See the dev Tiltfile for the full rationale. The custom_build command
+# `cd`s to the repo root so the goreleaser config + the binaries land
+# where its dockers_v2 entry expects them.
+custom_build(
+    ref=IMAGE,
+    command=" && ".join([
+        'cd "%s"' % ROOT,
+        'export TILT_IMAGE_REPO="${EXPECTED_REF%:*}"',
+        'export TILT_IMAGE_TAG="${EXPECTED_REF##*:}"',
+        'export GORELEASER_TILT=1',
+        'export IMAGE_NAME=x509-certificate-exporter',
+        'goreleaser release --snapshot --skip=publish,sign,sbom,archive,before --clean',
+        'docker tag "${EXPECTED_REF}-$(go env GOARCH)" "$EXPECTED_REF"',
+    ]),
+    deps=[
+        ROOT + "/cmd",
+        ROOT + "/pkg",
+        ROOT + "/internal",
+        ROOT + "/go.mod",
+        ROOT + "/go.sum",
+        ROOT + "/build/Dockerfile.busybox",
+        ROOT + "/.goreleaser.yaml",
+    ],
+    skips_local_docker=False,
+)
+
+# 3. Helm install. No kube-prometheus-stack here: the e2e values disable
+# the chart's ServiceMonitor + PrometheusRule (no CRDs to satisfy), and
+# the test scrapes /metrics directly via Tilt's port-forward below.
+load("ext://helm_resource", "helm_resource")
+
+helm_resource(
+    name="x509-certificate-exporter",
+    chart=ROOT + "/chart",
+    namespace="x509ce-e2e",
+    flags=[
+        "--create-namespace",
+        "--values",
+        ROOT + "/dev/values.yaml",
+        "--values",
+        "./values.yaml",
+    ],
+    image_deps=[IMAGE],
+    image_keys=[("image.registry", "image.repository", "image.tag")],
+    # Host port 19793 (not 9793) so a parallel `task dev:up` keeps its
+    # own port-forward to the dev cluster's exporter.
+    port_forwards=["19793:9793"],
+)
+
+# 4. Seed scenarios. Same package the dev loop and tests both consume —
+# single source of truth for fixtures. Run from the repo root so
+# `go run ./dev/seed` resolves naturally.
+local_resource(
+    "seed",
+    cmd="cd %s && go run ./dev/seed" % ROOT,
+    deps=[ROOT + "/dev/seed", ROOT + "/dev/scenarios"],
+    resource_deps=["x509-certificate-exporter"],
+)
+
+# 5. Run the assertion suite. tilt ci exits non-zero if this fails,
+# which propagates back to `task test:e2e` and then to the wrapper's trap.
+# Run from the repo root for consistency with the seed step.
+local_resource(
+    "e2e-test",
+    # -timeout=5m bounds a hung suite: without it, an exporter that never
+    # becomes Ready or a metric that never converges would pin `tilt ci`
+    # until the outer CI runner kills the job (or forever, locally).
+    cmd="cd %s && E2E_METRICS_URL=http://127.0.0.1:19793/metrics go test -tags=e2e -count=1 -timeout=5m -v ./test/e2e/..." % ROOT,
+    resource_deps=["seed"],
+)

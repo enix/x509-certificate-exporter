@@ -1,0 +1,32 @@
+name: Labeler
+
+# Auto-applies path-based labels (defined in .github/labeler.yml) to every PR,
+# refreshing on each push so a label that no longer applies gets removed (sync-
+# labels: true). The "sensitive" label is the visibility complement to
+# CODEOWNERS — both must remain in lock-step with each other.
+#
+# Permissions are scoped to what the action needs: read repo metadata, write
+# PR labels. No GITHUB_TOKEN is exposed to user-controlled code from forks
+# because we use `pull_request` (not `pull_request_target`) — fork PRs run
+# with a read-only token, so this workflow cannot apply labels on them. That
+# is acceptable here: a maintainer can label manually if needed, and we lose
+# nothing security-wise.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Apply labels
+    runs-on: ubuntu-latest
+    steps:
+      # NOTE: pin to a commit SHA at first Renovate run (the github-actions
+      # manager will rewrite this line as `actions/labeler@<sha> # v5.x.y`
+      # once `pinDigests: true` is enabled in renovate.json5).
+      - uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # ratchet:actions/labeler@v5
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: true

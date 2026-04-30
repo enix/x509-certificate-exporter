@@ -1,0 +1,140 @@
+{{- if .Values.secretsExporter.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "x509-certificate-exporter.fullname" . }}-secrets
+  namespace: {{ include "x509-certificate-exporter.namespace" . }}
+  labels:
+    {{- include "x509-certificate-exporter.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    web:
+      enableStats: {{ .Values.web.enableStats }}
+
+    server:
+      listen: ":{{ if .Values.rbacProxy.enabled }}{{ .Values.rbacProxy.upstreamListenPort }}{{ else }}{{ .Values.podListenPort }}{{ end }}"
+      {{- if or .Values.webConfiguration .Values.webConfigurationExistingSecret }}
+      webConfigFile: "/mnt/webconfig.yaml"
+      {{- end }}
+
+    log:
+      level: {{ ternary "debug" "info" .Values.secretsExporter.debugMode }}
+      format: text
+
+    metrics:
+      exposeRelative: {{ .Values.exposeRelativeMetrics | default true }}
+      exposePerCertError: {{ .Values.exposePerCertificateErrorMetrics | default true }}
+      {{- if not (kindIs "invalid" .Values.metricLabelsFilterList) }}
+      exposeSubjectFields: {{ .Values.metricLabelsFilterList | toJson }}
+      exposeIssuerFields: {{ .Values.metricLabelsFilterList | toJson }}
+      {{- end }}
+
+    sources:
+      - kind: kubernetes
+        name: cluster-secrets
+        {{- if .Values.secretsExporter.kubeApiRateLimits.enabled }}
+        rateLimit:
+          qps: {{ .Values.secretsExporter.kubeApiRateLimits.queriesPerSecond }}
+          burst: {{ .Values.secretsExporter.kubeApiRateLimits.burstQueries }}
+        {{- end }}
+        namespaces:
+          include: {{ if .Values.secretsExporter.includeNamespaces }}{{ .Values.secretsExporter.includeNamespaces | toJson }}{{ else }}["*"]{{ end }}
+          exclude: {{ if .Values.secretsExporter.excludeNamespaces }}{{ .Values.secretsExporter.excludeNamespaces | toJson }}{{ else }}[]{{ end }}
+          includeLabels: {{ if .Values.secretsExporter.includeNamespaceLabels }}{{ .Values.secretsExporter.includeNamespaceLabels | toJson }}{{ else }}[]{{ end }}
+          excludeLabels: {{ if .Values.secretsExporter.excludeNamespaceLabels }}{{ .Values.secretsExporter.excludeNamespaceLabels | toJson }}{{ else }}[]{{ end }}
+        secrets:
+          include: ["*"]
+          exclude: []
+          includeLabels: {{ if .Values.secretsExporter.includeLabels }}{{ .Values.secretsExporter.includeLabels | toJson }}{{ else }}[]{{ end }}
+          excludeLabels: {{ if .Values.secretsExporter.excludeLabels }}{{ .Values.secretsExporter.excludeLabels | toJson }}{{ else }}[]{{ end }}
+          types:
+            {{- range .Values.secretsExporter.secretTypes }}
+            - type: {{ .type | quote }}
+              {{- if .keyPatterns }}
+              keyPatterns: {{ .keyPatterns | toJson }}
+              {{- else }}
+              keyPatterns: ["^{{ .key | replace "." "\\\\." }}$"]
+              {{- end }}
+              format: {{ .format | default "pem" }}
+              {{- with .pkcs12 }}
+              pkcs12:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+            {{- end }}
+          exposeLabels: {{ if .Values.secretsExporter.exposeSecretLabels }}{{ .Values.secretsExporter.exposeSecretLabels | toJson }}{{ else }}[]{{ end }}
+        configMaps:
+          include: ["*"]
+          keyPatterns:
+            {{- if .Values.secretsExporter.configMapKeys }}
+            {{- range .Values.secretsExporter.configMapKeys }}
+            - "^{{ . | replace "." "\\\\." }}$"
+            {{- end }}
+            {{- else }}
+            []
+            {{- end }}
+          format: pem
+{{- end }}
+{{- range $dsName, $dsDef := .Values.hostPathsExporter.daemonSets }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $dsName }}
+  namespace: {{ include "x509-certificate-exporter.namespace" $ }}
+  labels:
+    {{- include "x509-certificate-exporter.labels" $ | nindent 4 }}
+data:
+  config.yaml: |
+    web:
+      enableStats: {{ $.Values.web.enableStats }}
+
+    server:
+      listen: ":{{ if $.Values.rbacProxy.enabled }}{{ $.Values.rbacProxy.upstreamListenPort }}{{ else }}{{ $.Values.podListenPort }}{{ end }}"
+      {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
+      webConfigFile: "/mnt/webconfig.yaml"
+      {{- end }}
+
+    log:
+      level: {{ ternary "debug" "info" (default $.Values.hostPathsExporter.debugMode $dsDef.debugMode) }}
+      format: text
+
+    metrics:
+      exposeRelative: {{ $.Values.exposeRelativeMetrics | default true }}
+      exposePerCertError: {{ $.Values.exposePerCertificateErrorMetrics | default true }}
+      trimPathComponents: 3
+      {{- if not (kindIs "invalid" $.Values.metricLabelsFilterList) }}
+      exposeSubjectFields: {{ $.Values.metricLabelsFilterList | toJson }}
+      exposeIssuerFields: {{ $.Values.metricLabelsFilterList | toJson }}
+      {{- end }}
+
+    cache:
+      filePoll:
+        interval: 300s
+        skipUnchanged: true
+
+    sources:
+      {{- if or (default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories) (default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories) (default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles) }}
+      - kind: file
+        name: host-paths-{{ $dsName }}
+        followSymlinks: {{ not (default $.Values.hostPathsExporter.skipSymlinks $dsDef.skipSymlinks) }}
+        paths:
+          {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
+          - /mnt/watch/dir-{{ . | clean | sha1sum }}/{{ . | clean }}/*
+          {{- end }}
+          {{- range default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories }}
+          - /mnt/watch/dir-{{ .directory | clean | sha1sum }}/{{ .directory | clean }}/*.{{ .extension | clean }}
+          {{- end }}
+          {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
+          - /mnt/watch/file-{{ . | clean | sha1sum }}{{ . | clean }}
+          {{- end }}
+        formats: [pem]
+      {{- end }}
+      {{- if default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+      - kind: kubeconfig
+        name: host-kubeconfigs-{{ $dsName }}
+        paths:
+          {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+          - /mnt/watch/kube-{{ . | clean | sha1sum }}{{ . | clean }}
+          {{- end }}
+      {{- end }}
+{{- end }}

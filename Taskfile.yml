@@ -1,0 +1,312 @@
+version: '3'
+
+# Thin façade over the build tools:
+#   - Dagger module (dagger.json at repo root, source in dagger/) for
+#     sandboxed QA/CI pipelines (lint, test, security, helm utilities).
+#     Invoked via `dagger call <function>` — find-up locates the module.
+#   - GoReleaser for ALL image builds — release pipeline AND the dev
+#     image consumed by Tilt (one Dockerfile path, dev image == release
+#     image). Driven by .goreleaser.yaml; in CI via release.yaml;
+#     locally via `task image` (full) or `task image:local` (host-arch
+#     only). Tilt invokes goreleaser directly with GORELEASER_TILT=1.
+#   - Direct CLI for things that don't need sandboxing: k3d/tilt for
+#     the dev cluster, ratchet on workflows (pinned via the Nix shell),
+#     Renovate dry-run via Docker, and `go mod tidy` / `go get -u`.
+
+env:
+  DAGGER_NO_NAG: '1'
+
+vars:
+  KUBECONFIG_DEV: '{{.TASKFILE_DIR}}/kubeconfig.yaml'
+  DEV_CLUSTER: x509ce-dev
+  DEV_REGISTRY: x509ce-dev-registry
+  DEV_REGISTRY_PORT: 5000
+  # Renovate-tracked (custom regex manager in renovate.json5).
+  DEV_K3S_IMAGE: rancher/k3s:v1.35.3-k3s1
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  check:
+    desc: Run every gate that CI runs — lint + test + security
+    cmds:
+      - task: lint
+      - task: test
+      - task: security
+
+  # ─── Build ───────────────────────────────────────────────────────────────
+  build:
+    desc: Build binary for the host platform (direct, no sandbox)
+    cmds:
+      - mkdir -p bin
+      - go build -trimpath -tags netgo,osusergo -o bin/x509-certificate-exporter ./cmd/x509-certificate-exporter
+
+  image:
+    desc: 'Build all release image variants locally via GoReleaser snapshot — no push, no sign'
+    # Snapshot mode skips git tag validation, push, and signing, so
+    # this is safe to run on any branch / dirty tree. Useful to verify
+    # the .goreleaser.yaml config produces what's expected.
+    # IMAGE_NAME defaults to the project name for local snapshots; CI
+    # overrides it via the `release` Environment's `vars.IMAGE_NAME`.
+    env:
+      IMAGE_NAME: '{{.IMAGE_NAME | default "x509-certificate-exporter"}}'
+    cmds:
+      - goreleaser release --snapshot --skip=publish,sign --clean
+
+  image:local:
+    desc: 'Like `task image` but only the host architecture — fast iteration, no QEMU cross-build'
+    # GORELEASER_LOCAL_PLATFORM=1 flips two switches at once:
+    #   1. builds[]: swaps the full 23-target cross-OS matrix for a
+    #      Linux-only x509ce-local build (amd64).
+    #   2. dockers_v2: enables only the busybox-local / scratch-local
+    #      entries, which build for `linux/{{ .Runtime.Goarch }}` —
+    #      the host arch, no QEMU emulation.
+    # Disabled cross-arch entries are reported as "configuration is
+    # disabled" — cosmetic, exit code is 0.
+    env:
+      GORELEASER_LOCAL_PLATFORM: '1'
+      IMAGE_NAME: '{{.IMAGE_NAME | default "x509-certificate-exporter"}}'
+    cmds:
+      - goreleaser release --snapshot --skip=publish,sign --clean
+
+  # ─── Dev environment ─────────────────────────────────────────────────────
+  dev:up:
+    desc: tilt up — full dev loop (cluster, build, deploy, seed)
+    deps: [dev:cluster:up]
+    env:
+      KUBECONFIG: '{{.KUBECONFIG_DEV}}'
+    cmds:
+      - tilt up
+
+  dev:down:
+    desc: tilt down — remove deployed resources (cluster persists)
+    env:
+      KUBECONFIG: '{{.KUBECONFIG_DEV}}'
+    cmds:
+      - tilt down
+
+  dev:cluster:up:
+    desc: Bring up k3d cluster + local registry (idempotent)
+    env:
+      KUBECONFIG: '{{.KUBECONFIG_DEV}}'
+      _DEV_CLUSTER: '{{.DEV_CLUSTER}}'
+      _DEV_REGISTRY: '{{.DEV_REGISTRY}}'
+      _DEV_REGISTRY_PORT: '{{.DEV_REGISTRY_PORT}}'
+      _DEV_K3S_IMAGE: '{{.DEV_K3S_IMAGE}}'
+      _KUBECONFIG_DEV: '{{.KUBECONFIG_DEV}}'
+    cmds:
+      - cmd: |
+          if ! k3d registry get "$_DEV_REGISTRY" >/dev/null 2>&1; then
+            printf '[cluster] creating local registry at localhost:%s\n' "$_DEV_REGISTRY_PORT"
+            k3d registry create "$_DEV_REGISTRY" --port "$_DEV_REGISTRY_PORT" >/dev/null
+          fi
+      - cmd: |
+          if ! k3d cluster get "$_DEV_CLUSTER" >/dev/null 2>&1; then
+            printf '[cluster] creating k3d cluster %s\n' "$_DEV_CLUSTER"
+            k3d cluster create "$_DEV_CLUSTER" \
+              --image "$_DEV_K3S_IMAGE" \
+              --registry-use "k3d-${_DEV_REGISTRY}:${_DEV_REGISTRY_PORT}" \
+              --kubeconfig-update-default=false \
+              --kubeconfig-switch-context=false \
+              --k3s-arg "--disable=traefik@server:*" \
+              --k3s-arg "--disable=servicelb@server:*" \
+              --no-lb \
+              --wait
+          fi
+      - k3d kubeconfig get "$_DEV_CLUSTER" > "$_KUBECONFIG_DEV"
+      - chmod 600 "$_KUBECONFIG_DEV"
+      - printf '[cluster] ready — KUBECONFIG=%s\n' "$_KUBECONFIG_DEV"
+      - echo "[cluster] reminder — when you're done, free the resources with 'task dev:cluster:down'"
+    run: once
+
+  dev:cluster:down:
+    desc: Destroy cluster + registry
+    env:
+      KUBECONFIG: '{{.KUBECONFIG_DEV}}'
+      _DEV_CLUSTER: '{{.DEV_CLUSTER}}'
+      _DEV_REGISTRY: '{{.DEV_REGISTRY}}'
+      _KUBECONFIG_DEV: '{{.KUBECONFIG_DEV}}'
+    cmds:
+      - cmd: |
+          if k3d cluster get "$_DEV_CLUSTER" >/dev/null 2>&1; then
+            k3d cluster delete "$_DEV_CLUSTER"
+          fi
+      - cmd: |
+          if k3d registry get "$_DEV_REGISTRY" >/dev/null 2>&1; then
+            k3d registry delete "$_DEV_REGISTRY"
+          fi
+      - rm -f -- "$_KUBECONFIG_DEV"
+      - echo "[cluster] torn down"
+
+  # ─── Dependencies ────────────────────────────────────────────────────────
+  go:tidy:
+    desc: go mod tidy on the main module and ./dagger
+    cmds:
+      - go mod tidy
+      - go -C dagger mod tidy
+
+  go:upgrade:
+    desc: Upgrade all Go deps to latest then tidy (main module + ./dagger)
+    cmds:
+      - go get -u ./...
+      - go mod tidy
+      - go -C dagger get -u ./...
+      - go -C dagger mod tidy
+
+  nix:update:
+    desc: Update flake.lock to latest inputs
+    cmds:
+      - nix flake update
+
+  ratchet:pin:
+    desc: 'Pin every GitHub Action in .github/workflows/*.yaml to a commit SHA (one-shot bootstrap; Renovate maintains afterwards)'
+    cmds:
+      - ratchet pin .github/workflows/*.yaml
+
+  ratchet:update:
+    desc: 'Refresh already-pinned Action SHAs in .github/workflows/*.yaml to their latest tags'
+    cmds:
+      - ratchet update .github/workflows/*.yaml
+
+  renovate:plan:
+    desc: 'Dry-run Renovate against the working tree — extracts deps and lists planned bumps; does NOT modify files'
+    # `platform=local` defaults to `dryRun=lookup`: every detected
+    # update is logged but nothing touches the working tree. Useful for
+    # debugging renovate.json5 without polluting GitHub. Actual bumps
+    # come from .github/workflows/renovate.yaml.
+    cmds:
+      - |
+        export GITHUB_COM_TOKEN="$(gh auth token 2>/dev/null || echo '')"
+        docker run --rm \
+          -v "$(pwd):/usr/src/app" \
+          -w /usr/src/app \
+          --user "$(id -u):$(id -g)" \
+          -e RENOVATE_PLATFORM=local \
+          -e LOG_LEVEL=info \
+          -e GITHUB_COM_TOKEN \
+          renovate/renovate:43.142.1
+
+  # ─── Tests ───────────────────────────────────────────────────────────────
+  test:
+    desc: 'Run all tests (unit + e2e)'
+    cmds:
+      - task: test:unit
+      - task: test:e2e
+
+  test:unit:
+    desc: 'Unit tests with race detector + coverage (gotestsum)'
+    cmds:
+      - dagger call --progress tty test
+
+  test:e2e:
+    desc: 'End-to-end against a throwaway cluster — built and torn down by the task'
+    vars:
+      CLUSTER: x509ce-e2e
+      REGISTRY: x509ce-e2e-registry
+      REGISTRY_PORT: 5001
+      KUBECONFIG_E2E:
+        sh: mktemp -t e2e-XXXXXX.kubeconfig.yaml
+    env:
+      _CLUSTER: '{{.CLUSTER}}'
+      _REGISTRY: '{{.REGISTRY}}'
+      _REGISTRY_PORT: '{{.REGISTRY_PORT}}'
+      _KUBECONFIG_E2E: '{{.KUBECONFIG_E2E}}'
+    cmds:
+      - defer: rm -f -- "$_KUBECONFIG_E2E"
+      - defer: k3d registry delete "$_REGISTRY"
+      - defer: k3d cluster delete "$_CLUSTER"
+      - cmd: k3d cluster delete "$_CLUSTER" >/dev/null 2>&1
+        ignore_error: true
+      - cmd: k3d registry delete "$_REGISTRY" >/dev/null 2>&1
+        ignore_error: true
+      - k3d registry create "$_REGISTRY" --port "$_REGISTRY_PORT" --no-help
+      - cmd: |
+          k3d cluster create "$_CLUSTER" \
+            --registry-use "k3d-${_REGISTRY}:${_REGISTRY_PORT}" \
+            --kubeconfig-update-default=false \
+            --kubeconfig-switch-context=false \
+            --k3s-arg "--disable=traefik@server:*" \
+            --k3s-arg "--disable=servicelb@server:*" \
+            --no-lb \
+            --wait
+      - k3d kubeconfig get "$_CLUSTER" > "$_KUBECONFIG_E2E"
+      - cmd: |
+          export KUBECONFIG="$_KUBECONFIG_E2E"
+          tilt -f test/e2e/Tiltfile ci
+
+  # ─── Quality ─────────────────────────────────────────────────────────────
+  lint:
+    desc: Run all linters
+    cmds:
+      - task: lint:go
+      - task: lint:helm
+      - task: lint:renovate
+      - task: lint:markdown
+
+  lint:go:
+    desc: golangci-lint on Go code (full configured set)
+    cmds:
+      - dagger call lint-go
+
+  lint:gocritic:
+    desc: golangci-lint — gocritic checks only
+    cmds:
+      - dagger call lint-go --mode=gocritic
+
+  lint:gonocritic:
+    desc: golangci-lint — full set minus gocritic
+    cmds:
+      - dagger call lint-go --mode=no-critic
+
+  lint:helm:
+    desc: helm lint on the chart
+    cmds:
+      - dagger call lint-helm
+
+  lint:renovate:
+    desc: renovate-config-validator on renovate.json5
+    cmds:
+      - dagger call lint-renovate
+
+  lint:markdown:
+    desc: markdownlint-cli2 on hand-written Markdown
+    cmds:
+      - dagger call lint-markdown
+
+  # ─── Security ────────────────────────────────────────────────────────────
+  security:
+    desc: Run all security checks
+    cmds:
+      - task: security:govulncheck
+      - task: security:vuln-deps
+      - task: security:chart-misconfig
+
+  security:govulncheck:
+    desc: govulncheck — reachability-based CVE scan on Go code
+    cmds:
+      - dagger call govulncheck
+
+  security:vuln-deps:
+    desc: 'Trivy filesystem scan — Go deps, lockfiles, OS packages (HIGH/CRITICAL)'
+    cmds:
+      - dagger call trivy --scan-type=fs
+
+  security:chart-misconfig:
+    desc: 'Trivy IaC misconfig scan on chart/'
+    cmds:
+      - dagger call trivy --scan-type=config --scan-ref=chart
+
+  # ─── Documentation ───────────────────────────────────────────────────────
+  doc:
+    desc: Regenerate all documentation
+    cmds:
+      - task: doc:helm
+
+  doc:helm:
+    desc: Regenerate chart/README.md from values.yaml + .gotmpl
+    cmds:
+      - dagger call helm-docs export --path=chart/README.md

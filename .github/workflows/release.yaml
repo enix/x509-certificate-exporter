@@ -1,0 +1,265 @@
+name: Release
+
+# Triggered by pushing a vX.Y.Z tag (typically by release-please when
+# its release PR is merged). Three jobs:
+#
+#   1. goreleaser  — builds binaries × OS/arch, archives, checksums,
+#                    container images (busybox + scratch, multi-arch,
+#                    pushed to ghcr/quay/docker.io), cosign-signs
+#                    everything, attaches assets to the GitHub Release.
+#                    Driven entirely by .goreleaser.yaml.
+#   2. slsa        — runs the SLSA-3 reusable workflow with the binary
+#                    hashes from goreleaser as subjects, attaching the
+#                    resulting in-toto provenance to the Release.
+#   3. chart       — packages the Helm chart, pushes as OCI artifact,
+#                    cosign-signs.
+#
+# Container image SBOMs (CycloneDX via syft, attached as cosign
+# attestations) are generated in a post-loop inside the goreleaser job,
+# after GoReleaser has pushed the manifests.
+#
+# Verification by consumers (commands shown for the upstream repo;
+# substitute the source-uri / certificate-identity for forks):
+#   - Binary:   slsa-verifier verify-artifact <archive> --provenance-path <intoto.jsonl> --source-uri github.com/enix/x509-certificate-exporter --source-tag <tag>
+#   - Image:    cosign verify <ref> --certificate-identity-regexp '...' --certificate-oidc-issuer https://token.actions.githubusercontent.com
+#   - SBOM:     cosign verify-attestation <ref> --type cyclonedx --certificate-identity-regexp ...
+#   - Chart:    cosign verify <chart-oci-ref> --certificate-identity-regexp '...' --certificate-oidc-issuer https://token.actions.githubusercontent.com
+#
+# Manual setup required:
+#   - Repo environment "release" with required reviewers (Settings → Environments)
+#   - Environment variables on the `release` env (no fallbacks — workflow fails fast):
+#       - IMAGE_NAME      — container image name (e.g. x509-certificate-exporter)
+#       - CHART_NAME      — Helm chart name (often == IMAGE_NAME)
+#       - CHART_REGISTRY  — OCI host/namespace where the chart is pushed,
+#                           WITHOUT the `oci://` scheme (e.g. quay.io/enix/charts)
+#   - Repo secrets:
+#       - quay.io      → QUAY_USERNAME, QUAY_TOKEN
+#       - docker.io    → DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+#       - ghcr.io      → no secret needed (uses workflow GITHUB_TOKEN)
+#   - Chart OCI registry credentials:
+#       - CHART_REGISTRY_USERNAME
+#       - CHART_REGISTRY_TOKEN
+#   - Branch protection on main configured separately
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ─── 1. Build, push, sign everything (binaries + images) ─────────────────
+  goreleaser:
+    name: Build, push & sign
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: write # create/append the GitHub Release
+      packages: write # push to ghcr.io
+      id-token: write # OIDC for cosign keyless
+    env:
+      IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+    outputs:
+      hashes: ${{ steps.hashes.outputs.hashes }}
+    steps:
+      - name: Validate environment variables
+        run: |
+          set -euo pipefail
+          [ -n "${IMAGE_NAME:-}" ] || {
+            echo "::error::Missing required Environment variable: IMAGE_NAME"
+            echo "::error::Set it at Settings → Environments → release → Variables"
+            exit 1
+          }
+
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          # GoReleaser inspects git history for the changelog. Full clone
+          # avoids "shallow clone" warnings on large repos.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # ratchet:actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # buildx + qemu enable cross-arch image manifest building. The
+      # Dockerfiles only do COPY, so QEMU isn't strictly required for
+      # execution — but binfmt registration is needed so buildx
+      # recognises linux/arm64 and linux/riscv64 as valid platforms.
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # ratchet:docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # ratchet:docker/setup-buildx-action@v3
+
+      # Logins for the three image registries. Quay/Docker Hub are
+      # skipped if their token is missing, mirroring the previous
+      # workflow's per-registry opt-in pattern.
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # ratchet:docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to quay.io
+        env:
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+        if: env.QUAY_TOKEN != ''
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # ratchet:docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_TOKEN }}
+      - name: Login to docker.io
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        if: env.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # ratchet:docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # ratchet:sigstore/cosign-installer@v3
+      - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # ratchet:anchore/sbom-action/download-syft@v0
+
+      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # ratchet:goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+
+      # SLSA-3 generator wants a base64-encoded sha256sum manifest of
+      # the release binaries. GoReleaser's checksums.txt is exactly that
+      # format (one `<sha>  <filename>` per line).
+      - name: Export hashes for SLSA
+        id: hashes
+        run: |
+          set -euo pipefail
+          echo "hashes=$(base64 -w0 dist/checksums.txt)" >> "$GITHUB_OUTPUT"
+
+      # CycloneDX SBOMs on the multi-arch manifests, as cosign
+      # attestations. Iterates over the images GoReleaser pushed
+      # (read from dist/artifacts.json — its source of truth).
+      #
+      # dockers_v2 emits one "Docker Image" artifact per (registry, tag),
+      # where each tag is the multi-arch index manifest pushed by a single
+      # `docker buildx build --push --platform=...` invocation. There's no
+      # separate "Docker Manifest" artifact type anymore — those existed
+      # only for the legacy `dockers + docker_manifests` two-step flow.
+      - name: Generate + attest image SBOMs
+        env:
+          COSIGN_YES: "true"
+        run: |
+          set -euo pipefail
+          # Re-anchor each pushed manifest by digest (the tag is mutable;
+          # the digest is forever) and attach a CycloneDX SBOM as a
+          # cosign attestation. `${ref%:*}` strips the trailing `:tag`
+          # using the shortest-match suffix removal — only `:tag`,
+          # leaving registry/namespace/repo intact.
+          jq -r '.[] | select(.type == "Docker Image") | .name' dist/artifacts.json \
+            | while read -r ref; do
+                echo "::group::SBOM for $ref"
+                digest=$(docker buildx imagetools inspect "$ref" \
+                            --format '{{ .Manifest.Digest }}')
+                ref_by_digest="${ref%:*}@${digest}"
+                syft "$ref_by_digest" -o cyclonedx-json=/tmp/sbom.json
+                cosign attest --predicate /tmp/sbom.json --type cyclonedx "$ref_by_digest"
+                rm -f /tmp/sbom.json
+                echo "::endgroup::"
+              done
+
+  # ─── 2. SLSA Level 3 provenance for binaries ─────────────────────────────
+  # Tag-pinned, NOT SHA-pinned, on purpose: the reusable workflow's
+  # internal logic uses the tag string to download the matching
+  # release binary (`slsa-generator-generic-linux-amd64`). A SHA-pinned
+  # `uses:` would break that download. The trust chain is OIDC +
+  # Sigstore Fulcio + Rekor, not the workflow file's SHA — so tag-pin
+  # here is policy-equivalent to SHA-pin elsewhere. `# ratchet:exclude`
+  # below tells `task ratchet:pin` to leave this line alone.
+  slsa:
+    name: SLSA provenance
+    needs: goreleaser
+    permissions:
+      id-token: write # OIDC for the provenance generator
+      contents: write # upload provenance to the GitHub Release
+      actions: read # introspect this workflow for the attestation
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0 # ratchet:exclude
+    with:
+      base64-subjects: "${{ needs.goreleaser.outputs.hashes }}"
+      upload-assets: true
+      provenance-name: x509-certificate-exporter.intoto.jsonl
+
+  # ─── 3. Helm chart: package, push as OCI, cosign-sign ────────────────────
+  chart:
+    name: Chart publish & sign
+    needs: goreleaser # the chart references the just-pushed images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # OIDC for cosign keyless
+    env:
+      CHART_NAME: ${{ vars.CHART_NAME }}
+      CHART_REGISTRY: ${{ vars.CHART_REGISTRY }}
+    steps:
+      - name: Validate environment variables
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -n "${CHART_NAME:-}" ]     || missing+=("CHART_NAME")
+          [ -n "${CHART_REGISTRY:-}" ] || missing+=("CHART_REGISTRY")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required Environment variable(s): ${missing[*]}"
+            echo "::error::Set them at Settings → Environments → release → Variables"
+            exit 1
+          fi
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # ratchet:azure/setup-helm@v4
+        with:
+          version: '3.18.0'
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # ratchet:sigstore/cosign-installer@v3
+      - name: Login to chart OCI registry
+        env:
+          CHART_REGISTRY_USERNAME: ${{ secrets.CHART_REGISTRY_USERNAME }}
+          CHART_REGISTRY_TOKEN: ${{ secrets.CHART_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          host="${CHART_REGISTRY%%/*}"
+          echo "$CHART_REGISTRY_TOKEN" | helm registry login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
+      - name: Override chart name if needed
+        run: |
+          set -euo pipefail
+          source_name=$(awk '/^name:/ {print $2; exit}' chart/Chart.yaml)
+          if [ "$source_name" != "$CHART_NAME" ]; then
+            sed -i "s|^name:.*|name: $CHART_NAME|" chart/Chart.yaml
+            echo "Renamed chart from '$source_name' to '$CHART_NAME'"
+          fi
+      - name: Helm package
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          helm package chart/ \
+            --destination dist/ \
+            --version "$version" \
+            --app-version "$version"
+      - name: Helm push to OCI registry
+        id: push
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          chart_tgz="dist/${CHART_NAME}-${version}.tgz"
+          out=$(helm push "$chart_tgz" "oci://${CHART_REGISTRY}" 2>&1 | tee /dev/stderr)
+          digest=$(printf '%s\n' "$out" | grep -oE 'sha256:[a-f0-9]+' | head -1)
+          if [ -z "$digest" ]; then
+            echo "::error::Could not extract digest from helm push output"
+            exit 1
+          fi
+          ref="${CHART_REGISTRY}/${CHART_NAME}@${digest}"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - name: Sign chart with cosign keyless
+        env:
+          COSIGN_YES: "true"
+        run: cosign sign "${{ steps.push.outputs.ref }}"

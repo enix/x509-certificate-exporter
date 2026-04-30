@@ -1,0 +1,9 @@
+# e2e-only overrides layered on top of dev/values.yaml. The exporter is
+# scraped directly via Tilt's port-forward, so the ServiceMonitor +
+# PrometheusRule resources (which depend on prom-operator CRDs) are not
+# needed and disabled here.
+---
+prometheusServiceMonitor:
+  create: false
+prometheusRules:
+  create: false

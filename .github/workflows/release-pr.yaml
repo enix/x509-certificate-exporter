@@ -1,0 +1,226 @@
+name: Release PR
+
+# Maintains a perpetually-updated "release PR" against main, computed
+# from Conventional Commits since the last released tag. Merging that
+# PR causes release-please to:
+#   - Tag the merge commit as `vX.Y.Z`
+#   - Create a GitHub Release stub
+#   - That tag push then triggers .github/workflows/release.yaml,
+#     which builds binaries + images, signs everything, and finalises
+#     the Release with all the assets.
+#
+# Auth runs under a GitHub App identity (RELEASE_PLEASE_APP_*), not the
+# default GITHUB_TOKEN. Two reasons:
+#   1. A tag pushed by GITHUB_TOKEN does NOT trigger downstream workflows
+#      (GitHub guard against recursive workflow chains). release.yaml's
+#      `on: push: tags: v*` would never fire. App tokens are exempt.
+#   2. PRs/commits authored by the App carry a clean bot identity that
+#      stays consistent across release-please's own commits and our
+#      post-process commits below.
+#
+# Manual setup required:
+#   - GitHub App with these permissions, installed on this repo:
+#       Contents: Read & write
+#       Pull requests: Read & write
+#       Metadata: Read
+#   - App ID + private key as repo secrets:
+#       RELEASE_PLEASE_APP_ID
+#       RELEASE_PLEASE_APP_PRIVATE_KEY
+
+on:
+  push:
+    branches: [main]
+  # Allow re-running manually (e.g. after editing release-please-config
+  # or after manually closing/cleaning a stale release PR).
+  workflow_dispatch:
+
+# Runner GITHUB_TOKEN is unused by this workflow — every action that
+# touches the repo uses the App token instead. Leaving permissions at
+# the defensive default of `contents: read` for least privilege.
+permissions:
+  contents: read
+
+# Only one release PR being computed at a time. A second push during an
+# in-flight run would otherwise produce a stale PR or re-tag attempts.
+concurrency:
+  group: release-pr
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Mint a short-lived installation token for the App. This is the
+      # identity used by every subsequent step that talks to the repo:
+      # checkout (for `git push`), release-please-action, and the
+      # post-process step below.
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # ratchet:actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RELEASE_PLEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+
+      # Checkout with the App token — `actions/checkout` persists the
+      # token in `.git/config` so later `git push` operations from the
+      # post-process step authenticate as the App.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # ratchet:googleapis/release-please-action@v4
+        id: release-please
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # Post-process: keep three artifacthub.io annotations in sync with
+      # the release computed by release-please.
+      #   - prerelease              : "true" when version is -alpha/-beta/-rc
+      #   - changes                 : bullets from the latest CHANGELOG section
+      #   - containsSecurityUpdates : "true" if that section has an H3 mentioning
+      #                               "security"
+      # Idempotent: re-runs converge on the same Chart.yaml content, so
+      # release-please force-pushes that drop our commit are tolerated —
+      # the next push to main re-runs us and re-applies.
+      - name: Sync chart artifacthub annotations
+        if: steps.release-please.outputs.prs_created == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        shell: python
+        run: |
+          """
+          Update three artifacthub.io annotations on chart/Chart.yaml,
+          driven by the release-please PR's computed version and CHANGELOG:
+
+            - prerelease              : "true" iff version is -alpha/-beta/-rc
+            - changes                 : YAML block of bullets from the latest
+                                        CHANGELOG section
+            - containsSecurityUpdates : "true" iff that section has an H3
+                                        sub-section whose title mentions
+                                        "security" (case-insensitive)
+
+          Idempotent. Re-runs converge on the same Chart.yaml content, so
+          release-please force-pushes that drop our commit are tolerated —
+          the next push to main re-runs us and re-applies the changes.
+          """
+          import json
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+
+          def run(*args: str) -> None:
+              subprocess.run(args, check=True, text=True)
+
+
+          def out(*args: str) -> str:
+              return subprocess.run(
+                  args, check=True, text=True, capture_output=True
+              ).stdout.strip()
+
+
+          # Find the open release-please PR; bail out if none.
+          pr_number = out(
+              "gh", "pr", "list",
+              "--state", "open",
+              "--label", "autorelease: pending",
+              "--json", "number",
+              "--jq", ".[0].number // empty",
+          )
+          if not pr_number:
+              print("No release-please PR open; skipping annotation sync")
+              sys.exit(0)
+
+          branch = out(
+              "gh", "pr", "view", pr_number,
+              "--json", "headRefName",
+              "--jq", ".headRefName",
+          )
+          run("git", "fetch", "origin", f"{branch}:{branch}")
+          run("git", "checkout", branch)
+
+          # Resolve new annotation values from the freshly-checked-out PR
+          # branch's manifest + CHANGELOG.
+          version: str = json.loads(
+              Path(".release-please-manifest.json").read_text()
+          )["."]
+          prerelease = "true" if re.search(r"-(alpha|beta|rc)\b", version, re.I) else "false"
+
+          bullets: list[str] = []
+          contains_security = "false"
+          changelog = Path("CHANGELOG.md")
+          if changelog.is_file():
+              section_match = re.search(
+                  r"^##\s+.+?\n(.+?)(?=^##\s|\Z)",
+                  changelog.read_text(),
+                  re.M | re.S,
+              )
+              if section_match:
+                  section = section_match.group(1)
+                  bullets = re.findall(r"^\s*[-*]\s+(.+)$", section, re.M)
+                  # Any H3 sub-section whose title mentions "security" →
+                  # flag. Catches "Security Updates", "Security Fixes", etc.
+                  if re.search(r"^###\s+.*\bsecurity\b", section, re.M | re.I):
+                      contains_security = "true"
+
+          changes_block = (
+              "  artifacthub.io/changes: |\n"
+              + "\n".join(f"    - {b}" for b in bullets)
+              if bullets
+              else '  artifacthub.io/changes: ""'
+          )
+
+          # Apply substitutions on Chart.yaml.
+          chart = Path("chart/Chart.yaml")
+          content = chart.read_text()
+
+          content = re.sub(
+              r"^(  artifacthub\.io/containsSecurityUpdates:).*$",
+              rf'\1 "{contains_security}"',
+              content,
+              flags=re.M,
+          )
+
+          content = re.sub(
+              r"^(  artifacthub\.io/prerelease:).*$",
+              rf'\1 "{prerelease}"',
+              content,
+              flags=re.M,
+          )
+
+          # `changes` may be on a single line (`: ""`) or a multi-line `|`
+          # block. Match the key plus any subsequent lines indented deeper
+          # than the key itself.
+          content = re.sub(
+              r"^  artifacthub\.io/changes:[^\n]*(?:\n {4,}[^\n]*)*",
+              lambda _: changes_block,
+              content,
+              count=1,
+              flags=re.M,
+          )
+
+          chart.write_text(content)
+
+          # Commit only if Chart.yaml actually changed.
+          if subprocess.run(["git", "diff", "--quiet", "chart/Chart.yaml"]).returncode == 0:
+              print("Chart.yaml annotations already in sync")
+              sys.exit(0)
+
+          # Match commit author to the App identity that release-please
+          # itself uses, so the post-process commit is visually consistent
+          # with the release-please commit on the same PR. `gh api /user`
+          # returns the authenticated user, which under an App-issued
+          # token is the App's bot account.
+          bot = json.loads(out("gh", "api", "/user"))
+          run("git", "config", "user.name", bot["login"])
+          run("git", "config", "user.email",
+              f'{bot["id"]}+{bot["login"]}@users.noreply.github.com')
+
+          run("git", "add", "chart/Chart.yaml")
+          run("git", "commit", "-m", "chore: sync chart artifacthub annotations")
+          run("git", "push", "origin", branch)

@@ -1,0 +1,18 @@
+# Used by GoReleaser via .goreleaser.yaml's `dockers_v2:` entries.
+# dockers_v2 lays out the build context with one subdirectory per
+# target platform (e.g. linux_amd64/, linux_arm64/), and exposes the
+# matching one as the $TARGETPLATFORM build arg. So the COPY below
+# resolves at build time to the per-arch binary.
+
+FROM busybox:1.37.0
+
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/x509-certificate-exporter /x509-certificate-exporter
+
+# Run as nobody (UID 65534) to match the chart's default securityContext
+# (chart/values.yaml: runAsUser: 65534, readOnlyRootFilesystem: true,
+# drop ALL caps). Numeric form so the same Dockerfile also works with a
+# scratch base (see Dockerfile.scratch) which has no /etc/passwd.
+USER 65534:65534
+
+ENTRYPOINT ["/x509-certificate-exporter"]

@@ -1,0 +1,397 @@
+// Package config defines the YAML configuration schema, its validation,
+// and the legacy-CLI-flag bridge.
+//
+// The YAML file is the source of truth. CLI flags exist only as ergonomic
+// shortcuts for the most common cases (a few -f, -d paths, an override of
+// the listen address, --debug, etc.) and are mapped onto the YAML schema
+// at parse time. Anything more complex must live in the YAML file.
+package config
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"gopkg.in/yaml.v3"
+)
+
+// Top-level configuration.
+type Web struct {
+	EnableStats bool `yaml:"enableStats"`
+}
+
+type Config struct {
+	Web         Web         `yaml:"web"`
+	Server      Server      `yaml:"server"`
+	Log         Log         `yaml:"log"`
+	Diagnostics Diagnostics `yaml:"diagnostics"`
+	Sources     []Source    `yaml:"sources"`
+	Metrics     Metrics     `yaml:"metrics"`
+	Cache       Cache       `yaml:"cache"`
+}
+
+type Server struct {
+	Listen        string        `yaml:"listen"`
+	WebConfigFile string        `yaml:"webConfigFile"`
+	SystemdSocket bool          `yaml:"systemdSocket"`
+	ReadTimeout   time.Duration `yaml:"readTimeout"`
+	WriteTimeout  time.Duration `yaml:"writeTimeout"`
+}
+
+type Log struct {
+	Level  string `yaml:"level"`
+	Format string `yaml:"format"`
+	Timing bool   `yaml:"timing"`
+}
+
+type Diagnostics struct {
+	Pprof Pprof `yaml:"pprof"`
+}
+
+type Pprof struct {
+	Enabled bool   `yaml:"enabled"`
+	Listen  string `yaml:"listen"`
+}
+
+// Source is a tagged union by Kind.
+type Source struct {
+	Kind              string        `yaml:"kind"`
+	Name              string        `yaml:"name"`
+	Paths             []string      `yaml:"paths,omitempty"`
+	ExcludePaths      []string      `yaml:"excludePaths,omitempty"`
+	FollowSymlinks    *bool         `yaml:"followSymlinks,omitempty"`
+	FollowSymlinkDirs bool          `yaml:"followSymlinkDirs,omitempty"`
+	RefreshInterval   time.Duration `yaml:"refreshInterval,omitempty"`
+	Formats           []string      `yaml:"formats,omitempty"`
+	Pkcs12            *Pkcs12       `yaml:"pkcs12,omitempty"`
+
+	// kubernetes-only
+	Kubeconfig string         `yaml:"kubeconfig,omitempty"`
+	RateLimit  *RateLimit     `yaml:"rateLimit,omitempty"`
+	Namespaces *Namespaces    `yaml:"namespaces,omitempty"`
+	Secrets    *SecretsCfg    `yaml:"secrets,omitempty"`
+	ConfigMaps *ConfigMapsCfg `yaml:"configMaps,omitempty"`
+	Workers    int            `yaml:"workers,omitempty"`
+}
+
+type Pkcs12 struct {
+	Passphrase           string     `yaml:"passphrase,omitempty"`
+	PassphraseFile       string     `yaml:"passphraseFile,omitempty"`
+	PassphraseSecretRef  *SecretRef `yaml:"passphraseSecretRef,omitempty"`
+	PassphraseKey        string     `yaml:"passphraseKey,omitempty"`
+	PassphraseAnnotation string     `yaml:"passphraseAnnotation,omitempty"`
+	TryEmptyPassphrase   *bool      `yaml:"tryEmptyPassphrase,omitempty"`
+}
+
+type SecretRef struct {
+	Namespace string `yaml:"namespace"`
+	Name      string `yaml:"name"`
+	Key       string `yaml:"key"`
+}
+
+type RateLimit struct {
+	QPS   float64 `yaml:"qps"`
+	Burst int     `yaml:"burst"`
+}
+
+type Namespaces struct {
+	Include       []string `yaml:"include,omitempty"`
+	Exclude       []string `yaml:"exclude,omitempty"`
+	IncludeLabels []string `yaml:"includeLabels,omitempty"`
+	ExcludeLabels []string `yaml:"excludeLabels,omitempty"`
+}
+
+type SecretsCfg struct {
+	Include       []string        `yaml:"include,omitempty"`
+	Exclude       []string        `yaml:"exclude,omitempty"`
+	IncludeLabels []string        `yaml:"includeLabels,omitempty"`
+	ExcludeLabels []string        `yaml:"excludeLabels,omitempty"`
+	Types         []SecretTypeCfg `yaml:"types"`
+	ExposeLabels  []string        `yaml:"exposeLabels,omitempty"`
+}
+
+type SecretTypeCfg struct {
+	Type        string   `yaml:"type"`
+	KeyPatterns []string `yaml:"keyPatterns"`
+	Format      string   `yaml:"format"`
+	Pkcs12      *Pkcs12  `yaml:"pkcs12,omitempty"`
+}
+
+type ConfigMapsCfg struct {
+	Include      []string `yaml:"include,omitempty"`
+	Exclude      []string `yaml:"exclude,omitempty"`
+	KeyPatterns  []string `yaml:"keyPatterns"`
+	Format       string   `yaml:"format"`
+	ExposeLabels []string `yaml:"exposeLabels,omitempty"`
+}
+
+type Metrics struct {
+	ExposeRelative               bool     `yaml:"exposeRelative"`
+	ExposePerCertError           bool     `yaml:"exposePerCertError"`
+	ExposeSubjectFields          []string `yaml:"exposeSubjectFields,omitempty"`
+	ExposeIssuerFields           []string `yaml:"exposeIssuerFields,omitempty"`
+	TrimPathComponents           int      `yaml:"trimPathComponents,omitempty"`
+	CollisionDiscriminator       string   `yaml:"collisionDiscriminator,omitempty"` // auto|always|never
+	CollisionDiscriminatorLength int      `yaml:"collisionDiscriminatorLength,omitempty"`
+}
+
+type Cache struct {
+	FilePoll FilePoll `yaml:"filePoll"`
+}
+
+type FilePoll struct {
+	Interval      time.Duration `yaml:"interval"`
+	SkipUnchanged bool          `yaml:"skipUnchanged"`
+}
+
+// Default returns a Config with sensible defaults applied.
+func Default() Config {
+	return Config{
+		Web: Web{
+			EnableStats: true,
+		},
+		Server: Server{
+			Listen:       ":9793",
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 30 * time.Second,
+		},
+		Log:         Log{Level: "info", Format: "text", Timing: true},
+		Diagnostics: Diagnostics{Pprof: Pprof{Listen: ":6060"}},
+		Metrics: Metrics{
+			CollisionDiscriminator:       "auto",
+			CollisionDiscriminatorLength: 8,
+		},
+		Cache: Cache{FilePoll: FilePoll{Interval: 30 * time.Second, SkipUnchanged: true}},
+	}
+}
+
+// LoadFile loads a YAML config from path.
+func LoadFile(path string) (Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Config{}, fmt.Errorf("read config: %w", err)
+	}
+	cfg := Default()
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return Config{}, fmt.Errorf("parse config %s: %w", path, err)
+	}
+	mergeDefaults(&cfg)
+	if err := Validate(cfg); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
+// FindAndLoad locates the config file using the documented search order.
+// Returns (cfg, path, error). If path is set on input, only that path is
+// considered. If empty, fall back to default locations.
+func FindAndLoad(path string) (Config, string, error) {
+	if path != "" {
+		c, err := LoadFile(path)
+		return c, path, err
+	}
+	candidates := []string{}
+	if home, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && home != "" {
+		candidates = append(candidates, filepath.Join(home, "x509-certificate-exporter", "config.yaml"))
+	} else if home, ok := os.LookupEnv("HOME"); ok && home != "" {
+		candidates = append(candidates, filepath.Join(home, ".config", "x509-certificate-exporter", "config.yaml"))
+	}
+	candidates = append(candidates, "/etc/x509-certificate-exporter/config.yaml")
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			c, err := LoadFile(p)
+			return c, p, err
+		}
+	}
+	return Config{}, "", os.ErrNotExist
+}
+
+func mergeDefaults(c *Config) {
+	if c.Metrics.CollisionDiscriminator == "" {
+		c.Metrics.CollisionDiscriminator = "auto"
+	}
+	if c.Metrics.CollisionDiscriminatorLength == 0 {
+		c.Metrics.CollisionDiscriminatorLength = 8
+	}
+	if c.Server.Listen == "" {
+		c.Server.Listen = ":9793"
+	}
+	if c.Cache.FilePoll.Interval == 0 {
+		c.Cache.FilePoll.Interval = 30 * time.Second
+	}
+	if c.Log.Level == "" {
+		c.Log.Level = "info"
+	}
+	if c.Log.Format == "" {
+		c.Log.Format = "text"
+	}
+	for i := range c.Sources {
+		s := &c.Sources[i]
+		if s.FollowSymlinks == nil {
+			tr := true
+			s.FollowSymlinks = &tr
+		}
+		if s.RefreshInterval == 0 {
+			s.RefreshInterval = c.Cache.FilePoll.Interval
+		}
+		if len(s.Formats) == 0 && s.Kind == "file" {
+			s.Formats = []string{"pem"}
+		}
+	}
+}
+
+// Validate runs structural checks and returns the first error. Field paths
+// are reported with json-pointer-like locations.
+func Validate(c Config) error {
+	switch c.Metrics.CollisionDiscriminator {
+	case "auto", "always", "never":
+	default:
+		return fmt.Errorf("metrics.collisionDiscriminator: must be one of auto|always|never (got %q)", c.Metrics.CollisionDiscriminator)
+	}
+	for i, s := range c.Sources {
+		if err := validateSource(i, s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSource(i int, s Source) error {
+	prefix := fmt.Sprintf("sources[%d]", i)
+	if s.Name == "" {
+		return fmt.Errorf("%s.name: required", prefix)
+	}
+	switch s.Kind {
+	case "file":
+		if len(s.Paths) == 0 {
+			return fmt.Errorf("%s.paths: required for file sources", prefix)
+		}
+		for _, f := range s.Formats {
+			switch f {
+			case "pem", "pkcs12":
+			default:
+				return fmt.Errorf("%s.formats: unsupported format %q (must be pem|pkcs12)", prefix, f)
+			}
+		}
+	case "kubeconfig":
+		if len(s.Paths) == 0 {
+			return fmt.Errorf("%s.paths: required for kubeconfig sources", prefix)
+		}
+	case "kubernetes":
+		// nothing strictly required, but we should have either secrets or configmaps configured
+		if s.Secrets == nil && s.ConfigMaps == nil {
+			return fmt.Errorf("%s: kubernetes source must configure secrets or configMaps", prefix)
+		}
+	case "":
+		return fmt.Errorf("%s.kind: required", prefix)
+	default:
+		return fmt.Errorf("%s.kind: unknown kind %q", prefix, s.Kind)
+	}
+	return nil
+}
+
+// CLIOverrides describes the legacy CLI flags. The fields are pointers/
+// slices so that "unset" is distinguishable from "set to zero value".
+type CLIOverrides struct {
+	WatchFiles       []string
+	WatchDirs        []string
+	WatchKubeconf    []string
+	WatchKubeSecrets bool
+	Listen           string
+	WebConfigFile    string
+	Debug            bool
+	Profile          bool
+}
+
+// ApplyCLI merges legacy CLI flags into a base config. If base is empty
+// (no YAML), a fresh config is synthesized.
+func ApplyCLI(base Config, ov CLIOverrides) Config {
+	if base.Server.Listen == "" {
+		base = Default()
+	}
+	mergeDefaults(&base)
+	if ov.Listen != "" {
+		base.Server.Listen = ov.Listen
+	}
+	if ov.WebConfigFile != "" {
+		base.Server.WebConfigFile = ov.WebConfigFile
+	}
+	if ov.Debug {
+		base.Log.Level = "debug"
+	}
+	if ov.Profile {
+		base.Diagnostics.Pprof.Enabled = true
+	}
+	if len(ov.WatchFiles) > 0 {
+		base.Sources = append(base.Sources, Source{
+			Kind:    "file",
+			Name:    "cli-files",
+			Paths:   ov.WatchFiles,
+			Formats: []string{"pem"},
+		})
+	}
+	for _, d := range ov.WatchDirs {
+		base.Sources = append(base.Sources, Source{
+			Kind:    "file",
+			Name:    "cli-dir-" + sanitize(d),
+			Paths:   []string{strings.TrimRight(d, "/") + "/*"},
+			Formats: []string{"pem"},
+		})
+	}
+	if len(ov.WatchKubeconf) > 0 {
+		base.Sources = append(base.Sources, Source{
+			Kind:  "kubeconfig",
+			Name:  "cli-kubeconf",
+			Paths: ov.WatchKubeconf,
+		})
+	}
+	if ov.WatchKubeSecrets {
+		base.Sources = append(base.Sources, Source{
+			Kind: "kubernetes",
+			Name: "cli-kube",
+			Secrets: &SecretsCfg{
+				Types: []SecretTypeCfg{
+					{Type: "kubernetes.io/tls", KeyPatterns: []string{`^tls\.crt$`}, Format: "pem"},
+				},
+			},
+		})
+	}
+	mergeDefaults(&base)
+	return base
+}
+
+func sanitize(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			continue
+		}
+		b.WriteByte('-')
+	}
+	out := b.String()
+	out = strings.Trim(out, "-")
+	if out == "" {
+		out = "anon"
+	}
+	return out
+}
+
+// HasSources is a convenience for the startup check.
+func HasSources(c Config) bool { return len(c.Sources) > 0 }
+
+// SourcePaths returns all paths from all file/kubeconfig sources, useful
+// for logs and tests.
+func SourcePaths(c Config) []string {
+	var out []string
+	for _, s := range c.Sources {
+		out = append(out, s.Paths...)
+	}
+	return out
+}
+
+// ErrNoSources is returned when neither YAML nor CLI configures any source.
+var ErrNoSources = errors.New("no sources configured (use --config or one of -f/-d/-k/--watch-kube-secrets)")

@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(task)",
+      "Bash(task --list)",
+      "Bash(task build)",
+      "Bash(task check)",
+      "Bash(task doc)",
+      "Bash(task doc:helm)",
+      "Bash(task go:tidy)",
+      "Bash(task go:upgrade)",
+      "Bash(task image)",
+      "Bash(task image:local)",
+      "Bash(task lint)",
+      "Bash(task lint:go)",
+      "Bash(task lint:gocritic)",
+      "Bash(task lint:gonocritic)",
+      "Bash(task lint:helm)",
+      "Bash(task lint:markdown)",
+      "Bash(task lint:renovate)",
+      "Bash(task nix:update)",
+      "Bash(task ratchet:pin)",
+      "Bash(task ratchet:update)",
+      "Bash(task renovate:plan)",
+      "Bash(task security)",
+      "Bash(task security:chart-misconfig)",
+      "Bash(task security:govulncheck)",
+      "Bash(task security:vuln-deps)",
+      "Bash(task test)",
+      "Bash(task test:e2e)",
+      "Bash(task test:unit)"
+    ],
+    "deny": ["Bash(goreleaser release --push:*)"]
+  }
+}

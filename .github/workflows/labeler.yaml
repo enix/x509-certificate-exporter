@@ -26,7 +26,7 @@ jobs:
       # NOTE: pin to a commit SHA at first Renovate run (the github-actions
       # manager will rewrite this line as `actions/labeler@<sha> # v5.x.y`
       # once `pinDigests: true` is enabled in renovate.json5).
-      - uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # ratchet:actions/labeler@v5
+      - uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b # v6
         with:
           configuration-path: .github/labeler.yml
           sync-labels: true

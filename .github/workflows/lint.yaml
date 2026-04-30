@@ -53,13 +53,18 @@ jobs:
               - 'renovate.json5'
               - 'dagger/**'
             markdown:
-              # Auto-generated files (CHANGELOG.md, chart/README.md) are
-              # ignored by markdownlint via .markdownlint-cli2.jsonc, so
-              # excluding them from the trigger here as well avoids firing
-              # the linter for nothing on release-please / chart-readme PRs.
+              # Mirror the `ignores` list in .markdownlint-cli2.jsonc so a
+              # change to one of those files doesn't pointlessly fire the
+              # linter. Auto-generated outputs (CHANGELOG.md from
+              # release-please, chart/README.md from helm-docs) and AI
+              # assistant files (CLAUDE.md, AGENTS.md) are skipped by the
+              # linter itself; keeping the filter in lockstep avoids a
+              # job-with-zero-files on release-please / chart-readme PRs.
               - '**/*.md'
               - '!CHANGELOG.md'
               - '!chart/README.md'
+              - '!CLAUDE.md'
+              - '!AGENTS.md'
               - '.markdownlint-cli2.jsonc'
               - 'dagger/**'
 

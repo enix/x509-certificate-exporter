@@ -270,7 +270,7 @@ in Docker containers. It's our local cluster for both dev and e2e.
 Two clusters live side by side:
 
 | Cluster | Created by | Purpose | Registry port |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `x509ce-dev` | `task dev:cluster:up` | Long-lived dev loop | 5000 |
 | `x509ce-e2e` | `task test:e2e` | Throwaway, per-run | 5001 |
 
@@ -589,7 +589,7 @@ releases.
 `task --list` is the canonical reference. Quick summary:
 
 | Task | What it does |
-|---|---|
+| --- | --- |
 | `task build` | Build binary for host platform (direct `go build`) |
 | `task image` | Build all release variants locally via GoReleaser snapshot — no push, no sign |
 | `task image:local` | Like `task image` but only host arch (skips QEMU cross-build) |

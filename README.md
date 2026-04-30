@@ -130,7 +130,7 @@ Per-certificate (one series per cert, labels include `subject_CN`,
 `filepath`, optional surfaced Secret labels):
 
 | Metric | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `x509_cert_not_before` | gauge | Unix timestamp |
 | `x509_cert_not_after` | gauge | Unix timestamp |
 | `x509_cert_expired` | gauge | `1` if `now > NotAfter` |
@@ -145,7 +145,7 @@ identified by a `source_name` label. Metrics below emit one series per
 source — some broken further by `resource`, `verb`, `format` or `reason`:
 
 | Metric | Type | Labels | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `x509_source_up` | gauge | `source_kind`, `source_name` | First sync done & informers running |
 | `x509_source_bundles` | gauge | `source_kind`, `source_name` | Currently tracked bundle count |
 | `x509_source_errors_total` | counter | `source_kind`, `source_name`, `reason` | Errors broken down by reason code |
@@ -158,7 +158,7 @@ Health. Cardinality-1 series that describe the exporter process itself,
 independent of the data it watches:
 
 | Metric | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `x509_scrape_duration_seconds` | histogram | Total time spent serving a `/metrics` scrape |
 | `x509_panic_total` | counter | Recovered goroutine panics (label: `component`) |
 | `x509_exporter_build_info` | gauge | Constant 1, with build-info labels |

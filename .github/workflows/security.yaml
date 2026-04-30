@@ -22,8 +22,8 @@ jobs:
       deps: ${{ steps.filter.outputs.deps }}
       chart: ${{ steps.filter.outputs.chart }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
-      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # ratchet:dorny/paths-filter@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
         id: filter
         with:
           filters: |
@@ -49,7 +49,7 @@ jobs:
       pull-requests: write # gitleaks-action posts the leaks summary as a PR comment
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0 # gitleaks needs history to walk the diff
       - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # ratchet:gitleaks/gitleaks-action@v2
@@ -72,7 +72,7 @@ jobs:
       (github.event_name == 'workflow_call' || needs.changes.outputs.go == 'true')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 1
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
@@ -93,7 +93,7 @@ jobs:
       (github.event_name == 'workflow_call' || needs.changes.outputs.deps == 'true')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
         with:
           version: latest
@@ -109,7 +109,7 @@ jobs:
       (github.event_name == 'workflow_call' || needs.changes.outputs.chart == 'true')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # ratchet:dagger/dagger-for-github@v8.4.1
         with:
           version: latest

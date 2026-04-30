@@ -4,8 +4,19 @@
   extends: [
     "config:recommended",
     ":dependencyDashboard",
-    ":semanticCommitsDisabled",
   ],
+
+  // Conventional Commits — release-please reads these from main to compute
+  // the next SemVer bump and slot bumps under the right CHANGELOG section.
+  //
+  // Default Renovate output is `chore(deps): update X` which is HIDDEN from
+  // the public changelog by our release-please config. We want bumps to land
+  // under "Dependencies" instead, so use `deps:` as the type and drop the
+  // redundant `(deps)` scope. The matching changelog mapping is in
+  // release-please-config.json.
+  semanticCommits: "enabled",
+  semanticCommitType: "deps",
+  semanticCommitScope: null,
 
   // Defaults are conservative (10 concurrent, 2/hour) to protect heavily
   // multi-tenant Renovate hosts from spamming reviewers. We self-host on
@@ -34,6 +45,9 @@
     // guarantee an implicit override, and users have hit cases where security
     // PRs got blocked by the global schedule (renovatebot#14289).
     schedule: "at any time",
+    // Routes the commit to release-please's "Security Updates" section
+    // instead of "Dependencies".
+    semanticCommitType: "security",
   },
   osvVulnerabilityAlerts: true,
 

@@ -70,6 +70,10 @@ on:
         type: choice
         default: disabled
         options: [disabled, extract, lookup, full]
+      ignoreSchedule:
+        description: "Ignore the Monday-only schedule and process every dependency now"
+        type: boolean
+        default: false
 
   # Catch malformed config or workflow updates on the same merge that
   # introduces them — without this, a broken renovate.json5 sits unnoticed
@@ -125,5 +129,11 @@ jobs:
           # the `||` always fires. Invert: pass the value when it's a real mode,
           # leave unset (empty) otherwise — which is Renovate's "no dry-run".
           RENOVATE_DRY_RUN: ${{ (inputs.dryRun != '' && inputs.dryRun != 'disabled') && inputs.dryRun || '' }}
+          # `force` is a self-hosted-only knob whose JSON object overrides
+          # everything in renovate.json5 (including presets) for the duration
+          # of the run. Used here to nullify the Monday-only `schedule:` so
+          # the user can dispatch a "process everything now" run on demand.
+          # https://docs.renovatebot.com/self-hosted-configuration/#force
+          RENOVATE_FORCE: ${{ inputs.ignoreSchedule && '{"schedule":null}' || '' }}
         with:
           token: ${{ steps.app-token.outputs.token }}

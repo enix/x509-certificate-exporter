@@ -186,3 +186,120 @@ func TestNameAndDefaults(t *testing.T) {
 		t.Fail()
 	}
 }
+
+// swapSymlinkAtomic mirrors what certbot/kubelet do on cert renewal:
+// create a fresh symlink under a temp name pointing at `target`, then
+// rename it over `dst`. The visible inode at `dst` is brand new and
+// carries a fresh mtime stamped at creation time.
+func swapSymlinkAtomic(t *testing.T, dst, target string) {
+	t.Helper()
+	tmp := dst + ".tmp"
+	if err := os.Symlink(target, tmp); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// fsHasSubSecondMtime probes whether the filesystem backing `dir` stores
+// sub-second mtime values. Linux ext4/tmpfs/btrfs/zfs/xfs do; HFS+ on
+// older macOS and some FAT-family filesystems don't (1s granularity).
+// When sub-second resolution is missing, two same-second operations
+// produce identical mtimes — meaningful only for the test below, which
+// needs a guaranteed mtime delta between two successive symlink swaps.
+func fsHasSubSecondMtime(t *testing.T, dir string) bool {
+	t.Helper()
+	probe := filepath.Join(dir, ".mtime-probe")
+	if err := os.WriteFile(probe, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(probe)
+	want := time.Unix(0, 123456789) // arbitrary non-zero sub-second value
+	if err := os.Chtimes(probe, want, want); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(probe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return info.ModTime().Nanosecond() == want.Nanosecond()
+}
+
+// TestSkipUnchangedSymlinkTargetSwap covers the certbot / kubelet renewal
+// pattern: a watched path is a symlink whose target is atomically swapped
+// onto a new file. The (mtime, size) cache key must invalidate via either
+// branch independently. We exercise both:
+//
+//  1. size branch — swap to a target with a different path-string length
+//     so the symlink's stored size differs. Mtime may or may not collide
+//     under coarse-resolution filesystems; size alone must invalidate.
+//  2. mtime branch — swap back to a target with the SAME path string, so
+//     size is identical. Only mtime can differ. Probe the filesystem
+//     mtime resolution; sleep past 1 s when sub-second support is absent
+//     so two consecutive swaps are guaranteed to produce distinct mtimes.
+func TestSkipUnchangedSymlinkTargetSwap(t *testing.T) {
+	dir := t.TempDir()
+	archive := filepath.Join(dir, "archive")
+	if err := os.Mkdir(archive, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Three real PEMs. `long` and `short` have different path-string
+	// lengths so the symlink's size differs across branch 1; `replaced`
+	// has the same path as `short` but holds a fresh certificate so we
+	// can assert the bundle was actually re-parsed in branch 2.
+	long := filepath.Join(archive, "fullchain-renewed-1.pem")
+	short := filepath.Join(archive, "f.pem")
+	if len(long) == len(short) {
+		t.Fatalf("test bug: long and short paths must differ in length")
+	}
+	writePEM(t, long, "v1")
+	writePEM(t, short, "v2")
+
+	live := filepath.Join(dir, "fullchain.pem")
+	if err := os.Symlink(long, live); err != nil {
+		t.Fatal(err)
+	}
+
+	pat, _ := fileglob.Compile(live)
+	src := New(Options{
+		Name:           "x",
+		Patterns:       []fileglob.Pattern{pat},
+		Formats:        []cert.FormatParser{pem.New()},
+		FollowSymlinks: true,
+		SkipUnchanged:  true,
+		Jitter:         0,
+	}, nopLogger())
+
+	// Initial sync: one bundle for `live` parsed from `long`.
+	sink1 := &fakeSink{}
+	src.runOnce(context.Background(), sink1, true)
+	if len(sink1.upsert) != 1 {
+		t.Fatalf("first run: want 1 upsert, got %d", len(sink1.upsert))
+	}
+
+	// === Branch 1: size differs ===
+	// Swap onto `short` (different path length → different symlink size).
+	swapSymlinkAtomic(t, live, short)
+	sink2 := &fakeSink{}
+	src.runOnce(context.Background(), sink2, false)
+	if len(sink2.upsert) != 1 {
+		t.Fatalf("size branch: swap to shorter target should re-parse, got %d upserts", len(sink2.upsert))
+	}
+
+	// === Branch 2: only mtime differs ===
+	// Re-swap onto `short` again. Symlink string length is identical, so
+	// size is unchanged; only mtime can differ. Force a >1 s gap when the
+	// filesystem rounds mtime to second granularity so the new symlink's
+	// mtime is guaranteed to differ from the one cached above.
+	if !fsHasSubSecondMtime(t, dir) {
+		time.Sleep(1100 * time.Millisecond)
+	}
+	swapSymlinkAtomic(t, live, short)
+	sink3 := &fakeSink{}
+	src.runOnce(context.Background(), sink3, false)
+	if len(sink3.upsert) != 1 {
+		t.Fatalf("mtime branch: same-target swap should re-parse, got %d upserts", len(sink3.upsert))
+	}
+}

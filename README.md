@@ -21,7 +21,8 @@ Secrets, ConfigMaps, kubeconfigs, on-disk PKI on the nodes — and turns
 expirations into actionable Prometheus series. Designed to run inside the
 cluster it observes, but equally happy as a standalone binary.
 
-![Grafana Dashboard](./docs/grafana-dashboard.jpg)
+---
+![Grafana Dashboard](./docs/assets/grafana-dashboard.jpg)
 
 ## What it watches
 

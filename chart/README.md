@@ -18,7 +18,7 @@ the same exporter binary and observe the same metric schema.
 Use it with the [Grafana Dashboard](https://grafana.com/grafana/dashboards/13922)
 ID `13922`:
 
-![Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/docs/grafana-dashboard.jpg)
+![Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/docs/assets/grafana-dashboard.jpg)
 
 ## What's new in v4
 
@@ -515,7 +515,7 @@ hostPathsExporter:
 | rbacProxy.enabled | bool | `false` | Should kube-rbac-proxy be used to expose exporters |
 | rbacProxy.image.registry | string | `"quay.io"` | kube-rbac-proxy image registry |
 | rbacProxy.image.repository | string | `"brancz/kube-rbac-proxy"` | kube-rbac-proxy image repository |
-| rbacProxy.image.tag | string | `"v0.13.1"` | kube-rbac-proxy image version |
+| rbacProxy.image.tag | string | `"v0.22.0"` | kube-rbac-proxy image version |
 | rbacProxy.image.pullPolicy | string | `"IfNotPresent"` | kube-rbac-proxy image pull policy |
 | rbacProxy.upstreamListenPort | int | `9091` | Listen port for the exporter running inside kube-rbac-proxy exposed Pods |
 | rbacProxy.resources | object | see `values.yaml` | ResourceRequirements for all containers of kube-rbac-proxy |

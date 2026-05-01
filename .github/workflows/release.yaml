@@ -1,8 +1,17 @@
 name: Release
 
 # Triggered by pushing a vX.Y.Z tag (typically by release-please when
-# its release PR is merged). Three jobs:
+# its release PR is merged). Pre-release gates + three release jobs:
 #
+#   0. check       — `task check` (lint + tests + security) on the tagged
+#                    commit, by re-using the same three workflows that
+#                    gate every PR (lint.yaml / security.yaml / test.yaml).
+#                    Each gate runs on isolated runners with NO access to
+#                    the `release` Environment, so a misbehaving check
+#                    never sees the push secrets. The release jobs (1-3
+#                    below) `needs:` every gate; a single failure
+#                    short-circuits the whole workflow before any
+#                    artifact moves.
 #   1. goreleaser  — builds binaries × OS/arch, archives, checksums,
 #                    container images (busybox + scratch, multi-arch,
 #                    pushed to ghcr/quay/docker.io), cosign-signs
@@ -54,9 +63,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ─── 0. Pre-release gates (`task check`) ─────────────────────────────────
+  # Three reusable workflows — same ones that gate every PR — re-run
+  # on the tagged commit. Each runs on its own runner (strict isolation
+  # from the build environment) and intentionally has NO access to the
+  # `release` Environment, so a misbehaving gate never sees the push
+  # secrets. The release jobs below `needs:` all three; a single failure
+  # aborts before anything moves to a registry.
+  lint:
+    uses: ./.github/workflows/lint.yaml
+    permissions:
+      contents: read
+  security:
+    uses: ./.github/workflows/security.yaml
+    permissions:
+      contents: read
+      pull-requests: write # gitleaks-action posts on PRs; no-op on tag pushes
+  test:
+    uses: ./.github/workflows/test.yaml
+    permissions:
+      contents: read
+
   # ─── 1. Build, push, sign everything (binaries + images) ─────────────────
   goreleaser:
     name: Build, push & sign
+    needs: [lint, security, test]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: release

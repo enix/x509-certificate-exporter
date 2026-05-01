@@ -1,0 +1,92 @@
+name: Tests
+
+# Same shape as lint.yaml / security.yaml: scoped on PR via path
+# detection, runs everything unconditionally when called from another
+# workflow (e.g. release).
+on:
+  pull_request:
+  workflow_call:
+
+# Read-only by default — every job here just runs the test suite. The
+# release.yaml caller doesn't pass any privileged token through.
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changed paths
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      e2e: ${{ steps.filter.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
+        id: filter
+        with:
+          # Unit tests fire on any Go change; e2e additionally on
+          # anything that materially affects the deployed flow — chart
+          # templates, fixtures, the Tiltfile, and the seeders.
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'dagger/**'
+            e2e:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'dagger/**'
+              - 'chart/**'
+              - 'dev/scenarios/**'
+              - 'dev/seed/**'
+              - 'dev/seed-hostpath/**'
+              - 'dev/values.yaml'
+              - 'test/e2e/**'
+              - 'build/Dockerfile.*'
+              - '.goreleaser.yaml'
+              - 'flake.nix'
+              - 'flake.lock'
+
+  unit:
+    name: Unit tests
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name == 'workflow_call' || needs.changes.outputs.go == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8.4.1
+        with:
+          version: latest
+          dagger-flags: --progress=logs
+          verb: call
+          args: test
+
+  e2e:
+    name: E2E tests
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name == 'workflow_call' || needs.changes.outputs.e2e == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+      # Bring up the same toolset as the local dev shell — k3d, helm,
+      # tilt, goreleaser, kubectl, task — from flake.nix. Single source
+      # of truth between dev and CI for the e2e tooling. Renovate
+      # tracks both refs via the `# vXX` comment.
+      - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
+      - uses: DeterminateSystems/magic-nix-cache-action@6221693898146dc97e38ad0e013488a16477a4c4 # v9
+      - run: nix develop --command task test:e2e

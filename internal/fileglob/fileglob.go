@@ -394,6 +394,29 @@ func (e *Error) Error() string {
 	return e.Reason + " on " + e.Path + ": " + e.Err.Error()
 }
 
+// PathMapping rewrites an absolute path-prefix encountered while resolving
+// symlinks. It is used when a foreign filesystem (typically a host's view,
+// reachable through a bind-mount) is mounted at a different path inside the
+// walker's local view: a symlink may then point at the foreign path it sees,
+// which the walker cannot reach directly.
+//
+// PathMappings drive two things in handleSymlink:
+//
+//   - Translation: when a Readlink result is absolute and starts with `From`,
+//     that prefix is rewritten to `To` before Stat.
+//   - Containment: when at least one mapping is configured, every resolved
+//     symlink target (after translation, or the join of dir(symlink)+target
+//     for relative targets) must end up under at least one mapping's `To`
+//     prefix; otherwise an "out_of_scope_symlink" error is emitted.
+//
+// An empty PathMappings slice disables both behaviours (no translation, no
+// containment) — preserving the legacy behaviour for non-bind-mounted
+// deployments.
+type PathMapping struct {
+	From string `yaml:"from"`
+	To   string `yaml:"to"`
+}
+
 // Options drive a single Walk.
 type Options struct {
 	// Includes is the list of inclusion patterns. At least one is required.
@@ -413,6 +436,10 @@ type Options struct {
 	MaxDepth int
 	// FS lets tests inject a fake filesystem; nil means real os.
 	FS WalkFS
+	// PathMappings declares foreign↔local path-prefix translations and the
+	// scope within which symlink targets must remain. See PathMapping for
+	// the exact behaviour.
+	PathMappings []PathMapping
 }
 
 // WalkFS lets tests substitute a fake filesystem.
@@ -559,11 +586,26 @@ func (w *walker) handleSymlink(ctx context.Context, full string, info fs.FileInf
 		w.emit(Result{Err: &Error{Path: full, Reason: "broken_symlink", Err: err}})
 		return
 	}
-	// Resolve target relative to the symlink's directory if it is relative.
 	resolved := target
-	if !filepath.IsAbs(resolved) {
+	if filepath.IsAbs(resolved) {
+		// Absolute target: translate through PathMappings if any prefix matches.
+		// Otherwise the path is left as-is and the containment check below decides.
+		resolved = w.translateAbsoluteTarget(resolved)
+	} else {
+		// Relative target: anchor at the symlink's parent directory.
 		resolved = filepath.Join(filepath.Dir(full), target)
 	}
+	resolved = filepath.Clean(resolved)
+
+	if !w.inAllowedScope(resolved) {
+		w.emit(Result{Err: &Error{
+			Path:   full,
+			Reason: "out_of_scope_symlink",
+			Err:    fmt.Errorf("resolved target %q is outside any configured scope", resolved),
+		}})
+		return
+	}
+
 	tinfo, err := w.fsys.Stat(resolved)
 	if err != nil {
 		w.emit(Result{Err: &Error{Path: full, Reason: "broken_symlink", Err: err}})
@@ -587,6 +629,65 @@ func (w *walker) handleSymlink(ctx context.Context, full string, info fs.FileInf
 			Path: full, Pattern: fileMatched.raw, Info: info, LinkTo: resolved,
 		}})
 	}
+}
+
+// translateAbsoluteTarget rewrites an absolute path through the longest
+// matching PathMapping.From prefix, replacing it with the corresponding
+// PathMapping.To. The prefix match is segment-aware: a mapping with
+// From="/var" does not match "/var2/foo".
+//
+// When no mapping matches (or PathMappings is empty), the input is
+// returned unchanged. The containment check applied immediately after
+// will then decide whether the resulting path is acceptable.
+func (w *walker) translateAbsoluteTarget(target string) string {
+	if len(w.opts.PathMappings) == 0 {
+		return target
+	}
+	bestFromLen := -1
+	var bestTo string
+	var bestFrom string
+	for _, m := range w.opts.PathMappings {
+		from := strings.TrimRight(m.From, "/")
+		if from == "" {
+			continue
+		}
+		if !strings.HasPrefix(target, from) {
+			continue
+		}
+		// Boundary check: avoid /var matching /var2/foo.
+		if len(target) > len(from) && target[len(from)] != '/' {
+			continue
+		}
+		if len(from) > bestFromLen {
+			bestFromLen = len(from)
+			bestFrom = from
+			bestTo = strings.TrimRight(m.To, "/")
+		}
+	}
+	if bestFromLen < 0 {
+		return target
+	}
+	suffix := target[len(bestFrom):]
+	return bestTo + suffix
+}
+
+// inAllowedScope returns true iff p (already Clean'd, absolute) is equal to
+// or a descendant of one of PathMappings.To prefixes. When PathMappings is
+// empty, the scope is unbounded (legacy behaviour).
+func (w *walker) inAllowedScope(p string) bool {
+	if len(w.opts.PathMappings) == 0 {
+		return true
+	}
+	for _, m := range w.opts.PathMappings {
+		to := strings.TrimRight(m.To, "/")
+		if to == "" {
+			continue
+		}
+		if p == to || strings.HasPrefix(p, to+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // matchClassify returns (leafMatch, descendOK). A leafMatch means the path

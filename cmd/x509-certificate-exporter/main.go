@@ -303,6 +303,7 @@ func buildFileSource(s config.Source, cfg config.Config, ready func(bool), logge
 		RefreshInterval: s.RefreshInterval,
 		SkipUnchanged:   cfg.Cache.FilePoll.SkipUnchanged,
 		ParseOpts:       parseOpts,
+		PathMappings:    s.PathMappings,
 		OnReady:         ready,
 		Jitter:          0.25,
 	}, logger), nil

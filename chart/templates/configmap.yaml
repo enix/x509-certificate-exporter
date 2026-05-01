@@ -119,13 +119,31 @@ data:
         followSymlinks: {{ not (default $.Values.hostPathsExporter.skipSymlinks $dsDef.skipSymlinks) }}
         paths:
           {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
-          - /mnt/watch/dir-{{ . | clean | sha1sum }}/{{ . | clean }}/*
+          - {{ printf "/mnt/watch/dir-%s/%s/*" (. | clean | sha1sum) (. | clean) | clean }}
           {{- end }}
           {{- range default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories }}
-          - /mnt/watch/dir-{{ .directory | clean | sha1sum }}/{{ .directory | clean }}/*.{{ .extension | clean }}
+          - {{ printf "/mnt/watch/dir-%s/%s/*.%s" (.directory | clean | sha1sum) (.directory | clean) (.extension | clean) | clean }}
           {{- end }}
           {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
-          - /mnt/watch/file-{{ . | clean | sha1sum }}{{ . | clean }}
+          - {{ printf "/mnt/watch/file-%s%s" (. | clean | sha1sum) (. | clean) | clean }}
+          {{- end }}
+        # Map host-namespace path prefixes (where symlink targets are
+        # recorded) to the paths the exporter actually sees inside the pod.
+        # Mirrors the volume mounts generated in daemonset.yaml. A non-empty
+        # list also confines symlink resolution to these scopes — anything
+        # that escapes raises x509_source_errors_total{reason="out_of_scope_symlink"}.
+        pathMappings:
+          {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
+          - from: {{ . | clean | quote }}
+            to: {{ printf "/mnt/watch/dir-%s/%s" (. | clean | sha1sum) (. | clean) | clean | quote }}
+          {{- end }}
+          {{- range default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories }}
+          - from: {{ .directory | clean | quote }}
+            to: {{ printf "/mnt/watch/dir-%s/%s" (.directory | clean | sha1sum) (.directory | clean) | clean | quote }}
+          {{- end }}
+          {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
+          - from: {{ . | clean | dir | quote }}
+            to: {{ printf "/mnt/watch/file-%s%s" (. | clean | sha1sum) (. | clean | dir) | clean | quote }}
           {{- end }}
         formats: [pem]
       {{- end }}
@@ -134,7 +152,12 @@ data:
         name: host-kubeconfigs-{{ $dsName }}
         paths:
           {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
-          - /mnt/watch/kube-{{ . | clean | sha1sum }}{{ . | clean }}
+          - {{ printf "/mnt/watch/kube-%s%s" (. | clean | sha1sum) (. | clean) | clean }}
+          {{- end }}
+        pathMappings:
+          {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+          - from: {{ . | clean | dir | quote }}
+            to: {{ printf "/mnt/watch/kube-%s%s" (. | clean | sha1sum) (. | clean | dir) | clean | quote }}
           {{- end }}
       {{- end }}
 {{- end }}

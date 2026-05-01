@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/enix/x509-certificate-exporter/v4/internal/fileglob"
 )
 
 // Top-level configuration.
@@ -67,6 +69,14 @@ type Source struct {
 	RefreshInterval   time.Duration `yaml:"refreshInterval,omitempty"`
 	Formats           []string      `yaml:"formats,omitempty"`
 	Pkcs12            *Pkcs12       `yaml:"pkcs12,omitempty"`
+
+	// PathMappings declares foreign↔local path-prefix translations applied
+	// when resolving symlinks (and the scope within which their targets must
+	// remain). Used by the Helm chart's DaemonSet templates to inform the
+	// exporter of the host↔volumeMount mapping; a non-empty list also turns
+	// on containment, rejecting symlinks that escape any declared scope with
+	// reason "out_of_scope_symlink".
+	PathMappings []fileglob.PathMapping `yaml:"pathMappings,omitempty"`
 
 	// kubernetes-only
 	Kubeconfig string         `yaml:"kubeconfig,omitempty"`

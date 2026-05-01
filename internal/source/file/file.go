@@ -48,6 +48,9 @@ type Options struct {
 	Reader            Reader
 	WalkFS            fileglob.WalkFS
 	ParseOpts         cert.ParseOptions
+	// PathMappings is forwarded to fileglob.Options for symlink target
+	// translation and scope containment. See fileglob.PathMapping.
+	PathMappings []fileglob.PathMapping
 	// FirstSyncDone is closed after the first walk completes (success or
 	// error). Used to drive /readyz.
 	FirstSyncDone chan struct{}
@@ -133,6 +136,7 @@ func (s *Source) runOnce(ctx context.Context, sink cert.Sink, isFirst bool) {
 		FollowSymlinkDirs: s.opts.FollowSymlinkDirs,
 		MaxDepth:          s.opts.MaxDepth,
 		FS:                s.opts.WalkFS,
+		PathMappings:      s.opts.PathMappings,
 	}
 	results := fileglob.Walk(ctx, wopts)
 
@@ -217,7 +221,16 @@ func (s *Source) processEntry(ctx context.Context, sink cert.Sink, e fileglob.En
 		}
 	}
 
-	data, err := s.opts.Reader.Read(path)
+	// Read from the resolved target when this is a symlink the walker
+	// already chased: e.LinkTo carries the path that is actually reachable
+	// from the exporter's view (translated through PathMappings if needed).
+	// Falling back to the symlink path itself would let the OS re-follow
+	// the link and miss any translation.
+	readPath := path
+	if e.LinkTo != "" {
+		readPath = e.LinkTo
+	}
+	data, err := s.opts.Reader.Read(readPath)
 	if err != nil {
 		reason := classifyReadError(err)
 		s.log.Warn("read error", "path", path, "error", err)

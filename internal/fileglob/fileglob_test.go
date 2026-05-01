@@ -342,3 +342,147 @@ func TestErrorString(t *testing.T) {
 		t.Fail()
 	}
 }
+
+// TestSymlinkAbsoluteTargetRemap covers the kubelet-PKI-via-DaemonSet
+// scenario: the symlink records an absolute path in the host's namespace
+// which only resolves once it has been rewritten to start with the in-pod
+// mount path.
+func TestSymlinkAbsoluteTargetRemap(t *testing.T) {
+	tree := fstest.MapFS{
+		"mnt/watch/file-X/var/lib/kubelet/pki/kubelet-client-current.pem": {Data: []byte("placeholder")},
+		"mnt/watch/file-X/var/lib/kubelet/pki/kubelet-client-2024.pem":    {Data: []byte("real")},
+	}
+	fsys := &fakeFS{tree: tree, symlink: map[string]string{
+		"/mnt/watch/file-X/var/lib/kubelet/pki/kubelet-client-current.pem": "/var/lib/kubelet/pki/kubelet-client-2024.pem",
+	}}
+	pats := compileMany(t, "/mnt/watch/file-X/var/lib/kubelet/pki/kubelet-client-current.pem")
+	res := Walk(context.Background(), Options{
+		Includes:       pats,
+		FollowSymlinks: true,
+		FS:             fsys,
+		PathMappings: []PathMapping{
+			{From: "/var/lib/kubelet/pki", To: "/mnt/watch/file-X/var/lib/kubelet/pki"},
+		},
+	})
+	entries, errs := collect(res)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("want 1 entry, got %+v", entries)
+	}
+	want := "/mnt/watch/file-X/var/lib/kubelet/pki/kubelet-client-2024.pem"
+	if entries[0].LinkTo != want {
+		t.Errorf("LinkTo: want %q, got %q", want, entries[0].LinkTo)
+	}
+}
+
+// TestSymlinkAbsoluteTargetNoMapping confirms that without PathMappings the
+// legacy behaviour is preserved: an absolute target unreachable from the
+// walker's view remains a broken_symlink.
+func TestSymlinkAbsoluteTargetNoMapping(t *testing.T) {
+	tree := fstest.MapFS{
+		"mnt/watch/file-X/var/lib/kubelet/pki/kubelet-client-current.pem": {Data: []byte("placeholder")},
+	}
+	fsys := &fakeFS{tree: tree, symlink: map[string]string{
+		"/mnt/watch/file-X/var/lib/kubelet/pki/kubelet-client-current.pem": "/var/lib/kubelet/pki/kubelet-client-2024.pem",
+	}}
+	pats := compileMany(t, "/mnt/watch/file-X/var/lib/kubelet/pki/kubelet-client-current.pem")
+	res := Walk(context.Background(), Options{
+		Includes:       pats,
+		FollowSymlinks: true,
+		FS:             fsys,
+	})
+	entries, errs := collect(res)
+	if len(entries) != 0 {
+		t.Fatalf("want no entries, got %+v", entries)
+	}
+	if len(errs) != 1 || errs[0].Reason != "broken_symlink" {
+		t.Fatalf("want one broken_symlink, got %+v", errs)
+	}
+}
+
+// TestSymlinkLongestPrefixWins ensures overlapping PathMappings select the
+// most specific one.
+func TestSymlinkLongestPrefixWins(t *testing.T) {
+	tree := fstest.MapFS{
+		"mnt/X/foo.pem":       {Data: []byte("placeholder")},
+		"altB/kubelet/pki/foo.pem": {Data: []byte("real")},
+	}
+	fsys := &fakeFS{tree: tree, symlink: map[string]string{
+		"/mnt/X/foo.pem": "/var/lib/kubelet/pki/foo.pem",
+	}}
+	pats := compileMany(t, "/mnt/X/foo.pem")
+	res := Walk(context.Background(), Options{
+		Includes:       pats,
+		FollowSymlinks: true,
+		FS:             fsys,
+		PathMappings: []PathMapping{
+			{From: "/var", To: "/altA"},                    // shorter, less specific
+			{From: "/var/lib/kubelet", To: "/altB/kubelet"}, // longer, must win
+		},
+	})
+	entries, errs := collect(res)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	if len(entries) != 1 || entries[0].LinkTo != "/altB/kubelet/pki/foo.pem" {
+		t.Fatalf("longest-prefix mapping not applied: %+v", entries)
+	}
+}
+
+// TestSymlinkContainmentAbsoluteOutOfScope rejects an absolute target that
+// no PathMapping covers.
+func TestSymlinkContainmentAbsoluteOutOfScope(t *testing.T) {
+	tree := fstest.MapFS{
+		"mnt/X/var/lib/kubelet/pki/foo.pem": {Data: []byte("placeholder")},
+		"etc/passwd":                        {Data: []byte("root:x:0:0:")},
+	}
+	fsys := &fakeFS{tree: tree, symlink: map[string]string{
+		"/mnt/X/var/lib/kubelet/pki/foo.pem": "/etc/passwd",
+	}}
+	pats := compileMany(t, "/mnt/X/var/lib/kubelet/pki/foo.pem")
+	res := Walk(context.Background(), Options{
+		Includes:       pats,
+		FollowSymlinks: true,
+		FS:             fsys,
+		PathMappings: []PathMapping{
+			{From: "/var/lib/kubelet/pki", To: "/mnt/X/var/lib/kubelet/pki"},
+		},
+	})
+	entries, errs := collect(res)
+	if len(entries) != 0 {
+		t.Fatalf("symlink to /etc/passwd must not be emitted: %+v", entries)
+	}
+	if len(errs) != 1 || errs[0].Reason != "out_of_scope_symlink" {
+		t.Fatalf("want one out_of_scope_symlink error, got %+v", errs)
+	}
+}
+
+// TestSymlinkContainmentRelativeEscape rejects a relative target whose
+// dot-dot components escape the configured scope.
+func TestSymlinkContainmentRelativeEscape(t *testing.T) {
+	tree := fstest.MapFS{
+		"mnt/X/var/lib/kubelet/pki/current.pem": {Data: []byte("placeholder")},
+		"etc/passwd":                            {Data: []byte("root:x:0:0:")},
+	}
+	fsys := &fakeFS{tree: tree, symlink: map[string]string{
+		"/mnt/X/var/lib/kubelet/pki/current.pem": "../../../../../../etc/passwd",
+	}}
+	pats := compileMany(t, "/mnt/X/var/lib/kubelet/pki/current.pem")
+	res := Walk(context.Background(), Options{
+		Includes:       pats,
+		FollowSymlinks: true,
+		FS:             fsys,
+		PathMappings: []PathMapping{
+			{From: "/var/lib/kubelet/pki", To: "/mnt/X/var/lib/kubelet/pki"},
+		},
+	})
+	entries, errs := collect(res)
+	if len(entries) != 0 {
+		t.Fatalf("escaping relative symlink must not be emitted: %+v", entries)
+	}
+	if len(errs) != 1 || errs[0].Reason != "out_of_scope_symlink" {
+		t.Fatalf("want one out_of_scope_symlink error, got %+v", errs)
+	}
+}

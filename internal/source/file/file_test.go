@@ -14,6 +14,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -301,5 +302,111 @@ func TestSkipUnchangedSymlinkTargetSwap(t *testing.T) {
 	src.runOnce(context.Background(), sink3, false)
 	if len(sink3.upsert) != 1 {
 		t.Fatalf("mtime branch: same-target swap should re-parse, got %d upserts", len(sink3.upsert))
+	}
+}
+
+// TestPathMappingResolvesAbsoluteSymlink covers the kubelet-PKI-via-DaemonSet
+// scenario: the watched symlink records an absolute path in the host's
+// namespace; the file source must rewrite it through the configured
+// PathMapping to find the file under the in-pod mount.
+func TestPathMappingResolvesAbsoluteSymlink(t *testing.T) {
+	root := t.TempDir()
+	// Mimics the chart layout: the host dir /var/lib/kubelet/pki is bind-
+	// mounted at $TMPDIR/watch/file-X/var/lib/kubelet/pki inside the pod.
+	const hostPrefix = "/var/lib/kubelet/pki"
+	podPrefix := filepath.Join(root, "watch/file-X/var/lib/kubelet/pki")
+	if err := os.MkdirAll(podPrefix, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dated := filepath.Join(podPrefix, "kubelet-client-2024.pem")
+	writePEM(t, dated, "kubelet-client")
+	current := filepath.Join(podPrefix, "kubelet-client-current.pem")
+	// Symlink target as kubelet records it: an absolute host-namespace path.
+	if err := os.Symlink(hostPrefix+"/kubelet-client-2024.pem", current); err != nil {
+		t.Fatal(err)
+	}
+
+	pat, _ := fileglob.Compile(current)
+	src := New(Options{
+		Name:           "x",
+		Patterns:       []fileglob.Pattern{pat},
+		Formats:        []cert.FormatParser{pem.New()},
+		FollowSymlinks: true,
+		Jitter:         0,
+		PathMappings: []fileglob.PathMapping{
+			{From: hostPrefix, To: podPrefix},
+		},
+	}, nopLogger())
+
+	sink := &fakeSink{}
+	src.runOnce(context.Background(), sink, true)
+
+	if len(sink.upsert) != 1 {
+		t.Fatalf("want 1 upsert, got %d: %+v", len(sink.upsert), sink.upsert)
+	}
+	b := sink.upsert[0]
+	if len(b.Errors) != 0 {
+		t.Fatalf("unexpected errors in bundle: %+v", b.Errors)
+	}
+	if len(b.Items) == 0 || b.Items[0].Cert == nil {
+		t.Fatalf("expected one parsed certificate, got %+v", b)
+	}
+	if cn := b.Items[0].Cert.Subject.CommonName; cn != "kubelet-client" {
+		t.Errorf("CN: want kubelet-client, got %q", cn)
+	}
+}
+
+// TestRelativeSymlinkEscapeRejected verifies that a relative symlink with
+// enough dot-dot segments to escape the configured scope is reported as
+// out_of_scope_symlink and never reaches the parser.
+func TestRelativeSymlinkEscapeRejected(t *testing.T) {
+	root := t.TempDir()
+	podPrefix := filepath.Join(root, "watch/file-X/var/lib/kubelet/pki")
+	if err := os.MkdirAll(podPrefix, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Place a real (private-but-not-cert) file outside the scope so the
+	// test fails loudly if the walker were to read it.
+	outsideDir := filepath.Join(root, "outside")
+	if err := os.MkdirAll(outsideDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(outsideDir, "secret")
+	if err := os.WriteFile(outside, []byte("must-not-be-read"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	link := filepath.Join(podPrefix, "current.pem")
+	// "../../../" + ... + "/outside/secret" — enough levels to exit podPrefix
+	// regardless of root's depth, since filepath.Clean caps at /.
+	rel := strings.Repeat("../", 32) + strings.TrimPrefix(outside, "/")
+	if err := os.Symlink(rel, link); err != nil {
+		t.Fatal(err)
+	}
+
+	pat, _ := fileglob.Compile(link)
+	src := New(Options{
+		Name:           "x",
+		Patterns:       []fileglob.Pattern{pat},
+		Formats:        []cert.FormatParser{pem.New()},
+		FollowSymlinks: true,
+		Jitter:         0,
+		PathMappings: []fileglob.PathMapping{
+			{From: "/var/lib/kubelet/pki", To: podPrefix},
+		},
+	}, nopLogger())
+
+	sink := &fakeSink{}
+	src.runOnce(context.Background(), sink, true)
+
+	if len(sink.upsert) != 1 {
+		t.Fatalf("want exactly 1 (error) bundle, got %d: %+v", len(sink.upsert), sink.upsert)
+	}
+	b := sink.upsert[0]
+	if len(b.Items) != 0 {
+		t.Fatalf("escaping symlink must not yield parsed items: %+v", b)
+	}
+	if len(b.Errors) != 1 || b.Errors[0].Reason != "out_of_scope_symlink" {
+		t.Fatalf("want one out_of_scope_symlink error, got %+v", b.Errors)
 	}
 }

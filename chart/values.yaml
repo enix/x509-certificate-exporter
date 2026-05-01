@@ -16,25 +16,31 @@ extraDeployVerbatim: []
 imagePullSecrets: []
 
 image:
-  # -- x509-certificate-exporter image registry
+  # -- Exporter image registry
   registry: docker.io
-  # -- x509-certificate-exporter image repository
+  # -- Exporter image repository
   repository: enix/x509-certificate-exporter
-  # -- x509-certificate-exporter image tag (defaults to Chart appVersion)
+  # -- Exporter image tag (defaults to Chart appVersion)
   tag: ""
-  # -- Suffix added to image tags for container flavor selection (could be `-busybox`, `-alpine`, or `-scratch`)
+  # -- Appended to the image tag to select a container flavor. Use `-busybox` for a shell-enabled image
   tagSuffix: ""
-  # -- x509-certificate-exporter image pull policy
+  # -- Exporter image digest. When set, takes precedence over `tag` (immutable reference)
+  digest: ""
+  # -- Exporter image pull policy
   pullPolicy: IfNotPresent
 
 migration:
   image:
-    # -- kubectl image repository for Helm hook Jobs
-    repository: registry.k8s.io/kubectl
-    # -- kubectl image tag. If set, takes precedence over auto-detected cluster version.
+    # -- kubectl image registry
+    registry: registry.k8s.io
+    # -- kubectl image repository
+    repository: kubectl
+    # -- kubectl image tag. When set, takes precedence over the auto-detected cluster version.
     tag: ""
-    # -- kubectl image digest. If set, takes precedence over tag and auto-detected cluster version.
+    # -- kubectl image digest. When set, takes precedence over `tag` (immutable reference)
     digest: ""
+    # -- kubectl image pull policy
+    pullPolicy: IfNotPresent
   # -- Annotations added to Helm hook Pods
   annotations: {}
   # -- Additional labels added to Helm hook Pods
@@ -442,8 +448,10 @@ rbacProxy:
     registry: quay.io
     # -- kube-rbac-proxy image repository
     repository: brancz/kube-rbac-proxy
-    # -- kube-rbac-proxy image version
+    # -- kube-rbac-proxy image tag
     tag: v0.22.0
+    # -- kube-rbac-proxy image digest. When set, takes precedence over `tag` (immutable reference)
+    digest: ""
     # -- kube-rbac-proxy image pull policy
     pullPolicy: IfNotPresent
   # -- Listen port for the exporter running inside kube-rbac-proxy exposed Pods

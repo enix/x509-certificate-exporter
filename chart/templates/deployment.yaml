@@ -141,7 +141,7 @@ spec:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
         image: {{ include "x509-certificate-exporter.rbacProxy.image" . }}
-        imagePullPolicy: {{ .Values.rbacProxy.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.rbacProxy.image.pullPolicy }}
         args:
         - --logtostderr
         - -v=99

@@ -102,6 +102,7 @@ spec:
       containers:
       - name: kubectl
         image: {{ include "migration.kubectlImage" . | quote }}
+        imagePullPolicy: {{ .Values.migration.image.pullPolicy }}
         {{- with .Values.migration.securityContext }}
         securityContext:
           {{- toYaml . | nindent 10 }}

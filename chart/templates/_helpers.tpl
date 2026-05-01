@@ -66,48 +66,38 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/*
-Return the proper x509-certificate-exporter image name
+Return the x509-certificate-exporter image reference.
+Precedence: digest > tag (+ tagSuffix). global.imageRegistry overrides registry.
+When digest is set the tag is omitted from the reference (digest is immutable).
 */}}
 {{- define "x509-certificate-exporter.image" -}}
-{{- $registryName := .Values.image.registry -}}
-{{- $repositoryName := .Values.image.repository -}}
-{{- $tag := printf "%s%s" ( default .Chart.AppVersion .Values.image.tag | toString ) ( default "" .Values.image.tagSuffix | toString ) -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 doesn't support it, so we need to implement this if-else logic.
-Also, we can't use a single if because lazy evaluation is not an option
-*/}}
-{{- if .Values.global }}
-    {{- if .Values.global.imageRegistry }}
-        {{- printf "%s/%s:%s" .Values.global.imageRegistry $repositoryName $tag -}}
-    {{- else -}}
-        {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-    {{- end -}}
+{{- $registry := .Values.image.registry -}}
+{{- if and .Values.global .Values.global.imageRegistry -}}
+  {{- $registry = .Values.global.imageRegistry -}}
+{{- end -}}
+{{- $repo := .Values.image.repository -}}
+{{- if .Values.image.digest -}}
+  {{- printf "%s/%s@%s" $registry $repo .Values.image.digest -}}
 {{- else -}}
-    {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
+  {{- $tag := printf "%s%s" (default .Chart.AppVersion .Values.image.tag | toString) (default "" .Values.image.tagSuffix | toString) -}}
+  {{- printf "%s/%s:%s" $registry $repo $tag -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Return the proper kube-rbac-proxy image name
+Return the kube-rbac-proxy image reference.
+Precedence: digest > tag. global.imageRegistry overrides registry.
 */}}
 {{- define "x509-certificate-exporter.rbacProxy.image" -}}
-{{- $registryName := .Values.rbacProxy.image.registry -}}
-{{- $repositoryName := .Values.rbacProxy.image.repository -}}
-{{- $tag := .Values.rbacProxy.image.tag | toString -}}
-{{/*
-Helm 2.11 supports the assignment of a value to a variable defined in a different scope,
-but Helm 2.9 and 2.10 doesn't support it, so we need to implement this if-else logic.
-Also, we can't use a single if because lazy evaluation is not an option
-*/}}
-{{- if .Values.global }}
-    {{- if .Values.global.imageRegistry }}
-        {{- printf "%s/%s:%s" .Values.global.imageRegistry $repositoryName $tag -}}
-    {{- else -}}
-        {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
-    {{- end -}}
+{{- $registry := .Values.rbacProxy.image.registry -}}
+{{- if and .Values.global .Values.global.imageRegistry -}}
+  {{- $registry = .Values.global.imageRegistry -}}
+{{- end -}}
+{{- $repo := .Values.rbacProxy.image.repository -}}
+{{- if .Values.rbacProxy.image.digest -}}
+  {{- printf "%s/%s@%s" $registry $repo .Values.rbacProxy.image.digest -}}
 {{- else -}}
-    {{- printf "%s/%s:%s" $registryName $repositoryName $tag -}}
+  {{- printf "%s/%s:%s" $registry $repo (.Values.rbacProxy.image.tag | toString) -}}
 {{- end -}}
 {{- end -}}
 
@@ -175,14 +165,17 @@ Web configuration Secret name
 {{- end -}}
 
 {{/*
-kubectl image for hook jobs (digest > explicit tag > auto-detected cluster version)
+kubectl image for hook jobs.
+Precedence: digest > explicit tag > auto-detected cluster version.
+When digest is set the tag is omitted (digest is immutable).
 */}}
 {{- define "migration.kubectlImage" -}}
+{{- $repo := printf "%s/%s" .Values.migration.image.registry .Values.migration.image.repository -}}
 {{- if .Values.migration.image.digest -}}
-{{ .Values.migration.image.repository }}@{{ .Values.migration.image.digest }}
+  {{- printf "%s@%s" $repo .Values.migration.image.digest -}}
 {{- else if .Values.migration.image.tag -}}
-{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}
+  {{- printf "%s:%s" $repo (.Values.migration.image.tag | toString) -}}
 {{- else -}}
-{{ .Values.migration.image.repository }}:{{ template "capabilities.kubeVersion" . }}
+  {{- printf "%s:%s" $repo (.Capabilities.KubeVersion.Version | regexFind "v[0-9]+\\.[0-9]+\\.[0-9]+") -}}
 {{- end -}}
 {{- end -}}

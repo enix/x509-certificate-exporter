@@ -1,0 +1,44 @@
+# Run-once Job that materialises dev/scenarios.AllHostPath() onto the
+# cluster node's filesystem under /var/lib/x509ce-e2e/. The chart's
+# hostPathsExporter DaemonSet (configured by test/e2e/values.yaml) then
+# watches the same subtree.
+#
+# `hostPath.type: DirectoryOrCreate` lets the kubelet create the root if
+# it doesn't exist, so this works on a fresh k3d cluster without any
+# pre-bake step on the node image.
+#
+# Image refs are placeholders: Tilt's k8s_yaml + image_inject substitutes
+# in the locally-built image during `tilt ci`.
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-hostpath
+  namespace: x509ce-e2e
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: seed-hostpath
+    spec:
+      restartPolicy: Never
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: seed
+          image: x509ce-seed-hostpath
+          imagePullPolicy: IfNotPresent
+          args: ["--root=/mnt/host"]
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: host
+              mountPath: /mnt/host
+      volumes:
+        - name: host
+          hostPath:
+            path: /var/lib/x509ce-e2e
+            type: DirectoryOrCreate

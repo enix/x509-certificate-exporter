@@ -12,6 +12,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,31 +30,62 @@ const (
 	scrapeBackoff     = 5 * time.Second
 )
 
-func metricsURL() string {
-	if u := os.Getenv("E2E_METRICS_URL"); u != "" {
-		return u
+// metricsURLs returns the list of /metrics endpoints to scrape and merge.
+// E2E_METRICS_URL accepts a comma-separated list; the chart deploys two
+// independent workloads (Deployment + DaemonSet) on different pods, so we
+// scrape one URL per workload and union their metric families.
+func metricsURLs() []string {
+	v := os.Getenv("E2E_METRICS_URL")
+	if v == "" {
+		return []string{defaultMetricsURL}
 	}
-	return defaultMetricsURL
+	return strings.Split(v, ",")
 }
 
-// scrape fetches and parses the exporter's text-format metric exposition.
-// It retries until the exporter has had a chance to discover every seeded
-// object — k8s informers + cache settle within a few seconds.
+// scrape fetches and parses every URL returned by metricsURLs(), then
+// merges the metric families. It retries until each endpoint has had a
+// chance to discover every seeded object.
 func scrape(t *testing.T) map[string]*dto.MetricFamily {
 	t.Helper()
+	urls := metricsURLs()
 	var lastErr error
 	var lastFams map[string]*dto.MetricFamily
 	for i := 0; i < scrapeAttempts; i++ {
-		fams, err := tryScrape(metricsURL())
-		if err == nil && hasInitialReadyState(fams) {
-			return fams
+		merged := map[string]*dto.MetricFamily{}
+		ok := true
+		var err error
+		for _, u := range urls {
+			fams, e := tryScrape(u)
+			if e != nil {
+				err = e
+				ok = false
+				break
+			}
+			mergeFamilies(merged, fams)
+		}
+		if ok && hasInitialReadyState(merged) {
+			return merged
 		}
 		lastErr = err
-		lastFams = fams
+		lastFams = merged
 		time.Sleep(scrapeBackoff)
 	}
 	t.Fatalf("exporter never returned ready metrics: lastErr=%v\n%s", lastErr, summarise(lastFams))
 	return nil
+}
+
+// mergeFamilies appends metrics from src into dst, family-by-family. Each
+// family is keyed by name; metrics within a family are concatenated. We
+// don't dedupe by labelset because the two scraped pods report disjoint
+// series (different sources, different filepath/secret_namespace labels).
+func mergeFamilies(dst, src map[string]*dto.MetricFamily) {
+	for name, fam := range src {
+		if existing, ok := dst[name]; ok {
+			existing.Metric = append(existing.Metric, fam.Metric...)
+			continue
+		}
+		dst[name] = fam
+	}
 }
 
 // summarise gives a one-shot snapshot of why hasInitialReadyState is failing.
@@ -101,26 +134,67 @@ func tryScrape(url string) (map[string]*dto.MetricFamily, error) {
 	return p.TextToMetricFamilies(resp.Body)
 }
 
-// hasInitialReadyState waits for x509_source_up == 1 on the kubernetes
-// source AND at least one x509_cert_not_after series. The first signals
-// "informers have synced and the source's OnReady fired", the second
-// confirms that the registry has actually emitted cert metrics.
+// hasInitialReadyState waits for every expected source to report
+// x509_source_up == 1 AND for cert series from each to materialise. The
+// chart deploys two distinct sources we scrape independently — a K8s
+// informer-based one (cluster-secrets) and a file walker (host-paths-nodes)
+// — and either can converge on an empty result faster than the other,
+// so we explicitly require both before letting the assertion phase run.
 func hasInitialReadyState(fams map[string]*dto.MetricFamily) bool {
 	upFam := fams["x509_source_up"]
 	if upFam == nil {
 		return false
 	}
-	any := false
+	wantSources := map[string]bool{
+		"cluster-secrets":   false,
+		"host-paths-nodes":  false,
+	}
 	for _, m := range upFam.GetMetric() {
 		if m.GetGauge().GetValue() != 1 {
+			continue
+		}
+		var name string
+		for _, l := range m.GetLabel() {
+			if l.GetName() == "source_name" {
+				name = l.GetValue()
+				break
+			}
+		}
+		if _, want := wantSources[name]; want {
+			wantSources[name] = true
+		}
+	}
+	for _, ok := range wantSources {
+		if !ok {
 			return false
 		}
-		any = true
 	}
-	if !any {
+
+	// Also wait until at least one filepath-tagged cert series has shown
+	// up — otherwise the hostPath walker may have completed its first walk
+	// (so up=1) without yet having emitted any cert because the seed Job
+	// raced ahead of it. The assertion loop wants concrete series.
+	naFam := fams["x509_cert_not_after"]
+	if naFam == nil {
 		return false
 	}
-	return fams["x509_cert_not_after"] != nil
+	hostPathSeen := false
+	k8sSeen := false
+	for _, m := range naFam.GetMetric() {
+		for _, l := range m.GetLabel() {
+			switch l.GetName() {
+			case "filepath":
+				if l.GetValue() != "" {
+					hostPathSeen = true
+				}
+			case "secret_name", "configmap_name":
+				if l.GetValue() != "" {
+					k8sSeen = true
+				}
+			}
+		}
+	}
+	return hostPathSeen && k8sSeen
 }
 
 func TestExporterCoversAllScenarios(t *testing.T) {
@@ -148,6 +222,20 @@ func TestExporterCoversAllScenarios(t *testing.T) {
 				}
 				assertCertSeries(t, notAfter, expired, notBefore, sc, e)
 			}
+		})
+	}
+
+	// hostPath scenarios — PEM files and symlinks materialised by the
+	// seed-hostpath Job and watched by the chart's hostPathsExporter
+	// DaemonSet (see test/e2e/values.yaml + test/e2e/seed-hostpath.yaml).
+	for _, sc := range scenarios.AllHostPath() {
+		sc := sc
+		t.Run(path.Join("HostPath", sc.Path), func(t *testing.T) {
+			if sc.ExpectReason != "" {
+				assertHostPathReason(t, srcErrors, sc)
+				return
+			}
+			assertHostPathCert(t, notAfter, expired, sc)
 		})
 	}
 
@@ -270,6 +358,35 @@ func sourceLabels(kind string) (ns, name, key string) {
 	return "secret_namespace", "secret_name", "secret_key"
 }
 
+func assertHostPathCert(t *testing.T, notAfter, expired *dto.MetricFamily, sc scenarios.HostPathScenario) {
+	t.Helper()
+	want := map[string]string{
+		"filepath":   sc.FilepathLabel,
+		"subject_CN": sc.SubjectCN,
+	}
+	if find(notAfter, want) == nil {
+		t.Fatalf("no x509_cert_not_after series with %v", want)
+	}
+	if exMetric := find(expired, want); exMetric == nil {
+		t.Fatalf("no x509_cert_expired series with %v", want)
+	} else if got := exMetric.GetGauge().GetValue(); got != 0 {
+		t.Fatalf("hostPath %s: expected expired=0, got %v", sc.Path, got)
+	}
+}
+
+func assertHostPathReason(t *testing.T, srcErrors *dto.MetricFamily, sc scenarios.HostPathScenario) {
+	t.Helper()
+	if srcErrors == nil {
+		t.Fatalf("x509_source_errors_total missing; cannot assert reason=%q", sc.ExpectReason)
+	}
+	for _, m := range srcErrors.GetMetric() {
+		if labelEq(m, "reason", string(sc.ExpectReason)) && m.GetCounter().GetValue() > 0 {
+			return
+		}
+	}
+	t.Fatalf("expected x509_source_errors_total{reason=%q} > 0 for %s", sc.ExpectReason, sc.Path)
+}
+
 func find(fam *dto.MetricFamily, want map[string]string) *dto.Metric {
 	if fam == nil {
 		return nil
@@ -301,6 +418,6 @@ func labelEq(m *dto.Metric, name, value string) bool {
 // Sanity: surface a printable line per failure to ease debugging.
 func init() {
 	if v := os.Getenv("E2E_VERBOSE"); v != "" {
-		fmt.Fprintln(os.Stderr, "[e2e] metrics URL:", metricsURL())
+		fmt.Fprintln(os.Stderr, "[e2e] metrics URLs:", metricsURLs())
 	}
 }

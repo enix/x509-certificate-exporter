@@ -2,8 +2,63 @@
 # scraped directly via Tilt's port-forward, so the ServiceMonitor +
 # PrometheusRule resources (which depend on prom-operator CRDs) are not
 # needed and disabled here.
+#
+# The hostPathsExporter section watches the subtree populated by the
+# seed-hostpath Job (see test/e2e/seed-hostpath.yaml + dev/scenarios/
+# hostpath.go). The `nodes` DaemonSet name doubles as a metric label,
+# so keep it short. Paths and globs here MUST match what the seed
+# scenarios materialise — both consumers are tied to dev/scenarios.
 ---
 prometheusServiceMonitor:
   create: false
 prometheusRules:
   create: false
+
+# Hand-rolled Service that targets the DaemonSet pod specifically
+# (component=host-nodes). The chart's default Service selects every
+# exporter pod (Deployment + DaemonSet) — port-forwarding to it would
+# route to a random one. This second Service lets us reach the
+# DaemonSet pod deterministically on host port 19794, see Tiltfile.
+#
+# Lives in extraDeploy so Helm creates it inside the same release that
+# creates the namespace (`--create-namespace`), avoiding the
+# chicken-and-egg of a standalone `k8s_yaml(...)` that races the
+# namespace.
+extraDeploy:
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: '{{ include "x509-certificate-exporter.fullname" . }}-nodes'
+    spec:
+      type: ClusterIP
+      selector:
+        app.kubernetes.io/name: '{{ include "x509-certificate-exporter.name" . }}'
+        app.kubernetes.io/instance: '{{ .Release.Name }}'
+        app.kubernetes.io/component: host-nodes
+      ports:
+        - name: metrics
+          port: 9793
+          targetPort: metrics
+
+hostPathsExporter:
+  # 5s instead of the chart default (300s) so the exporter picks up
+  # files written by the seed-hostpath Job within the e2e suite's
+  # poll-and-retry window (12 × 5s = 60s).
+  refreshInterval: "5s"
+  # The DaemonSet pod can be scheduled before the seed-hostpath Job has
+  # had a chance to create /var/lib/x509ce-e2e/pki. The chart's default
+  # `Directory` would refuse to mount a non-existent path; let the
+  # kubelet create it on demand (the seed Job populates it shortly
+  # afterwards, and the exporter's 5s poll picks the new files up).
+  hostPathVolumeType: DirectoryOrCreate
+  daemonSets:
+    nodes:
+      # Each entry is materialised by the seed-hostpath Job (file or
+      # symlink under /var/lib/x509ce-e2e/pki). Listed individually so
+      # the actual rotation targets next to the symlinks are NOT
+      # walked themselves — we only want the symlink path in metrics.
+      watchFiles:
+        - /var/lib/x509ce-e2e/pki/static.pem
+        - /var/lib/x509ce-e2e/pki/kubelet-client-current.pem
+        - /var/lib/x509ce-e2e/pki/absolute-link.pem
+        - /var/lib/x509ce-e2e/pki/escape.pem

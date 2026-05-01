@@ -7,12 +7,19 @@
 #
 # Pipeline (resources run in dep order; `tilt ci` exits 0 iff every
 # resource reaches Ready):
-#   1. goreleaser release --snapshot (tilt mode) → exports busybox
-#                                                  image to local Docker
-#   2. tilt push                                  → tags + pushes to 127.0.0.1:5001
-#   3. helm install                               → chart deployed with dev + e2e overrides
-#   4. seed                                       → applies dev/scenarios to the cluster
-#   5. e2e-test                                   → go test -tags=e2e against /metrics
+#   1.  goreleaser release --snapshot (tilt mode) → exports busybox
+#                                                   image to local Docker
+#   1b. docker build (seed-hostpath image)        → built once per source change
+#   2.  tilt push                                 → tags + pushes both images
+#                                                   to 127.0.0.1:5001
+#   3.  helm install                              → chart deployed with
+#                                                   dev + e2e overrides
+#   4a. seed (local_resource)                     → applies K8s-resource
+#                                                   scenarios (Secrets/CM)
+#   4b. seed-hostpath (Job)                       → writes PEMs + symlinks
+#                                                   under the node's
+#                                                   /var/lib/x509ce-e2e
+#   5.  e2e-test                                  → go test -tags=e2e against /metrics
 #
 # Tilt resolves relative paths against the Tiltfile's directory, so
 # every path that points at the repo root goes through the ROOT
@@ -33,6 +40,7 @@ default_registry(
 )
 
 IMAGE = "x509-certificate-exporter"
+SEED_HOSTPATH_IMAGE = "x509ce-seed-hostpath"
 
 # 1. Build via GoReleaser in "tilt mode" — same Dockerfile.busybox as
 # the release pipeline (one image-build codepath for dev + e2e + release).
@@ -62,6 +70,25 @@ custom_build(
     skips_local_docker=False,
 )
 
+# 1b. Build the seed-hostpath image. Tiny scratch image carrying just the
+# `dev/seed-hostpath` binary, used by the seed Job to materialise hostPath
+# fixtures onto the cluster node's filesystem. Keeps the e2e flow
+# self-contained — no separate registry, no separate build pipeline,
+# rebuilt on any source change to dev/scenarios or dev/seed-hostpath.
+docker_build(
+    ref=SEED_HOSTPATH_IMAGE,
+    context=ROOT,
+    dockerfile=ROOT + "/build/Dockerfile.seed-hostpath",
+    only=[
+        "go.mod",
+        "go.sum",
+        "dev/scenarios",
+        "dev/seed-hostpath",
+        "internal",
+        "pkg",
+    ],
+)
+
 # 3. Helm install. No kube-prometheus-stack here: the e2e values disable
 # the chart's ServiceMonitor + PrometheusRule (no CRDs to satisfy), and
 # the test scrapes /metrics directly via Tilt's port-forward below.
@@ -80,19 +107,74 @@ helm_resource(
     ],
     image_deps=[IMAGE],
     image_keys=[("image.registry", "image.repository", "image.tag")],
-    # Host port 19793 (not 9793) so a parallel `task dev:up` keeps its
-    # own port-forward to the dev cluster's exporter.
-    port_forwards=["19793:9793"],
+    # No port_forwards here: the chart's Service selects every exporter
+    # pod (Deployment AND DaemonSet) — kubectl port-forward to it would
+    # land on a random one. The two side-band local_resources below run
+    # `kubectl port-forward` to each workload deterministically.
 )
 
-# 4. Seed scenarios. Same package the dev loop and tests both consume —
-# single source of truth for fixtures. Run from the repo root so
-# `go run ./dev/seed` resolves naturally.
+# 4a. Seed K8s-resource scenarios (Secrets, ConfigMaps). Same package the
+# dev loop and tests both consume — single source of truth for fixtures.
+# Run from the repo root so `go run ./dev/seed` resolves naturally.
 local_resource(
     "seed",
     cmd="cd %s && go run ./dev/seed" % ROOT,
     deps=[ROOT + "/dev/seed", ROOT + "/dev/scenarios"],
     resource_deps=["x509-certificate-exporter"],
+)
+
+# 4b. Seed hostPath scenarios (PEM files + symlinks on the node). Runs
+# as an in-cluster Job because writing to a hostPath needs an in-cluster
+# privileged actor. The Job must complete BEFORE the e2e-test runs, but
+# can race with the exporter coming up — the exporter polls
+# refreshInterval anyway and will pick the files up on its next walk.
+k8s_yaml("./seed-hostpath.yaml")
+# Tilt auto-detects the `image: x509ce-seed-hostpath` reference in the Job
+# spec and wires it to the matching docker_build above — no explicit
+# image_deps needed (k8s_resource doesn't accept that arg anyway).
+k8s_resource(
+    "seed-hostpath",
+    resource_deps=["x509-certificate-exporter"],
+)
+
+# 4c+4d. Two kubectl port-forwards, one per workload, run as background
+# serve_cmd so each lands on a deterministic pod:
+#   - 19793 → secretsExporter Deployment (component=secrets), via the
+#     in-cluster Service x509-certificate-exporter (chart-default).
+#     We address it via deployment/<name> rather than svc/<name> because
+#     the chart's Service also selects the DaemonSet pods, and kubectl
+#     port-forward svc/... would pick any matching pod.
+#   - 19794 → hostPathsExporter DaemonSet (component=host-nodes), via
+#     the dedicated extraDeploy Service deployed by test/e2e/values.yaml.
+local_resource(
+    "secrets-port-forward",
+    serve_cmd=" ".join([
+        "kubectl",
+        "--namespace=x509ce-e2e",
+        "port-forward",
+        "deployment/x509-certificate-exporter",
+        "19793:9793",
+    ]),
+    resource_deps=["x509-certificate-exporter"],
+    readiness_probe=probe(
+        period_secs=2,
+        http_get=http_get_action(port=19793, path="/metrics"),
+    ),
+)
+local_resource(
+    "nodes-port-forward",
+    serve_cmd=" ".join([
+        "kubectl",
+        "--namespace=x509ce-e2e",
+        "port-forward",
+        "service/x509-certificate-exporter-nodes",
+        "19794:9793",
+    ]),
+    resource_deps=["x509-certificate-exporter"],
+    readiness_probe=probe(
+        period_secs=2,
+        http_get=http_get_action(port=19794, path="/metrics"),
+    ),
 )
 
 # 5. Run the assertion suite. tilt ci exits non-zero if this fails,
@@ -103,6 +185,11 @@ local_resource(
     # -timeout=5m bounds a hung suite: without it, an exporter that never
     # becomes Ready or a metric that never converges would pin `tilt ci`
     # until the outer CI runner kills the job (or forever, locally).
-    cmd="cd %s && E2E_METRICS_URL=http://127.0.0.1:19793/metrics go test -tags=e2e -count=1 -timeout=5m -v ./test/e2e/..." % ROOT,
-    resource_deps=["seed"],
+    # E2E_METRICS_URL accepts a comma-separated list — we scrape both the
+    # secretsExporter Deployment (default Service, 19793) and the
+    # hostPathsExporter DaemonSet (custom Service, 19794) and merge.
+    cmd=("cd %s && " % ROOT +
+         "E2E_METRICS_URL=http://127.0.0.1:19793/metrics,http://127.0.0.1:19794/metrics " +
+         "go test -tags=e2e -count=1 -timeout=5m -v ./test/e2e/..."),
+    resource_deps=["seed", "seed-hostpath", "secrets-port-forward", "nodes-port-forward"],
 )

@@ -109,7 +109,7 @@ data:
 
     cache:
       filePoll:
-        interval: 300s
+        interval: {{ default "300s" (default $.Values.hostPathsExporter.refreshInterval $dsDef.refreshInterval) }}
         skipUnchanged: true
 
     sources:

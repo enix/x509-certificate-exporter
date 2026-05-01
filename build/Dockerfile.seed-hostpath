@@ -1,0 +1,18 @@
+# E2E-only image: builds the dev/seed-hostpath binary that materialises
+# scenarios.AllHostPath() onto a node's filesystem. Built by Tilt during
+# `task test:e2e` and never published. Runs as root because it has to
+# write into a hostPath; that hostPath is a dedicated subtree under
+# /var/lib/x509ce-e2e/ that lives only inside the throwaway k3d node.
+
+# renovate: datasource=docker depName=golang
+FROM golang:1.26.2-alpine AS build
+WORKDIR /src
+ENV CGO_ENABLED=0 GOTOOLCHAIN=auto
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -trimpath -tags netgo,osusergo -o /seed-hostpath ./dev/seed-hostpath
+
+FROM scratch
+COPY --from=build /seed-hostpath /seed-hostpath
+ENTRYPOINT ["/seed-hostpath"]

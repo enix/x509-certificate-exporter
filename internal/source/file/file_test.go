@@ -215,7 +215,7 @@ func fsHasSubSecondMtime(t *testing.T, dir string) bool {
 	if err := os.WriteFile(probe, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(probe)
+	defer func() { _ = os.Remove(probe) }()
 	want := time.Unix(0, 123456789) // arbitrary non-zero sub-second value
 	if err := os.Chtimes(probe, want, want); err != nil {
 		t.Fatal(err)

@@ -212,6 +212,8 @@ hostPathsExporter:
   debugMode: false
   # -- Skip symlinks when scanning files and directories. Does not apply to Kubernetes secrets.
   skipSymlinks: false
+  # -- Polling interval at which the file source re-walks watched paths and re-parses changed files. Accepts a Go duration (e.g. `30s`, `5m`). Default is suited for slowly-rotated PKI; lower it for tests or fast-rotation flows.
+  refreshInterval: "300s"
   # -- restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   restartPolicy: Always
   # -- updateStrategy for DaemonSets of hostPath exporters (default for all hostPathsExporter.daemonSets)

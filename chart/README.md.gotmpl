@@ -1,75 +1,130 @@
-# 🔏 X.509 Certificate Exporter
+<!-- markdownlint-disable-next-line MD041 -->
+<p align="center">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="http://127.0.0.1:8000/docs/assets/logo2-dark.webp">
+      <source media="(prefers-color-scheme: light)" srcset="http://127.0.0.1:8000/docs/assets/logo2.webp">
+      <img alt="X.509 Certificate Exporter" title="X.509 Certificate Exporter" src="http://127.0.0.1:8000/docs/assets/logo2.webp">
+    </picture>
+</p>
 
-[![License MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Brought by Enix](https://img.shields.io/badge/Brought%20to%20you%20by-ENIX-%23377dff?labelColor=888&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAQAAAC1QeVaAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAHdElNRQfkBAkQIg/iouK/AAABZ0lEQVQY0yXBPU8TYQDA8f/zcu1RSDltKliD0BKNECYZmpjgIAOLiYtubn4EJxI/AImzg3E1+AGcYDIMJA7lxQQQQRAiSSFG2l457+655x4Gfz8B45zwipWJ8rPCQ0g3+p9Pj+AlHxHjnLHAbvPW2+GmLoBN+9/+vNlfGeU2Auokd8Y+VeYk/zk6O2fP9fcO8hGpN/TUbxpiUhJiEorTgy+6hUlU5N1flK+9oIJHiKNCkb5wMyOFw3V9o+zN69o0Exg6ePh4/GKr6s0H72Tc67YsdXbZ5gENNjmigaXbMj0tzEWrZNtqigva5NxjhFP6Wfw1N1pjqpFaZQ7FAY6An6zxTzHs0BGqY/NQSnxSBD6WkDRTf3O0wG2Ztl/7jaQEnGNxZMdy2yET/B2xfGlDagQE1OgRRvL93UOHqhLnesPKqJ4NxLLn2unJgVka/HBpbiIARlHFq1n/cWlMZMne1ZfyD5M/Aa4BiyGSwP4Jl3UAAAAldEVYdGRhdGU6Y3JlYXRlADIwMjAtMDQtMDlUMTQ6MzQ6MTUrMDI6MDDBq8/nAAAAJXRFWHRkYXRlOm1vZGlmeQAyMDIwLTA0LTA5VDE0OjM0OjE1KzAyOjAwsPZ3WwAAAABJRU5ErkJggg==)](https://enix.io)
+<div align="center">
 
-A Prometheus exporter for X.509 certificates, focused on **expiration
-monitoring inside Kubernetes**. Watch your TLS material everywhere it lives:
+[![GitHub Release][release-img]][release] [![Cosign signed][cosign-img]][cosign] [![SLSA Level 3][slsa-img]][slsa] [![OpenSSF Scorecard][ossf-img]][ossf] [![Made at ENIX][enix-img]][enix]
 
-* `kubernetes.io/tls` and Opaque Secrets — PEM bundles or PKCS#12 keystores
-* ConfigMaps with `ca.crt` / custom keys
-* On-disk PKI on cluster nodes (kubelet, etcd, kube-apiserver) via DaemonSet
-* Kubeconfig files with embedded base64 certs or PEM file references
+[release]: https://github.com/enix/x509-certificate-exporter/releases/latest
+[release-img]: https://img.shields.io/github/v/release/enix/x509-certificate-exporter?sort=semver&display_name=tag&style=flat&logo=github&label=Release&color=3a6ed7
+[cosign]: https://docs.sigstore.dev
+[cosign-img]: https://img.shields.io/badge/Sigstore-cosign_signed-chartreuse
+[slsa]: https://slsa.dev/spec/v1.0/levels
+[slsa-img]: https://img.shields.io/badge/SLSA-level%203-chartreuse
+[ossf]: https://securityscorecards.dev/viewer/?uri=github.com/enix/x509-certificate-exporter
+[ossf-img]: https://img.shields.io/ossf-scorecard/github.com/enix/x509-certificate-exporter?style=flat&label=OSSF%20Scorecard
+[enix]: https://enix.io
+[enix-img]: https://img.shields.io/badge/Banana--grade-ENIX-3a6ed7?logo=gamebanana
 
-The chart deploys a **Deployment** for cluster-wide Secret/ConfigMap watching
-plus, optionally, one or more **DaemonSets** for node-local PKI. Both reuse
-the same exporter binary and observe the same metric schema.
+</div>
 
-Use it with the [Grafana Dashboard](https://grafana.com/grafana/dashboards/13922)
-ID `13922`:
+A Prometheus exporter for X.509 certificates, built **for Kubernetes first**.
+It watches your cluster's TLS material as native Kubernetes resources —
+Secrets, ConfigMaps, kubeconfigs, on-disk PKI on the nodes — and turns
+expirations into actionable Prometheus series. Designed to run inside the
+cluster it observes, but equally happy as a standalone binary.
 
-![Grafana Dashboard](https://raw.githubusercontent.com/enix/x509-certificate-exporter/master/docs/assets/grafana-dashboard.webp)
+---
 
-## What's new in v4
+## 🔍️ What it watches
 
-If you're upgrading from chart 3.x, the operational behaviour stays
-familiar but a number of things were unlocked:
+- **TLS Secrets** of any type — `kubernetes.io/tls`, opaque PEM bundles,
+  full chains — across all namespaces or a curated subset.
+- **ConfigMaps** holding PEM material (`ca.crt`, custom keys).
+- **PKCS#12** keystores and truststores, with passphrase pulled from a
+  sibling key in the same Secret, an external file, a cross-namespace
+  Secret reference, or none (`tryEmptyPassphrase`).
+- **Kubeconfigs** with embedded base64 certificates or PEM file references —
+  every `cluster` and `user` block exposed as its own series.
+- **Files on disk** — glob patterns (`*`, `**`, `?`), atomic symlink swaps
+  detected on the next poll (certbot renewals, kubelet projected `..data/`
+  mounts), and dual deployment: inside the exporter pod **or** as a
+  node-local DaemonSet for cluster PKI (kubelet, etcd, kube-apiserver).
+- **PEM chains** — every certificate in a multi-cert bundle becomes its own
+  series, so intermediate CAs and trust roots appear alongside leaf certs
+  with no extra configuration.
 
-* **YAML configuration** under the hood. The chart renders a single
-  `config.yaml` ConfigMap; no more flag explosion. Day-to-day values keys
-  are unchanged where possible.
-* **ConfigMap watching** — point `secretsExporter.configMapKeys` at the keys
-  you care about and they're parsed alongside Secrets.
-* **PKCS#12** keystores and truststores out of the box, with passphrases
-  pulled from a sibling Secret key (`passphraseKey`), an external file,
-  or no passphrase at all (`tryEmptyPassphrase`).
-* **Server-side filtering**: `includeLabels` / `excludeLabels` and namespace
-  label rules push selectors all the way to the Kubernetes API, so
-  informers don't even see filtered-out objects.
-* **Surface Secret labels as Prometheus labels** via `exposeSecretLabels` —
-  drop your `environment` / `team` / `app` labels straight onto cert
-  metrics.
-* **Health, readiness, and per-source signals**: `/healthz`, `/readyz`,
-  `x509_source_up`, `x509_source_bundles`, `x509_source_errors_total`.
-  The `PrometheusRule` shipped here uses them.
-* **Native TLS / BasicAuth on `/metrics`** through Prometheus
-  exporter-toolkit (`webConfiguration` value). The `kube-rbac-proxy`
-  sidecar option remains for legacy setups but is no longer required.
+## Installing & upgrading
 
-## 🏃 TL;DR
+> [!WARNING]
+> **Upgrading from v3?** Read the [migration guide][v3-v4] first —
+> chart distribution moved to OCI on `quay.io`, the Alpine image
+> variant is retired, and a few values keys changed shape.
 
-Two commands to get going, then read on for everything else:
+[v3-v4]: https://github.com/enix/x509-certificate-exporter/blob/main/docs/migration-v3-to-v4.md
+
+### 🚀 Quick install
+
+The chart ships as an OCI artifact on `quay.io` — no `helm repo add`,
+Helm 3.8+ pulls OCI refs directly. One command:
 
 ```sh
-helm repo add enix https://charts.enix.io
-helm install x509-certificate-exporter enix/x509-certificate-exporter
+helm install x509-certificate-exporter \
+  oci://quay.io/enix/charts/x509-certificate-exporter
 ```
 
-Without prometheus-operator installed, opt out of the CRDs and rely on Pod
-annotations:
+That's the whole install. The exporter starts watching every
+`kubernetes.io/tls` Secret in the cluster and serves metrics on `/metrics`.
+
+The chart also drops a `ServiceMonitor` and a `PrometheusRule` so a
+[prometheus-operator](https://github.com/prometheus-operator/prometheus-operator)-managed
+Prometheus picks the exporter up and ships with ready-to-use alerts —
+no extra wiring.
+
+No prometheus-operator in the cluster? Skip the CRDs and let Prometheus
+discover the Pod via annotations instead. Save the snippet below as
+`values.yaml` and pass it to Helm with `--values values.yaml`:
 
 ```yaml
-secretsExporter:
-  podAnnotations:
-    prometheus.io/port: "9793"
-    prometheus.io/scrape: "true"
-service:
-  create: false
+# values.yaml
 prometheusServiceMonitor:
   create: false
 prometheusRules:
   create: false
+secretsExporter:
+  podAnnotations:
+    prometheus.io/port: "9793"
+    prometheus.io/scrape: "true"
 ```
+
+```sh
+helm install x509-certificate-exporter \
+  oci://quay.io/enix/charts/x509-certificate-exporter \
+  --values values.yaml
+```
+
+This `--values` pattern is how you tweak any setting from the
+[Values reference](#values) further down — drop the keys you want to
+override into your `values.yaml` and re-run the same command.
+
+
+
+
+```sh
+# Initial install
+helm install x509-certificate-exporter \
+  oci://quay.io/enix/charts/x509-certificate-exporter \
+  --values x509-certificate-exporter.values.yaml
+
+# Pin to a specific version
+helm install x509-certificate-exporter \
+  oci://quay.io/enix/charts/x509-certificate-exporter \
+  --version 4.1.0 \
+  --values x509-certificate-exporter.values.yaml
+
+# Upgrade
+helm upgrade x509-certificate-exporter \
+  oci://quay.io/enix/charts/x509-certificate-exporter \
+  --values x509-certificate-exporter.values.yaml
+```
+
+
 
 ## 📜 Configuring the chart
 
@@ -298,20 +353,7 @@ The legacy `kube-rbac-proxy` sidecar (`rbacProxy.enabled`) is still
 available for clusters that authenticate scrapes via TokenReview, but
 exporter-toolkit is the recommended path on new installs.
 
-## Installing & upgrading
 
-```sh
-helm repo add enix https://charts.enix.io
-helm repo update
-
-# Initial install with custom values
-helm install x509-certificate-exporter enix/x509-certificate-exporter \
-  --values x509-certificate-exporter.values.yaml
-
-# Apply changes / bump chart version
-helm upgrade x509-certificate-exporter enix/x509-certificate-exporter \
-  --values x509-certificate-exporter.values.yaml
-```
 
 ## 📝 Notes & caveats
 
@@ -362,27 +404,3 @@ hostPathsExporter:
 ```
 
 {{ template "chart.valuesSection" . }}
-
-## ⚖️ License
-
-```
-Copyright (c) 2020-2026 ENIX
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```

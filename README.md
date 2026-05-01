@@ -9,8 +9,21 @@
 
 <div align="center">
 
-[![GitHub Release](https://img.shields.io/github/v/release/enix/x509-certificate-exporter?sort=semver&display_name=tag&style=flat&logo=github&label=Release&color=3a6ed7)](https://github.com/enix/x509-certificate-exporter/releases/latest) [![Cosign signed](https://img.shields.io/badge/Sigstore-cosign_signed-chartreuse)](https://docs.sigstore.dev) [![SLSA Level 3](https://img.shields.io/badge/SLSA-level%203-chartreuse)](https://slsa.dev/spec/v1.0/levels) [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/enix/x509-certificate-exporter?style=flat&label=OSSF%20Scorecard)](https://securityscorecards.dev/viewer/?uri=github.com/enix/x509-certificate-exporter) [![Made at ENIX](https://img.shields.io/badge/Banana--grade-ENIX-3a6ed7?logo=gamebanana)](https://enix.io)<br/>
-[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/x509-certificate-exporter)](https://artifacthub.io/packages/helm/enix/x509-certificate-exporter)
+[![GitHub Release][release-img]][release] [![Cosign signed][cosign-img]][cosign] [![SLSA Level 3][slsa-img]][slsa] [![OpenSSF Scorecard][ossf-img]][ossf] [![Made at ENIX][enix-img]][enix]<br/>
+[![Artifact Hub][artifacthub-img]][artifacthub]
+
+[release]: https://github.com/enix/x509-certificate-exporter/releases/latest
+[release-img]: https://img.shields.io/github/v/release/enix/x509-certificate-exporter?sort=semver&display_name=tag&style=flat&logo=github&label=Release&color=3a6ed7
+[cosign]: https://docs.sigstore.dev
+[cosign-img]: https://img.shields.io/badge/Sigstore-cosign_signed-chartreuse
+[slsa]: https://slsa.dev/spec/v1.0/levels
+[slsa-img]: https://img.shields.io/badge/SLSA-level%203-chartreuse
+[ossf]: https://securityscorecards.dev/viewer/?uri=github.com/enix/x509-certificate-exporter
+[ossf-img]: https://img.shields.io/ossf-scorecard/github.com/enix/x509-certificate-exporter?style=flat&label=OSSF%20Scorecard
+[enix]: https://enix.io
+[enix-img]: https://img.shields.io/badge/Banana--grade-ENIX-3a6ed7?logo=gamebanana
+[artifacthub]: https://artifacthub.io/packages/helm/enix/x509-certificate-exporter
+[artifacthub-img]: https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/x509-certificate-exporter
 
 </div>
 
@@ -44,49 +57,99 @@ cluster it observes, but equally happy as a standalone binary.
 
 | Where to go | What you'll find |
 | --- | --- |
-| [**Install on Kubernetes**](./chart) | Helm chart values, secretTypes / PKCS#12 wiring, hostPath PKI DaemonSets |
-| [**Metrics**](./docs/metrics.md) | Per-cert / per-source / health series, label schema, PromQL examples |
-| [**Hardening**](./docs/hardening.md) | Supply-chain verification, SBOM queries, immutable-digest pinning |
-| [**FAQ**](./docs/faq.md) | Memory sizing, cardinality control, HA, non-Kubernetes use |
-| [**Contributing**](./CONTRIBUTING.md) | Dev loop with Tilt + k3d + Dagger, conventions, release flow |
+| 🚀 [**Install on Kubernetes**](./chart) | Helm chart values, secretTypes / PKCS#12 wiring, hostPath PKI DaemonSets |
+| 📊 [**Metrics**](./docs/metrics.md) | Per-cert / per-source / health series, label schema, PromQL examples |
+| 🛡️ [**Hardening**](./docs/hardening.md) | Supply-chain verification, SBOM queries, immutable-digest pinning |
+| ❓ [**FAQ**](./docs/faq.md) | Memory sizing, cardinality control, HA, non-Kubernetes use |
+| 🏗️ [**Contributing**](./CONTRIBUTING.md) | Dev loop with Tilt + k3d + Dagger, conventions, release flow |
 
 > [!WARNING]
-> **Upgrading from version 3?** Start with the [v3 → v4 migration guide](./docs/migration-v3-to-v4.md) — chart distribution moved to OCI on `quay.io`, the Alpine image variant is retired, and a few values keys changed shape.
+> **Upgrading from version 3?** Start with the
+> [v3 → v4 migration guide](./docs/migration-v3-to-v4.md) — chart distribution
+> moved to OCI on `quay.io`, the Alpine image variant is retired, and a few
+> values keys changed shape.
 
-## 📊 Metrics
+## ⚙️ Under the hood
 
-The exporter emits four metric families:
+- **100% Go.** A few thousand lines, no CGO, no plugins — auditable end
+  to end in an afternoon.
 
-- **Per-certificate** — one series per certificate, dense label set
-  (`subject_*`, `issuer_*`, `serial_number`, source-specific
-  `secret_*` / `configmap_*` / `filepath`, optional surfaced Secret
-  labels)
-- **Per-source** — health, bundle count, and error breakdown for each
-  configured input
-- **Health & process** — `/metrics` scrape latency, panic counter,
-  build info
-- **Internal** — Kubernetes informer scope and queue-depth gauges, for
-  debugging
+- **Performance-aware.** Parsed certificates are cached so repeat scrapes
+  don't re-decode the same PEM blocks. On Kubernetes, the exporter wires
+  shared **informers** + watch streams instead of polling `kube-apiserver`,
+  with watch traffic that scales with churn, not with scrape rate.
 
-Full reference with label schemas, gating conditions, reason codes and
-PromQL examples: see [`docs/metrics.md`](./docs/metrics.md).
+- **Helm-first delivery.** A first-party [Helm chart](./chart) covers
+  Deployments, DaemonSets, RBAC, ServiceMonitor, PrometheusRule, and a
+  Grafana dashboard. Published as an OCI artifact.
 
-## ❔ FAQ
+- **Cross-platform binaries.** Each release ships statically-linked
+  binaries for Linux, macOS, Windows, FreeBSD, OpenBSD, NetBSD, Illumos
+  and Solaris across `amd64`, `arm64`, `armv7` and `riscv64`. Drop one on
+  a legacy box, run it under systemd or Windows Services — the exporter
+  has no daemon dependencies and reads files straight from disk.
 
-Common questions covered in [`docs/faq.md`](./docs/faq.md):
+- **Plays with any Prometheus-compatible collector.** The `/metrics`
+  endpoint speaks the canonical OpenMetrics text format and supports
+  TLS + BasicAuth via `prometheus/exporter-toolkit` (`--web.config.file`),
+  so **mTLS** scrapes work out of the box. Tested against / known to
+  work with: Prometheus, Grafana Agent / Alloy, VictoriaMetrics (`vmagent`),
+  Thanos, Cortex / Grafana Mimir, OpenTelemetry Collector, Datadog Agent,
+  Elastic Metricbeat, Splunk OTel Collector, Sysdig, New Relic, Dynatrace,
+  Sumo Logic, Wavefront, Telegraf.
 
-- Why expose `not_after` rather than a remaining duration?
-- How do I detect that the exporter has stopped seeing my certs?
-- Does the exporter read or store private keys?
-- What's the memory footprint? How many certs can it handle?
-- How do I keep label cardinality under control?
-- Can I run multiple replicas?
-- How do I monitor a non-Kubernetes host?
+- **Open, signed, attested supply chain.** Every release is built by a
+  single open-source GitHub Actions
+  [pipeline](.github/workflows/release.yaml). Container images, Helm
+  chart, and binaries are signed with **sigstore/cosign** keyless (no
+  maintainer-held private key); binaries carry a **SLSA Level 3** in-toto
+  provenance attestation; images carry a CycloneDX SBOM as a cosign
+  attestation. Verification recipes live in the
+  [hardening guide](./docs/hardening.md).
 
-## 🏗️ Contributing
+- **Defensive by intent.** The project tracks the
+  [OpenSSF Scorecard][ossf] and converges on its recommendations —
+  pinned dependencies, branch protection, signed commits, dependency
+  review, SBOM, no force-pushes. Finding a defensive practice we don't
+  follow yet? Open an issue.
 
-The project uses Tilt + k3d + Dagger for an interactive dev loop. See
-[CONTRIBUTING.md](./CONTRIBUTING.md) for environment setup, common
-workflows, and troubleshooting.
+## 🔁 How it fits in your DevOps loop
 
-Architectural notes for AI assistants live in [CLAUDE.md](./CLAUDE.md).
+End-to-end, the exporter is one piece in a four-stage pipeline that you
+likely already run for every other workload. No new tooling to learn, no
+parallel control plane — just one more metric family in the observability
+stack you already have.
+
+1. **Deploy.** A single `helm install` drops a Deployment (in-cluster
+   Secrets / ConfigMaps) and, optionally, DaemonSets (on-node PKI like
+   kubelet, etcd, kube-apiserver). No CRDs of its own, no operator.
+   Outside Kubernetes, the same binary runs as a systemd unit pointed at
+   files on disk.
+
+2. **Scrape.** The chart creates a `ServiceMonitor` (or `PodMonitor`) so
+   a [prometheus-operator][po]-managed Prometheus picks the exporter up
+   automatically. On clusters without the operator, the standard
+   `prometheus.io/scrape` Pod annotations work just as well.
+
+3. **Alert.** A `PrometheusRule` ships with four batteries-included
+   alerts: read-errors canary (RBAC / parsing / missing files),
+   per-certificate error, renewal warning (28 days out by default),
+   expiration critical (14 days out). Alertmanager routes them like any
+   other rule — Slack, PagerDuty, email, webhooks — and the thresholds
+   plus individual alerts are tunable per install.
+
+4. **Visualize.** A ready-to-import [Grafana dashboard][dash] lists every
+   certificate the exporter sees, sorted by time remaining, sliced by
+   namespace, source, and issuer. Deploy it via the chart as a
+   sidecar-discovered ConfigMap (`grafana.createDashboard: true`) or
+   import the JSON by hand.
+
+The net effect: a certificate renewal is no longer an outage waiting to
+happen. The on-call rotation that already triages your service alerts
+also catches expiring certs — 28 days ahead for the leaf, 14 for the
+critical ones — and the team that owns the workload owns the renewal,
+instead of a platform team scrambling the day a `cert-manager` annotation
+turns out to have been misspelled six months ago.
+
+[po]: https://github.com/prometheus-operator/prometheus-operator
+[dash]: https://grafana.com/grafana/dashboards/13922

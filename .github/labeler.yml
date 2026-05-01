@@ -29,6 +29,7 @@ sensitive:
           - "flake.*"
           - "go.*"
           - "CLAUDE.md"
+          - ".coderabbit.yaml"
 
 chart:
   - changed-files:

@@ -1,7 +1,7 @@
 {{- $extraVolumes := concat .Values.secretsExporter.extraVolumes .Values.extraVolumes }}
 {{- $extraVolumeMounts := concat .Values.secretsExporter.extraVolumeMounts .Values.extraVolumeMounts }}
 {{- if .Values.secretsExporter.enabled }}
-apiVersion: {{ include "capabilities.deployment.apiVersion" . }}
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   {{- with .Values.secretsExporter.annotations }}

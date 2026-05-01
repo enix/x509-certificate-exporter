@@ -467,6 +467,3 @@ rbacProxy:
     capabilities:
       drop:
         - ALL
-
-# -- Override Kubernetes version detection ; useful with "helm template"
-kubeVersion: ""

@@ -1,7 +1,7 @@
 {{- if .Values.rbac.create }}
 {{- if .Values.secretsExporter.enabled }}
 ---
-apiVersion: {{ include "capabilities.rbac.apiVersion" . }}
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ include "x509-certificate-exporter.secretsExporterClusterRoleName" . }}
@@ -65,7 +65,7 @@ rules:
 {{- end }}
 {{- if .Values.hostPathsExporter.daemonSets }}
 ---
-apiVersion: {{ include "capabilities.rbac.apiVersion" . }}
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ include "x509-certificate-exporter.hostPathsExporterClusterRoleName" . }}

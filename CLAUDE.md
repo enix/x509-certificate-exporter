@@ -35,10 +35,11 @@ everything.
   the same `build/Dockerfile.busybox` as the release — single source of
   truth for the image, dev == release.
 - **Direct CLI** for things that don't need a sandbox: k3d/tilt/helm
-  on the dev cluster, ratchet against `.github/workflows/*.yaml`,
-  Renovate dry-run via Docker, and `go mod tidy` / `go get -u` (pure
-  toolchain operations — Dagger overhead would buy us nothing because
-  `GOTOOLCHAIN=auto` makes host execution bit-identical anyway).
+  on the dev cluster, Renovate dry-run via Docker, and `go mod tidy`
+  / `go get -u` (pure toolchain operations — Dagger overhead would buy
+  us nothing because `GOTOOLCHAIN=auto` makes host execution
+  bit-identical anyway). GitHub Action SHA-pinning is owned by
+  Renovate (`pinDigests: true` in `renovate.json5`).
 
 | Goal | Command | Notes |
 |---|---|---|
@@ -60,8 +61,6 @@ everything.
 | Tidy go.mod | `task go:tidy` | `go mod tidy` on main + `dagger/` (direct, no Dagger) |
 | Bump Go deps | `task go:upgrade` | `go get -u ./...` + tidy on main + `dagger/` (direct) |
 | Renovate dry-run | `task renovate:plan` | extracts deps + lists planned bumps without modifying files (debug `renovate.json5`) |
-| Pin GH Actions to SHAs | `task ratchet:pin` | one-shot bootstrap: rewrite every `@v4` to `@<sha> # v4` in workflows |
-| Refresh pinned Action SHAs | `task ratchet:update` | resolve current pinned SHAs to latest of their tracked tag (out-of-band of Renovate) |
 | Render chart README | `task doc:helm` | `dagger call helm-docs export --path=chart/README.md` |
 
 ## Dagger module architecture

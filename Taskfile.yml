@@ -10,8 +10,9 @@ version: '3'
 #     locally via `task image` (full) or `task image:local` (host-arch
 #     only). Tilt invokes goreleaser directly with GORELEASER_TILT=1.
 #   - Direct CLI for things that don't need sandboxing: k3d/tilt for
-#     the dev cluster, ratchet on workflows (pinned via the Nix shell),
-#     Renovate dry-run via Docker, and `go mod tidy` / `go get -u`.
+#     the dev cluster, Renovate dry-run via Docker, and `go mod tidy` /
+#     `go get -u`. GitHub Action SHA-pinning is owned by Renovate
+#     (`pinDigests: true` in renovate.json5).
 
 env:
   DAGGER_NO_NAG: '1'
@@ -161,16 +162,6 @@ tasks:
     desc: Update flake.lock to latest inputs
     cmds:
       - nix flake update
-
-  ratchet:pin:
-    desc: 'Pin every GitHub Action in .github/workflows/*.yaml to a commit SHA (one-shot bootstrap; Renovate maintains afterwards)'
-    cmds:
-      - ratchet pin .github/workflows/*.yaml
-
-  ratchet:update:
-    desc: 'Refresh already-pinned Action SHAs in .github/workflows/*.yaml to their latest tags'
-    cmds:
-      - ratchet update .github/workflows/*.yaml
 
   renovate:plan:
     desc: 'Dry-run Renovate against the working tree — extracts deps and lists planned bumps; does NOT modify files'

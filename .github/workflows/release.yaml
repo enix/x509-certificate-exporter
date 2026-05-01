@@ -152,8 +152,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
-      - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # ratchet:anchore/sbom-action/download-syft@v0
+      - uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4
+      - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
 
       - uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7
         with:
@@ -206,8 +206,8 @@ jobs:
   # release binary (`slsa-generator-generic-linux-amd64`). A SHA-pinned
   # `uses:` would break that download. The trust chain is OIDC +
   # Sigstore Fulcio + Rekor, not the workflow file's SHA — so tag-pin
-  # here is policy-equivalent to SHA-pin elsewhere. `# ratchet:exclude`
-  # below tells `task ratchet:pin` to leave this line alone.
+  # here is policy-equivalent to SHA-pin elsewhere. The matching
+  # `pinDigests: false` exception lives in renovate.json5.
   slsa:
     name: SLSA provenance
     needs: goreleaser
@@ -215,7 +215,7 @@ jobs:
       id-token: write # OIDC for the provenance generator
       contents: write # upload provenance to the GitHub Release
       actions: read # introspect this workflow for the attestation
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0 # ratchet:exclude
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: "${{ needs.goreleaser.outputs.hashes }}"
       upload-assets: true
@@ -250,7 +250,7 @@ jobs:
       - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
         with:
           version: "3.18.0"
-      - uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+      - uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4
       - name: Login to chart OCI registry
         env:
           CHART_REGISTRY_USERNAME: ${{ secrets.CHART_REGISTRY_USERNAME }}

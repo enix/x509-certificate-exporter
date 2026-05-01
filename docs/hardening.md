@@ -210,7 +210,7 @@ Drop a verification step before any deploy stage. A typical GitHub
 Actions snippet:
 
 ```yaml
-- uses: sigstore/cosign-installer@<sha>  # ratchet-pinned in your repo
+- uses: sigstore/cosign-installer@<sha>  # SHA-pinned in your repo
 - name: Verify exporter image
   run: |
     cosign verify quay.io/enix/x509-certificate-exporter:${{ env.VERSION }} \

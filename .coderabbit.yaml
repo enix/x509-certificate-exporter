@@ -83,8 +83,8 @@ reviews:
       instructions: |
         Flag unpinned actions (`@v4` instead of `@<sha>`), missing
         `permissions:` blocks, and overly broad token scopes. Workflow
-        SHAs are managed by `task ratchet:pin` — don't suggest
-        floating tags.
+        SHAs are managed by Renovate (`pinDigests: true` in
+        renovate.json5) — don't suggest floating tags.
 
     - path: "dagger/**/*.go"
       instructions: |

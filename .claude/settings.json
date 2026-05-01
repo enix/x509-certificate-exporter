@@ -19,8 +19,6 @@
       "Bash(task lint:markdown)",
       "Bash(task lint:renovate)",
       "Bash(task nix:update)",
-      "Bash(task ratchet:pin)",
-      "Bash(task ratchet:update)",
       "Bash(task renovate:plan)",
       "Bash(task security)",
       "Bash(task security:chart-misconfig)",

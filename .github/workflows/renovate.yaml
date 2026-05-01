@@ -118,7 +118,7 @@ jobs:
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
 
       - name: Run Renovate
-        uses: renovatebot/github-action@f66d8679fcfcfa051abde6e7a623007173bf5164 # ratchet:renovatebot/github-action@v46.1.12
+        uses: renovatebot/github-action@f66d8679fcfcfa051abde6e7a623007173bf5164 # v46
         env:
           LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
           # Scope strictly to this repo. The App may have access to

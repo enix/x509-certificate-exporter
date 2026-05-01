@@ -33,7 +33,6 @@
             cosign
             slsa-verifier
             rekor-cli
-            ratchet
           ]);
         };
       });

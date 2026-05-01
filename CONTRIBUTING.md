@@ -229,7 +229,7 @@ nothing builds the binary or the images via Nix.
 
 The flake's `devShells.default` lists every CLI you need (`go`, `task`,
 `dagger`, `goreleaser`, `tilt`, `k3d`, `kubectl`, `helm`, `cosign`,
-`slsa-verifier`, `rekor-cli`, `ratchet`). Activating the shell sets
+`slsa-verifier`, `rekor-cli`). Activating the shell sets
 `$PATH` to include those, so they resolve without you ever installing
 them globally. When you leave the shell, they're gone from your
 `$PATH` again. No system pollution.
@@ -608,8 +608,6 @@ releases.
 | `task go:upgrade` | `go get -u ./...` + tidy on main + `dagger/` (direct) |
 | `task nix:update` | `nix flake update` (refresh flake.lock) |
 | `task renovate:plan` | Dry-run Renovate locally; no PRs, just logs the bumps it would propose |
-| `task ratchet:pin` | One-shot bootstrap: pin every GitHub Action in workflows to a commit SHA |
-| `task ratchet:update` | Refresh already-pinned Action SHAs to their latest tag commits |
 | `task doc` | Regenerate all documentation |
 | `task doc:helm` | Regenerate chart/README.md only (Dagger) |
 

@@ -9,13 +9,15 @@
     { "type": "fix", "section": "Bug Fixes" },
     { "type": "perf", "section": "Performance" },
     { "type": "deps", "section": "Dependencies" },
-    { "type": "doc", "section": "Documentation" },
     { "type": "docs", "section": "Documentation" },
     { "type": "ci", "hidden": true },
     { "type": "chore", "hidden": true },
     { "type": "refactor", "hidden": true },
     { "type": "test", "hidden": true },
-    { "type": "build", "hidden": true }
+    { "type": "build", "hidden": true },
+    { "type": "doc", "section": "Documentation" },
+    { "type": "chores", "hidden": true },
+    { "type": "tests", "hidden": true }
   ],
   "packages": {
     ".": {

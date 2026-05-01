@@ -1,9 +1,9 @@
 <!-- markdownlint-disable-next-line MD041 -->
 <p align="center">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="http://127.0.0.1:8000/docs/assets/logo2-dark.webp">
-      <source media="(prefers-color-scheme: light)" srcset="http://127.0.0.1:8000/docs/assets/logo2.webp">
-      <img alt="X.509 Certificate Exporter" title="X.509 Certificate Exporter" src="http://127.0.0.1:8000/docs/assets/logo2.webp">
+      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/enix/x509-certificate-exporter/raw/main/docs/assets/logo2-dark.webp">
+      <source media="(prefers-color-scheme: light)" srcset="https://github.com/enix/x509-certificate-exporter/raw/main/docs/assets/logo2.webp">
+      <img alt="X.509 Certificate Exporter" title="X.509 Certificate Exporter" src="https://github.com/enix/x509-certificate-exporter/raw/main/docs/assets/logo2.webp">
     </picture>
 </p>
 

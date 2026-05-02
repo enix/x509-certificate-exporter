@@ -92,6 +92,7 @@ jobs:
       - name: Sync chart artifacthub annotations
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
         shell: python
         run: |
           """
@@ -267,11 +268,16 @@ jobs:
           # itself uses, so the post-process commit is visually consistent
           # with the release-please commit on the same PR.
           #
-          # App-issued tokens don't represent a user, so `/user` 401s.
-          # The canonical path: `/app` exposes the App's slug, and the
-          # bot user follows the convention `<slug>[bot]` whose numeric
-          # id (needed for the noreply email) is at `/users/<slug>[bot]`.
-          slug = json.loads(out("gh", "api", "/app"))["slug"]
+          # App-issued installation tokens don't represent a user (`/user`
+          # 401s) and can't call `/app` (that endpoint requires a JWT
+          # signed with the App's private key, not an installation token).
+          # The slug is exposed by create-github-app-token as an action
+          # output, surfaced here via APP_SLUG. The bot user follows the
+          # convention `<slug>[bot]`; its numeric id (needed for the
+          # noreply email) comes from /users/<slug>[bot], a regular user
+          # endpoint reachable with the installation token.
+          import os
+          slug = os.environ["APP_SLUG"]
           bot_login = f"{slug}[bot]"
           bot_id = json.loads(out("gh", "api", f"/users/{bot_login}"))["id"]
           run("git", "config", "user.name", bot_login)

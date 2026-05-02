@@ -28,6 +28,12 @@ on:
 permissions:
   contents: read
 
+# Silence Dagger's Cloud upload and analytics paths globally.
+env:
+  DAGGER_NO_NAG: "1"
+  DAGGER_CLOUD_TOKEN: ""
+  DO_NOT_TRACK: "1"
+
 jobs:
   verify:
     name: Verify

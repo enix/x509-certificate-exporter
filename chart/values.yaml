@@ -58,12 +58,15 @@ migration:
   # @default -- see `values.yaml`
   podSecurityContext:
     runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
   # -- SecurityContext for containers of Helm hooks
   # @default -- see `values.yaml`
   securityContext:
     runAsUser: 65534
     runAsGroup: 65534
     readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL
@@ -140,12 +143,15 @@ secretsExporter:
   # @default -- see `values.yaml`
   podSecurityContext:
     runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
   # -- SecurityContext for containers of the TLS Secrets exporter
   # @default -- see `values.yaml`
   securityContext:
     runAsUser: 65534
     runAsGroup: 65534
     readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL
@@ -252,13 +258,17 @@ hostPathsExporter:
   # -- Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   podAnnotations: {}
   # -- PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
-  podSecurityContext: {}
+  # @default -- see `values.yaml`
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
   # -- SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets)
   # @default -- see `values.yaml`
   securityContext:
     runAsUser: 0
     runAsGroup: 0
     readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL
@@ -474,6 +484,7 @@ rbacProxy:
     runAsGroup: 65534
     runAsNonRoot: true
     readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL

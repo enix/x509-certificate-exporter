@@ -189,12 +189,23 @@ tasks:
     desc: 'Run all tests (unit + e2e)'
     cmds:
       - task: test:unit
+      - task: test:fuzz
       - task: test:e2e
 
   test:unit:
     desc: 'Unit tests with race detector + coverage (gotestsum)'
     cmds:
       - dagger call --progress tty test
+
+  test:fuzz:
+    desc: 'Smoke-run every fuzzer (5s each) — fails on any new crash'
+    # Go fuzz only targets one Fuzz* function at a time, so we list each
+    # explicitly. Long-form fuzzing is a manual local activity:
+    #   go test -fuzz=<name> -fuzztime=10m ./<pkg>
+    cmds:
+      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/pem/
+      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/pkcs12/
+      - go test -run=^$ -fuzz=FuzzCompile -fuzztime=5s ./internal/fileglob/
 
   test:e2e:
     desc: 'End-to-end against a throwaway cluster — built and torn down by the task'

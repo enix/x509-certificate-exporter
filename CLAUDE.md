@@ -52,8 +52,9 @@ everything.
 | Lint Helm | `task lint:helm` | `dagger call lint-helm` |
 | Lint Markdown | `task lint:markdown` | `dagger call lint-markdown` |
 | Lint all | `task lint` | Go + Helm + Renovate + Markdown |
-| All tests | `task test` | runs `test:unit` + `test:e2e` sequentially |
+| All tests | `task test` | runs `test:unit` + `test:fuzz` + `test:e2e` sequentially |
 | Unit tests | `task test:unit` | `dagger call test` — gotestsum + `-race` + coverage |
+| Fuzz smoke | `task test:fuzz` | each `Fuzz*` target run for 5s — catches seed-corpus regressions |
 | End-to-end tests | `task test:e2e` | throwaway k3d cluster, Helm install, scrape `/metrics` |
 | Vuln scan | `task security:govulncheck` | `dagger call govulncheck` |
 | Vuln scan (deps) | `task security:vuln-deps` | `dagger call trivy --scan-type=fs` |
@@ -198,6 +199,11 @@ the pod's state or making HTTP requests to it right after modifying source files
   from `internal/` without a real consumer.
 - Tests use the standard `*_test.go` colocated layout. Prefer table-driven tests
   for the parser/registry packages.
+- Parsers that consume untrusted bytes (PEM, PKCS#12, fileglob patterns) carry
+  `Fuzz*` targets in `*_fuzz_test.go` files. `task test:fuzz` runs each for 5s
+  (smoke); for a real session use `go test -fuzz=<name> -fuzztime=10m ./<pkg>`.
+  A crash gets persisted under `testdata/fuzz/...` and becomes a regression
+  test — commit those files alongside the fix.
 - Version metadata is injected at build time via `-ldflags -X` into
   `internal/product`. Don't read it from env or from disk at runtime.
 - The `formatVersion` short form is `MAJOR.MINOR.PATCH+gSHORTSHA` and gets a

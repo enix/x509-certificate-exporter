@@ -207,7 +207,7 @@ task --list                   # show every available task with description
 task build                    # `go build` directly (host-arch only)
 task image                    # `goreleaser release --snapshot ...`
 task lint                     # → go run ./dagger lint:go (+helm, +renovate)
-task test                     # runs test:unit then test:e2e
+task test                     # runs test:unit, test:fuzz, test:e2e
 ```
 
 Whenever you're not sure what command to run, `task --list` is the answer.
@@ -597,8 +597,9 @@ releases.
 | `task dev:up` | Tilt up — full dev loop |
 | `task dev:down` | Tilt down — keep cluster |
 | `task dev:cluster:down` | Destroy dev cluster + registry |
-| `task test` | Run unit + e2e tests sequentially |
+| `task test` | Run unit + fuzz smoke + e2e tests sequentially |
 | `task test:unit` | Unit tests with race detector + coverage (Dagger) |
+| `task test:fuzz` | Smoke-run every `Fuzz*` target (5s each) |
 | `task test:e2e` | Full e2e against fresh throwaway cluster |
 | `task lint` | All linters (Go + Helm + Renovate) |
 | `task lint:{go,gocritic,gonocritic,helm,renovate}` | Single linter (Dagger) |

@@ -60,11 +60,16 @@
   customManagers: [
     // K3s image pinned for the dev cluster bootstrap (Taskfile var
     // DEV_K3S_IMAGE). Tag format `v<sem>-k3s<n>`.
+    //
+    // The regex tolerates YAML quoting variants: bare value, single
+    // quotes, double quotes — whichever a formatter happens to apply.
+    // No anchor after currentValue, so any future `@digest` suffix is
+    // silently ignored without breaking extraction.
     {
       customType: "regex",
       managerFilePatterns: ["/^Taskfile\\.ya?ml$/"],
       matchStrings: [
-        "DEV_K3S_IMAGE:\\s*rancher/k3s:(?<currentValue>v\\d+\\.\\d+\\.\\d+-k3s\\d+)",
+        "DEV_K3S_IMAGE:\\s*['\"]?rancher/k3s:(?<currentValue>v\\d+\\.\\d+\\.\\d+-k3s\\d+)",
       ],
       depNameTemplate: "rancher/k3s",
       datasourceTemplate: "docker",
@@ -73,11 +78,23 @@
     // kube-prometheus-stack chart pinned in the dev Tiltfile
     // (KUBE_PROMETHEUS_VERSION). Helm datasource — Renovate fetches
     // available versions from the prometheus-community repo index.
+    //
+    // The regex tolerates two formatting variants and one value variant:
+    //
+    //   - inline    : `KUBE_PROMETHEUS_VERSION = "x.y.z"`
+    //   - paren-wrap: `KUBE_PROMETHEUS_VERSION = (\n  "x.y.z"\n)` (IDE auto-format)
+    //   - bare or digest-pinned value: `"x.y.z"` or `"x.y.z@sha256:..."`
+    //
+    // `\s*` matches newlines, `\(?` makes the opening paren optional,
+    // `[\w.@:-]*` accepts the OCI chart digest suffix Renovate appends
+    // when pinning. The closing paren is intentionally outside the
+    // match so `replaceString` stops at the closing quote — Renovate's
+    // substitution then preserves whichever style was in place.
     {
       customType: "regex",
       managerFilePatterns: ["/^Tiltfile$/"],
       matchStrings: [
-        "KUBE_PROMETHEUS_VERSION\\s*=\\s*['\"](?<currentValue>\\d[\\w.-]*)['\"]",
+        "KUBE_PROMETHEUS_VERSION\\s*=\\s*\\(?\\s*['\"](?<currentValue>\\d[\\w.@:-]*)['\"]",
       ],
       depNameTemplate: "kube-prometheus-stack",
       datasourceTemplate: "helm",
@@ -88,11 +105,15 @@
     // images, golangci-lint and gotestsum tool versions). Two regex
     // managers — one for Docker images, one for `go install` tools —
     // since the datasource differs.
+    //
+    // The Docker regex's currentValue accepts `@:` so a manually-added
+    // (or Renovate-injected) digest suffix doesn't break extraction —
+    // same defensive shape as the Tiltfile manager above.
     {
       customType: "regex",
       managerFilePatterns: ["/^dagger/base\\.go$/"],
       matchStrings: [
-        "(?<depName>[a-zA-Z0-9./_-]+)Image\\s*=\\s*\"(?<packageName>[a-zA-Z0-9./_-]+):(?<currentValue>[\\w.-]+)\"",
+        "(?<depName>[a-zA-Z0-9./_-]+)Image\\s*=\\s*\"(?<packageName>[a-zA-Z0-9./_-]+):(?<currentValue>[\\w.@:-]+)\"",
       ],
       datasourceTemplate: "docker",
     },

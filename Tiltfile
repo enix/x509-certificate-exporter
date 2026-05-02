@@ -35,7 +35,9 @@ default_registry(
 IMAGE = "x509-certificate-exporter"
 
 # Renovate-tracked (custom regex manager in renovate.json5).
-KUBE_PROMETHEUS_VERSION = "84.4.0"
+KUBE_PROMETHEUS_VERSION = (
+    "84.5.0@cda1399b40dd6406385c491e2f209d342a5915b3fad90c4c1433d02a75ca5761"
+)
 
 # 1. Build via GoReleaser ------------------------------------------------------
 # custom_build hands the build off to GoReleaser in "tilt mode"
@@ -51,14 +53,16 @@ KUBE_PROMETHEUS_VERSION = "84.4.0"
 # EXPECTED_REF Tilt expects (skips_local_docker=False).
 custom_build(
     ref=IMAGE,
-    command=" && ".join([
-        'export TILT_IMAGE_REPO="${EXPECTED_REF%:*}"',
-        'export TILT_IMAGE_TAG="${EXPECTED_REF##*:}"',
-        'export GORELEASER_TILT=1',
-        'export IMAGE_NAME=x509-certificate-exporter',
-        'goreleaser release --snapshot --skip=publish,sign,sbom,archive,before --clean',
-        'docker tag "${EXPECTED_REF}-$(go env GOARCH)" "$EXPECTED_REF"',
-    ]),
+    command=" && ".join(
+        [
+            'export TILT_IMAGE_REPO="${EXPECTED_REF%:*}"',
+            'export TILT_IMAGE_TAG="${EXPECTED_REF##*:}"',
+            "export GORELEASER_TILT=1",
+            "export IMAGE_NAME=x509-certificate-exporter",
+            "goreleaser release --snapshot --skip=publish,sign,sbom,archive,before --clean",
+            'docker tag "${EXPECTED_REF}-$(go env GOARCH)" "$EXPECTED_REF"',
+        ]
+    ),
     deps=[
         "./cmd",
         "./pkg",
@@ -92,36 +96,58 @@ helm_resource(
     namespace="monitoring",
     flags=[
         "--create-namespace",
-        "--version", KUBE_PROMETHEUS_VERSION,
-        "--set", "alertmanager.enabled=false",
-        "--set", "grafana.enabled=false",
-        "--set", "kubeStateMetrics.enabled=false",
-        "--set", "nodeExporter.enabled=false",
-        "--set", "kubeApiServer.enabled=false",
-        "--set", "kubelet.enabled=false",
-        "--set", "kubeControllerManager.enabled=false",
-        "--set", "coreDns.enabled=false",
-        "--set", "kubeDns.enabled=false",
-        "--set", "kubeEtcd.enabled=false",
-        "--set", "kubeScheduler.enabled=false",
-        "--set", "kubeProxy.enabled=false",
-        "--set", "defaultRules.create=false",
+        "--version",
+        KUBE_PROMETHEUS_VERSION,
+        "--set",
+        "alertmanager.enabled=false",
+        "--set",
+        "grafana.enabled=false",
+        "--set",
+        "kubeStateMetrics.enabled=false",
+        "--set",
+        "nodeExporter.enabled=false",
+        "--set",
+        "kubeApiServer.enabled=false",
+        "--set",
+        "kubelet.enabled=false",
+        "--set",
+        "kubeControllerManager.enabled=false",
+        "--set",
+        "coreDns.enabled=false",
+        "--set",
+        "kubeDns.enabled=false",
+        "--set",
+        "kubeEtcd.enabled=false",
+        "--set",
+        "kubeScheduler.enabled=false",
+        "--set",
+        "kubeProxy.enabled=false",
+        "--set",
+        "defaultRules.create=false",
         # Admission webhooks + operator TLS disabled in dev: enabling them
         # requires a cert source (cert-manager or a webhook helper), which is
         # overkill for a local loop. Re-enable if you ever need to validate
         # PrometheusRule/ServiceMonitor admission against the operator's
         # webhook in dev — otherwise misconfigured CRs only surface at apply
         # time, not at edit time.
-        "--set", "prometheusOperator.admissionWebhooks.enabled=false",
-        "--set", "prometheusOperator.tls.enabled=false",
+        "--set",
+        "prometheusOperator.admissionWebhooks.enabled=false",
+        "--set",
+        "prometheusOperator.tls.enabled=false",
         # Pick up ServiceMonitors / PrometheusRules from any namespace, no label filter
-        "--set", "prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false",
-        "--set", "prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false",
-        "--set", "prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues=false",
-        "--set", "prometheus.prometheusSpec.probeSelectorNilUsesHelmValues=false",
+        "--set",
+        "prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false",
+        "--set",
+        "prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false",
+        "--set",
+        "prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues=false",
+        "--set",
+        "prometheus.prometheusSpec.probeSelectorNilUsesHelmValues=false",
         # Trim retention so the dev pod stays small
-        "--set", "prometheus.prometheusSpec.retention=2h",
-        "--set", "prometheus.prometheusSpec.replicas=1",
+        "--set",
+        "prometheus.prometheusSpec.retention=2h",
+        "--set",
+        "prometheus.prometheusSpec.replicas=1",
     ],
     resource_deps=["prometheus-community"],
     labels=["infra"],
@@ -151,7 +177,8 @@ helm_resource(
     namespace="monitoring",
     flags=[
         "--create-namespace",
-        "--values", "./dev/values.yaml",
+        "--values",
+        "./dev/values.yaml",
     ],
     image_deps=[IMAGE],
     image_keys=[("image.registry", "image.repository", "image.tag")],

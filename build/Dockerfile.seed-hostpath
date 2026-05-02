@@ -5,7 +5,7 @@
 # /var/lib/x509ce-e2e/ that lives only inside the throwaway k3d node.
 
 # renovate: datasource=docker depName=golang
-FROM golang:1.26.2-alpine AS build
+FROM 1.26.2-alpine@sha256:f85330846cde1e57ca9ec309382da3b8e6ae3ab943d2739500e08c86393a21b1 AS build
 WORKDIR /src
 ENV CGO_ENABLED=0 GOTOOLCHAIN=auto
 COPY go.mod go.sum ./

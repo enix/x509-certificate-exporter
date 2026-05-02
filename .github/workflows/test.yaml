@@ -93,6 +93,6 @@ jobs:
       # tilt, goreleaser, kubectl, task — from flake.nix. Single source
       # of truth between dev and CI for the e2e tooling. Renovate
       # tracks both refs via the `# vXX` comment.
-      - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
-      - uses: DeterminateSystems/magic-nix-cache-action@6221693898146dc97e38ad0e013488a16477a4c4 # v9
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
       - run: nix develop --command task test:e2e

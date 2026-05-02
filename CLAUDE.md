@@ -114,8 +114,7 @@ End-to-end dev loop driven by **Tilt + k3d + Dagger**:
 ```bash
 task dev:cluster:up   # one-shot: k3d cluster + local registry on :5000
 task dev:up           # tilt up: watches sources, rebuilds via Dagger, redeploys
-task dev:down         # tilt down (cluster persists)
-task dev:cluster:down # full teardown
+task dev:down         # tilt down + destroy cluster, registry, kubeconfig
 task test:e2e         # build/deploy/seed and run ./test/e2e against /metrics
 ```
 

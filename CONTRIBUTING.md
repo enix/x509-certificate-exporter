@@ -362,12 +362,12 @@ Forwarded ports while `tilt up` is running:
 When you're done:
 
 ```sh
-task dev:down                 # tilt down (cluster persists)
-task dev:cluster:down         # full teardown of cluster + registry
+task dev:down                 # tilt down + destroy cluster, registry, kubeconfig
 ```
 
-You can leave the cluster running between sessions — only `task dev:up`
-needs to be re-run to bring Tilt back.
+To keep the cluster running between sessions (faster restart — no
+prometheus-operator bootstrap), run `tilt down` directly instead;
+`task dev:up` then brings Tilt back without rebuilding the cluster.
 
 #### Build-cycle expectations
 
@@ -604,7 +604,7 @@ releases.
 | `task image:local` | Like `task image` but only host arch (skips QEMU cross-build) |
 | `task dev:cluster:up` | Bring up dev k3d cluster + registry |
 | `task dev:up` | Tilt up — full dev loop |
-| `task dev:down` | Tilt down — keep cluster |
+| `task dev:down` | Tilt down + full cluster teardown |
 | `task dev:cluster:down` | Destroy dev cluster + registry |
 | `task test` | Run unit + fuzz smoke + e2e tests sequentially |
 | `task test:unit` | Unit tests with race detector + coverage (Dagger) |

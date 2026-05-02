@@ -87,11 +87,12 @@ tasks:
       - tilt up
 
   dev:down:
-    desc: tilt down — remove deployed resources (cluster persists)
+    desc: tilt down + destroy cluster, registry, kubeconfig (full teardown)
     env:
       KUBECONFIG: '{{.KUBECONFIG_DEV}}'
     cmds:
       - tilt down
+      - task: dev:cluster:down
 
   dev:cluster:up:
     desc: Bring up k3d cluster + local registry (idempotent)

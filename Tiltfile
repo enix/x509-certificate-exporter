@@ -2,8 +2,7 @@
 # Dev loop (driven from Taskfile.yml):
 #   task dev:up     — `dev:cluster:up` then `tilt up`. Tilt always sees a
 #                     healthy cluster + populated kubeconfig at startup.
-#   task dev:down   — tilt down (cluster persists)
-#   task dev:cluster:down — destroy cluster + registry + local kubeconfig
+#   task dev:down   — tilt down + destroy cluster, registry, kubeconfig
 #
 # Cluster bootstrap is intentionally NOT a Tilt resource: Tilt caches its
 # kubeconfig at startup and does not reload it, so a Tilt-managed bootstrap

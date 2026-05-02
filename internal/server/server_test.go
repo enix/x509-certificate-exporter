@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -94,5 +95,9 @@ func TestRunGracefulShutdown(t *testing.T) {
 	defer ts.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	_ = Run(ctx, &http.Server{Addr: "127.0.0.1:0", Handler: srv.Handler}, nopLogger())
+	// Run must return the ctx error after graceful shutdown, not a
+	// server-side error (e.g. bind failure).
+	if err := Run(ctx, &http.Server{Addr: "127.0.0.1:0", Handler: srv.Handler}, nopLogger()); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Run: expected context.DeadlineExceeded, got %v", err)
+	}
 }

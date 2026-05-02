@@ -62,14 +62,7 @@ cluster it observes, but equally happy as a standalone binary.
   series, so intermediate CAs and trust roots appear alongside leaf certs
   with no extra configuration.
 
-## Installing & upgrading
-
-> [!WARNING]
-> **Upgrading from v3?** Read the [migration guide][v3-v4] first —
-> chart distribution moved to OCI on `quay.io`, the Alpine image
-> variant is retired, and a few values keys changed shape.
-
-[v3-v4]: https://github.com/enix/x509-certificate-exporter/blob/main/docs/migration-v3-to-v4.md
+## 🚢 Deploying with Helm
 
 ### 🚀 Quick install
 
@@ -77,7 +70,7 @@ The chart ships as an OCI artifact on `quay.io` — no `helm repo add`,
 Helm 3.8+ pulls OCI refs directly. One command:
 
 ```sh
-helm install x509-certificate-exporter \
+helm -n monitoring install x509-certificate-exporter \
   oci://quay.io/enix/charts/x509-certificate-exporter
 ```
 
@@ -85,9 +78,10 @@ That's the whole install. The exporter starts watching every
 `kubernetes.io/tls` Secret in the cluster and serves metrics on `/metrics`.
 
 The chart also drops a `ServiceMonitor` and a `PrometheusRule` so a
-[prometheus-operator](https://github.com/prometheus-operator/prometheus-operator)-managed
-Prometheus picks the exporter up and ships with ready-to-use alerts —
-no extra wiring.
+[prometheus-operator][po]-managed Prometheus picks the exporter up and
+ships with ready-to-use alerts — no extra wiring.
+
+[po]: https://github.com/prometheus-operator/prometheus-operator
 
 No prometheus-operator in the cluster? Skip the CRDs and let Prometheus
 discover the Pod via annotations instead. Save the snippet below as
@@ -105,21 +99,21 @@ secretsExporter:
     prometheus.io/scrape: "true"
 ```
 
-```sh
-helm install x509-certificate-exporter \
-  oci://quay.io/enix/charts/x509-certificate-exporter \
-  --values values.yaml
-```
+### 📚 Examples & starting points
 
-This `--values` pattern is how you tweak any setting from the
-[Values reference](#values) further down — drop the keys you want to
-override into your `values.yaml` and re-run the same command.
+A curated set of ready-to-adapt `values.yaml` files lives in
+[`docs/examples/`][examples] — generic baselines (a fully tuned
+secretsExporter, a rich hostPathsExporter with role-specific
+DaemonSets) plus distribution-specific examples for kubeadm, Talos,
+RKE2, k3s, k0s and OpenShift.
 
-```sh
-# Initial install
-helm install x509-certificate-exporter \
-  oci://quay.io/enix/charts/x509-certificate-exporter \
-  --values x509-certificate-exporter.values.yaml
+[examples]: https://github.com/enix/x509-certificate-exporter/blob/main/docs/examples/README.md
+
+> [!TIP]
+> The [project FAQ][faq] answers common questions, both Kubernetes-specific
+> and about the exporter in general.
+
+[faq]: https://github.com/enix/x509-certificate-exporter/blob/main/docs/faq.md
 
 ### 🛡️ Supply-chain verification
 
@@ -137,8 +131,9 @@ covers the territory:
 
 [hardening]: https://github.com/enix/x509-certificate-exporter/blob/main/docs/hardening.md
 
+### 📜 Configuring the chart
 
-### Watching Secrets
+#### Watching Secrets
 
 The default install runs a single Deployment that watches
 `kubernetes.io/tls` Secrets across all namespaces. That's enough to keep
@@ -233,7 +228,7 @@ secretsExporter:
 
 → `x509_cert_not_after{..., secret_label_environment="prod", secret_label_team="payments"}`.
 
-### Metrics for node certificates (hostPath)
+#### Metrics for node certificates (hostPath)
 
 Kubernetes components rely on a long list of certificates that, left
 unattended, *will* expire and bring down a cluster. This is one of the
@@ -363,54 +358,6 @@ The legacy `kube-rbac-proxy` sidecar (`rbacProxy.enabled`) is still
 available for clusters that authenticate scrapes via TokenReview, but
 exporter-toolkit is the recommended path on new installs.
 
-## 📝 Notes & caveats
-
-### `watchFiles` and inode change
-
-CRIs expose host files via mount-binding, so we cannot use `subPath` on
-`volumeMounts` — that would break the moment a certificate file is replaced
-out of place (new inode), which is exactly what most rotators do. Instead,
-the exporter container is granted read access to the **parent directory**
-of every `watchFiles` entry, while only the listed paths are exposed as
-metrics.
-
-If you treat your file layout as a security boundary, keep secret keys in
-a different directory from public certificates.
-
-### Watching symbolic links
-
-Kubelet's certificate rotation puts a symlink (e.g.
-`kubelet-client-current.pem`) in front of dated files. As long as the
-target lives in the same directory, the exporter resolves the link itself
-on every scrape — no extra configuration needed.
-
-```yaml
-watchFiles:
-  - /var/lib/kubelet/pki/kubelet-client-current.pem
-```
-
-### HostPath types and Rancher Kubernetes Engine (RKE)
-
-By default, `hostPath` volumes are typed as `Directory`, which fails fast
-on misconfigurations. RKE's kubelet probe doesn't always agree:
-
-```
-MountVolume.SetUp failed for volume "...":
-  hostPath type check failed: /opt/rke/etc/kubernetes/ssl is not a directory
-```
-
-Set `hostPathVolumeType: null` (per-DaemonSet or as a default) to fall
-back to the unspecified type:
-
-```yaml
-hostPathsExporter:
-  hostPathVolumeType: null
-  daemonSets:
-    nodes:
-      watchFiles:
-        - /etc/kubernetes/pki/*.crt
-```
-
 ## Values
 
 | Key | Type | Default | Description |
@@ -484,6 +431,7 @@ hostPathsExporter:
 | hostPathsExporter.annotations | object | `{}` | Additional DaemonSet annotations |
 | hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.skipSymlinks | bool | `false` | Skip symlinks when scanning files and directories. Does not apply to Kubernetes secrets. |
+| hostPathsExporter.refreshInterval | string | `"300s"` | Polling interval at which the file source re-walks watched paths and re-parses changed files. Accepts a Go duration (e.g. `30s`, `5m`). Default is suited for slowly-rotated PKI; lower it for tests or fast-rotation flows. |
 | hostPathsExporter.restartPolicy | string | `"Always"` | restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.updateStrategy | object | `{}` | updateStrategy for DaemonSets of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.revisionHistoryLimit | int | `nil` | Number of old ReplicaSets to retain for rollback (default for all hostPathsExporter.daemonSets) |
@@ -496,7 +444,7 @@ hostPathsExporter:
 | hostPathsExporter.priorityClassName | string | `""` | PriorityClassName for Pods of hostPath exporters |
 | hostPathsExporter.podExtraLabels | object | `{}` | Additional labels added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.podAnnotations | object | `{}` | Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
-| hostPathsExporter.podSecurityContext | object | `{}` | PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
+| hostPathsExporter.podSecurityContext | object | see `values.yaml` | PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.securityContext | object | see `values.yaml` | SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets) |
 | hostPathsExporter.extraVolumes | list | `[]` | Additional volumes added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumes`) |
 | hostPathsExporter.extraVolumeMounts | list | `[]` | Additional volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumeMounts`) |
@@ -513,7 +461,7 @@ hostPathsExporter:
 | webConfiguration | string | `""` | HTTP server configuration for enabling TLS and authentication (password, mTLS) ; see [documentation at Exporter Toolkit](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md) |
 | webConfigurationExistingSecret | string | `""` | Load the HTTP server configuration from an existing Secret instead of `webConfiguration`. Key must be `webconfig.yaml`. |
 | service.create | bool | `true` | Should a Service be installed, targeting all Deployment and DaemonSet instances (required for ServiceMonitor) |
-| service.headless | bool | `false` | Should the Service be headless |
+| service.headless | bool | `true` | Should the Service be headless (`clusterIP: None`). |
 | service.port | int | `9793` | TCP port to expose the Service on |
 | service.annotations | object | `{}` | Annotations to add to the Service |
 | service.extraLabels | object | `{}` | Additional labels to add to the Service |

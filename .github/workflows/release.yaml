@@ -16,11 +16,11 @@ name: Release
 #                    container images (busybox + scratch, multi-arch,
 #                    pushed to ghcr/quay/docker.io), cosign-signs
 #                    everything, attaches assets to the GitHub Release.
-#                    Driven entirely by .goreleaser.yaml.
-#   2. slsa        — runs the SLSA-3 reusable workflow with the binary
-#                    hashes from goreleaser as subjects, attaching the
-#                    resulting in-toto provenance to the Release.
-#   3. chart       — packages the Helm chart, pushes as OCI artifact,
+#                    Also produces a SLSA Build Level 3 provenance
+#                    attestation over all binaries via GitHub's native
+#                    `actions/attest-build-provenance`. Driven by
+#                    .goreleaser.yaml + the attest step at the tail.
+#   2. chart       — packages the Helm chart, pushes as OCI artifact,
 #                    cosign-signs.
 #
 # Container image SBOMs (CycloneDX via syft, attached as cosign
@@ -28,8 +28,8 @@ name: Release
 # after GoReleaser has pushed the manifests.
 #
 # Verification by consumers (commands shown for the upstream repo;
-# substitute the source-uri / certificate-identity for forks):
-#   - Binary:   slsa-verifier verify-artifact <archive> --provenance-path <intoto.jsonl> --source-uri github.com/enix/x509-certificate-exporter --source-tag <tag>
+# substitute the source-uri / certificate-identity / owner for forks):
+#   - Binary:   gh attestation verify <archive> --owner enix
 #   - Image:    cosign verify <ref> --certificate-identity-regexp '...' --certificate-oidc-issuer https://token.actions.githubusercontent.com
 #   - SBOM:     cosign verify-attestation <ref> --type cyclonedx --certificate-identity-regexp ...
 #   - Chart:    cosign verify <chart-oci-ref> --certificate-identity-regexp '...' --certificate-oidc-issuer https://token.actions.githubusercontent.com
@@ -94,11 +94,10 @@ jobs:
     permissions:
       contents: write # create/append the GitHub Release
       packages: write # push to ghcr.io
-      id-token: write # OIDC for cosign keyless
+      id-token: write # OIDC for cosign keyless + SLSA provenance signing
+      attestations: write # upload SLSA build provenance to the GitHub Attestations API
     env:
       IMAGE_NAME: ${{ vars.IMAGE_NAME }}
-    outputs:
-      hashes: ${{ steps.hashes.outputs.hashes }}
     steps:
       - name: Validate environment variables
         run: |
@@ -160,14 +159,14 @@ jobs:
           version: latest
           args: release --clean
 
-      # SLSA-3 generator wants a base64-encoded sha256sum manifest of
-      # the release binaries. GoReleaser's checksums.txt is exactly that
-      # format (one `<sha>  <filename>` per line).
-      - name: Export hashes for SLSA
-        id: hashes
-        run: |
-          set -euo pipefail
-          echo "hashes=$(base64 -w0 dist/checksums.txt)" >> "$GITHUB_OUTPUT"
+      # SLSA Build Level 3 provenance for every binary listed in
+      # GoReleaser's dist/checksums.txt (sha256sum -c format). Signed
+      # via Sigstore (Fulcio + Rekor) using the workflow's OIDC token,
+      # uploaded to GitHub's native Attestations API. Verified by
+      # consumers with `gh attestation verify <archive> --owner <org>`.
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v3
+        with:
+          subject-checksums: dist/checksums.txt
 
       # CycloneDX SBOMs on the multi-arch manifests, as cosign
       # attestations. Iterates over the images GoReleaser pushed
@@ -200,28 +199,7 @@ jobs:
                 echo "::endgroup::"
               done
 
-  # ─── 2. SLSA Level 3 provenance for binaries ─────────────────────────────
-  # Tag-pinned, NOT SHA-pinned, on purpose: the reusable workflow's
-  # internal logic uses the tag string to download the matching
-  # release binary (`slsa-generator-generic-linux-amd64`). A SHA-pinned
-  # `uses:` would break that download. The trust chain is OIDC +
-  # Sigstore Fulcio + Rekor, not the workflow file's SHA — so tag-pin
-  # here is policy-equivalent to SHA-pin elsewhere. The matching
-  # `pinDigests: false` exception lives in renovate.json5.
-  slsa:
-    name: SLSA provenance
-    needs: goreleaser
-    permissions:
-      id-token: write # OIDC for the provenance generator
-      contents: write # upload provenance to the GitHub Release
-      actions: read # introspect this workflow for the attestation
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-    with:
-      base64-subjects: "${{ needs.goreleaser.outputs.hashes }}"
-      upload-assets: true
-      provenance-name: x509-certificate-exporter.intoto.jsonl
-
-  # ─── 3. Helm chart: package, push as OCI, cosign-sign ────────────────────
+  # ─── 2. Helm chart: package, push as OCI, cosign-sign ────────────────────
   chart:
     name: Chart publish & sign
     needs: goreleaser # the chart references the just-pushed images

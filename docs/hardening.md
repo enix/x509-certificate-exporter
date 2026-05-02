@@ -86,23 +86,24 @@ below).
 ### Binary releases
 
 Binaries ship with a
-[SLSA Level 3](https://slsa.dev/spec/v1.0/levels#build-l3) provenance
-attestation (`x509-certificate-exporter.intoto.jsonl`, attached to the
-GitHub Release). Verify with [`slsa-verifier`](https://github.com/slsa-framework/slsa-verifier):
+[SLSA Build Level 3](https://slsa.dev/spec/v1.0/levels#build-l3)
+provenance attestation, signed via Sigstore (Fulcio + Rekor) and
+uploaded to GitHub's native [Attestations API][gh-attest]. Verify with
+the GitHub CLI:
 
 ```sh
-slsa-verifier verify-artifact x509-certificate-exporter-v4.0.0-linux-amd64.tar.gz \
-  --provenance-path x509-certificate-exporter.intoto.jsonl \
-  --source-uri github.com/enix/x509-certificate-exporter \
-  --source-tag v4.0.0
+gh attestation verify x509-certificate-exporter-v4.0.0-linux-amd64.tar.gz \
+  --owner enix \
+  --source-ref refs/tags/v4.0.0
 ```
 
+[gh-attest]: https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds
+
 A passing verification proves the archive was produced by this repo's
-release workflow at the named tag, by an unmodified
-`slsa-framework/slsa-github-generator` reusable workflow. SLSA-3 also
-implies the build was run on a non-tampered, ephemeral, isolated
-runner — an attacker who compromises a maintainer's local laptop
-cannot forge a release that passes this check.
+release workflow at the named tag, on a GitHub-hosted runner. SLSA-3
+implies the build ran in a non-tampered, ephemeral, isolated environment —
+an attacker who compromises a maintainer's local laptop cannot forge a
+release that passes this check.
 
 A `checksums.txt` file is also published next to each release for
 quick byte-level integrity checks (cheaper than SLSA verification but

@@ -229,7 +229,7 @@ nothing builds the binary or the images via Nix.
 
 The flake's `devShells.default` lists every CLI you need (`go`, `task`,
 `dagger`, `goreleaser`, `tilt`, `k3d`, `kubectl`, `helm`, `cosign`,
-`slsa-verifier`, `rekor-cli`). Activating the shell sets
+`rekor-cli`). Activating the shell sets
 `$PATH` to include those, so they resolve without you ever installing
 them globally. When you leave the shell, they're gone from your
 `$PATH` again. No system pollution.

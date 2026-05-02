@@ -266,15 +266,12 @@ Triggered by the tag created above. Three jobs, all driven by
    attestation (predicateType `cyclonedx`). The Dockerfiles use
    `ARG TARGETPLATFORM` + `COPY $TARGETPLATFORM/<binary>` per the
    dockers_v2 build-context layout.
-2. **`slsa`** — invokes the
-   [`slsa-github-generator`](https://github.com/slsa-framework/slsa-github-generator)
-   reusable workflow with the base64-encoded `dist/checksums.txt` from
-   GoReleaser as the subject. Produces `x509-certificate-exporter.intoto.jsonl`
-   attached to the GitHub Release. **Tag-pinned (not SHA-pinned)** —
-   the workflow's internal logic uses the tag to download its release
-   binary; SHA-pin would break it. See the comment above the `slsa:`
-   job for details.
-3. **`chart`** (env `release`) — packages the Helm chart with `helm
+   The same job emits a SLSA Build Level 3 provenance attestation
+   over `dist/checksums.txt` via `actions/attest-build-provenance`,
+   uploaded to GitHub's native Attestations API and signed via
+   Sigstore. Verified by consumers with
+   `gh attestation verify <archive> --owner enix`.
+2. **`chart`** (env `release`) — packages the Helm chart with `helm
    package` (overriding `name:`/`version:`/`appVersion:` in-runner
    from the env vars + tag, so the chart on disk stays generic),
    pushes as an OCI artifact, signs with cosign keyless. Waits on

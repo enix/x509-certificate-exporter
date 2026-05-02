@@ -31,7 +31,6 @@
             kubectl
             kubernetes-helm
             cosign
-            slsa-verifier
             rekor-cli
           ]);
         };

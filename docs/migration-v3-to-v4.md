@@ -507,9 +507,9 @@ Kubernetes, two things change:
    and Windows across `amd64`, `arm64`, `armv7` and `riscv64` (with
    exclusions for non-existent OS/arch combos). The binary name is
    `x509-certificate-exporter` (unchanged across forks). SLSA-3
-   provenance and SHA256 checksums are published next to each binary —
-   see the [hardening guide](./hardening.md) for the `slsa-verifier`
-   recipe.
+   provenance attestations (queryable via `gh attestation verify`) and
+   SHA256 checksums are published alongside each binary — see the
+   [hardening guide](./hardening.md) for the verification recipe.
 
 This path is supported, but most operational documentation in v4 is
 written assuming the Helm chart. If you need a feature that isn't

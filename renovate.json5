@@ -129,17 +129,6 @@
       matchManagers: ["github-actions"],
       pinDigests: true,
     },
-    // Exception: the SLSA reusable workflow MUST stay tag-pinned. Its
-    // internal logic uses the tag to download the matching release
-    // binary (`slsa-generator-generic-linux-amd64`); a SHA-pinned ref
-    // breaks the download. SLSA's own docs require `@vX.Y.Z` here.
-    // See the long comment above the `slsa:` job in
-    // .github/workflows/release.yaml for details.
-    {
-      matchManagers: ["github-actions"],
-      matchPackageNames: ["slsa-framework/slsa-github-generator"],
-      pinDigests: false,
-    },
 
     // Single PR for all Go-toolchain bumps: go.mod's `go X.Y.Z` and the
     // dagger/base.go `golangImage` constant land together. CI workflows

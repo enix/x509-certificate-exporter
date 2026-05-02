@@ -8,7 +8,7 @@ import (
 // renovate.json5) tracks the `<name>Image = "..."` literals here.
 const (
 	golangImage = "golang:1.26.2-alpine@sha256:f85330846cde1e57ca9ec309382da3b8e6ae3ab943d2739500e08c86393a21b1"
-	alpineImage       = "alpine:3.23.4"
+	alpineImage = "alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11"
 	helmImage = "alpine/helm:4.1.4@sha256:4b0bdd2cf18ff6bca12aba0b2c5671384dab5035c19c57f0c58b854a0baf65be"
 	renovateImage = "renovate/renovate:43.160.5@sha256:d2681694cd96d197567fd7f5b089163d818214330524921d28b02d0cf303edc8"
 	helmDocsImage = "jnorwood/helm-docs:v1.14.2@sha256:7e562b49ab6b1dbc50c3da8f2dd6ffa8a5c6bba327b1c6335cc15ce29267979c"

@@ -53,7 +53,7 @@ jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       # Mint a short-lived installation token for the App. This is the
       # identity used by every subsequent step that talks to the repo:
@@ -83,14 +83,13 @@ jobs:
       # Post-process: keep three artifacthub.io annotations in sync with
       # the release computed by release-please.
       #   - prerelease              : "true" when version is -alpha/-beta/-rc
-      #   - changes                 : bullets from the latest CHANGELOG section
+      #   - changes                 : typed ArtifactHub entries from the latest CHANGELOG section
       #   - containsSecurityUpdates : "true" if that section has an H3 mentioning
       #                               "security"
       # Idempotent: re-runs converge on the same Chart.yaml content, so
       # release-please force-pushes that drop our commit are tolerated —
       # the next push to main re-runs us and re-applies.
       - name: Sync chart artifacthub annotations
-        if: steps.release-please.outputs.prs_created == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         shell: python
@@ -100,8 +99,9 @@ jobs:
           driven by the release-please PR's computed version and CHANGELOG:
 
             - prerelease              : "true" iff version is -alpha/-beta/-rc
-            - changes                 : YAML block of bullets from the latest
-                                        CHANGELOG section
+            - changes                 : typed ArtifactHub entries (added/fixed/
+                                        changed/security) parsed from the latest
+                                        CHANGELOG section, with commit + issue links
             - containsSecurityUpdates : "true" iff that section has an H3
                                         sub-section whose title mentions
                                         "security" (case-insensitive)
@@ -114,6 +114,7 @@ jobs:
           import re
           import subprocess
           import sys
+          import yaml
           from pathlib import Path
 
 
@@ -154,7 +155,30 @@ jobs:
           )["."]
           prerelease = "true" if re.search(r"-(alpha|beta|rc)\b", version, re.I) else "false"
 
-          bullets: list[str] = []
+          # Map release-please CHANGELOG section headers (from release-please-config.json)
+          # to ArtifactHub entry kinds.
+          SECTION_KIND: dict[str, str] = {
+              "Security Updates": "security",
+              "Features":         "added",
+              "Bug Fixes":        "fixed",
+              "Performance":      "changed",
+              "Dependencies":     "changed",
+              "Documentation":    "changed",
+          }
+
+          # release-please bullet format:
+          #   * [**scope:** ]description[ ([sha](commit-url))[, closes [#N](url) ...]]
+          RE_BULLET = re.compile(
+              r"^\*\s+"
+              r"(?:\*\*(?P<scope>[^*]+)\*\*:\s+)?"
+              r"(?P<description>.*?)"
+              r"(?:\s+\(\[[0-9a-f]+\]\((?P<commit>[^)]+)\)\)"
+              r"(?:,\s*closes\s+(?P<issues>.+))?"
+              r")?$"
+          )
+          RE_ISSUE = re.compile(r"\[#(?P<id>\d+)\]\((?P<url>[^)]+)\)")
+
+          entries: list[dict] = []
           contains_security = "false"
           changelog = Path("CHANGELOG.md")
           if changelog.is_file():
@@ -165,18 +189,43 @@ jobs:
               )
               if section_match:
                   section = section_match.group(1)
-                  bullets = re.findall(r"^\s*[-*]\s+(.+)$", section, re.M)
-                  # Any H3 sub-section whose title mentions "security" →
-                  # flag. Catches "Security Updates", "Security Fixes", etc.
-                  if re.search(r"^###\s+.*\bsecurity\b", section, re.M | re.I):
-                      contains_security = "true"
+                  current_kind: str | None = None
+                  for line in section.splitlines():
+                      h3 = re.match(r"^###\s+(.+)$", line)
+                      if h3:
+                          current_kind = SECTION_KIND.get(h3.group(1).strip())
+                          if current_kind == "security":
+                              contains_security = "true"
+                          continue
+                      if current_kind is None:
+                          continue
+                      m = RE_BULLET.match(line.strip())
+                      if not m or not m.group("description"):
+                          continue
+                      scope = m.group("scope")
+                      description = m.group("description").strip()
+                      if scope and scope != "*":
+                          description = f"{scope}: {description}"
+                      links: list[dict] = []
+                      if m.group("commit"):
+                          links.append({"name": "GitHub commit", "url": m.group("commit")})
+                      if m.group("issues"):
+                          for issue in RE_ISSUE.finditer(m.group("issues")):
+                              links.append({
+                                  "name": f'GitHub issue #{issue.group("id")}',
+                                  "url": issue.group("url"),
+                              })
+                      entry: dict = {"kind": current_kind, "description": description}
+                      if links:
+                          entry["links"] = links
+                      entries.append(entry)
 
-          changes_block = (
-              "  artifacthub.io/changes: |\n"
-              + "\n".join(f"    - {b}" for b in bullets)
-              if bullets
-              else '  artifacthub.io/changes: ""'
-          )
+          if entries:
+              changes_yaml = yaml.dump(entries, default_flow_style=False, allow_unicode=True, sort_keys=False)
+              indented = "\n".join("    " + line for line in changes_yaml.splitlines())
+              changes_block = "  artifacthub.io/changes: |\n" + indented
+          else:
+              changes_block = '  artifacthub.io/changes: ""'
 
           # Apply substitutions on Chart.yaml.
           chart = Path("chart/Chart.yaml")
@@ -216,14 +265,19 @@ jobs:
 
           # Match commit author to the App identity that release-please
           # itself uses, so the post-process commit is visually consistent
-          # with the release-please commit on the same PR. `gh api /user`
-          # returns the authenticated user, which under an App-issued
-          # token is the App's bot account.
-          bot = json.loads(out("gh", "api", "/user"))
-          run("git", "config", "user.name", bot["login"])
+          # with the release-please commit on the same PR.
+          #
+          # App-issued tokens don't represent a user, so `/user` 401s.
+          # The canonical path: `/app` exposes the App's slug, and the
+          # bot user follows the convention `<slug>[bot]` whose numeric
+          # id (needed for the noreply email) is at `/users/<slug>[bot]`.
+          slug = json.loads(out("gh", "api", "/app"))["slug"]
+          bot_login = f"{slug}[bot]"
+          bot_id = json.loads(out("gh", "api", f"/users/{bot_login}"))["id"]
+          run("git", "config", "user.name", bot_login)
           run("git", "config", "user.email",
-              f'{bot["id"]}+{bot["login"]}@users.noreply.github.com')
+              f"{bot_id}+{bot_login}@users.noreply.github.com")
 
           run("git", "add", "chart/Chart.yaml")
-          run("git", "commit", "-m", "chore: sync chart artifacthub annotations")
+          run("git", "commit", "-m", "chore(chart): sync artifacthub annotations")
           run("git", "push", "origin", branch)

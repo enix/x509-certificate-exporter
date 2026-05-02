@@ -10,7 +10,7 @@ const (
 	golangImage       = "golang:1.26.2-alpine"
 	alpineImage       = "alpine:3.23.4"
 	helmImage         = "alpine/helm:4.1.4"
-	renovateImage     = "renovate/renovate:43.159.3"
+	renovateImage     = "renovate/renovate:43.160.5"
 	helmDocsImage     = "jnorwood/helm-docs:v1.14.2"
 	markdownlintImage = "davidanson/markdownlint-cli2:v0.22.1"
 	trivyImage        = "aquasec/trivy:0.70.0"

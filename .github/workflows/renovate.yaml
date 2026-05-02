@@ -144,8 +144,8 @@ jobs:
             [
               {
                 "matchHost": "index.docker.io",
-                "username": "${{ secrets.DOCKERHUB_USERNAME }}",
-                "password": "${{ secrets.DOCKERHUB_TOKEN }}"
+                "username": "${{ secrets.DOCKERHUB_READONLY_USERNAME }}",
+                "password": "${{ secrets.DOCKERHUB_READONLY_TOKEN }}"
               }
             ]
           # Dry run only when explicitly requested via workflow_dispatch.

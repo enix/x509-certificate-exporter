@@ -141,17 +141,22 @@ jobs:
           # matchHost: "index.docker.io" wires this in for Renovate.
           # https://docs.renovatebot.com/configuration-options/#hostrules
           # Two hostRules:
-          #   - index.docker.io: see comment block above; opt-out of the
-          #     anonymous 100/6h pull rate limit.
-          #   - github.com:      explicit override so digest lookups for
-          #     cross-org actions (dagger/, sigstore/, renovatebot/,
-          #     ossf/, …) authenticate via the workflow's GITHUB_TOKEN
-          #     instead of the App-installation token, which is scoped
-          #     to enix/x509-certificate-exporter and is unreliable on
-          #     cross-org git/refs reads (Renovate logs them as
-          #     "Could not determine new digest for update"). The
-          #     platform token used to push branches and open PRs
-          #     stays the App token (set via the `token:` input below).
+          #   - index.docker.io:  see comment block above; opt-out of the
+          #                       anonymous 100/6h pull rate limit.
+          #   - api.github.com:   explicit override so github-tags digest
+          #                       lookups for cross-org actions (dagger/,
+          #                       sigstore/, renovatebot/, ossf/, …)
+          #                       authenticate via the workflow's
+          #                       GITHUB_TOKEN instead of the App-installation
+          #                       token, which is scoped to enix/x509-…
+          #                       and is unreliable on cross-org git/refs
+          #                       reads (Renovate logs them as "Could not
+          #                       determine new digest for update").
+          # `matchHost: "api.github.com"` is critical — `github.com` does
+          # NOT match `api.github.com` for Renovate's host-matching, and
+          # the github-tags datasource calls api.github.com/repos/.../git/refs.
+          # The platform token used to push branches and open PRs stays
+          # the App token (set via the `token:` input below).
           RENOVATE_HOST_RULES: |
             [
               {
@@ -160,7 +165,7 @@ jobs:
                 "password": "${{ secrets.DOCKERHUB_READONLY_TOKEN }}"
               },
               {
-                "matchHost": "github.com",
+                "matchHost": "api.github.com",
                 "token": "${{ github.token }}"
               }
             ]

@@ -128,6 +128,26 @@ jobs:
           # Treat a missing or malformed renovate.json5 as a hard error
           # rather than silently doing nothing.
           RENOVATE_REQUIRE_CONFIG: required
+          # Authenticate to Docker Hub using the same secrets the release
+          # pipeline uses. Required for two reasons:
+          #   1. Anonymous pulls are rate-limited to 100/6h per IP. A full
+          #      Renovate run easily blows past that — the run aborts with
+          #      `external-host-error` and no PR ever gets opened.
+          #   2. Renovate can't determine new digests for digest-pinning
+          #      under anonymous limits, producing "Could not determine new
+          #      digest" warnings instead of actual updates.
+          # Authenticated calls bump the limit to 200/6h with a free
+          # Docker Hub account (and 5000+/day with paid). hostRules with
+          # matchHost: "index.docker.io" wires this in for Renovate.
+          # https://docs.renovatebot.com/configuration-options/#hostrules
+          RENOVATE_HOST_RULES: |
+            [
+              {
+                "matchHost": "index.docker.io",
+                "username": "${{ secrets.DOCKERHUB_USERNAME }}",
+                "password": "${{ secrets.DOCKERHUB_TOKEN }}"
+              }
+            ]
           # Dry run only when explicitly requested via workflow_dispatch.
           # GHA ternary `cond && '' || x` is broken: empty-string is falsy so
           # the `||` always fires. Invert: pass the value when it's a real mode,

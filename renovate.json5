@@ -76,29 +76,28 @@
       versioningTemplate: "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-k3s(?<build>\\d+)$",
     },
     // kube-prometheus-stack chart pinned in the dev Tiltfile
-    // (KUBE_PROMETHEUS_VERSION). Helm datasource — Renovate fetches
-    // available versions from the prometheus-community repo index.
+    // (KUBE_PROMETHEUS_VERSION). Pulled from prometheus-community's
+    // OCI registry on ghcr.io.
     //
-    // The regex tolerates two formatting variants and one value variant:
+    // The regex tolerates two formatting variants:
     //
     //   - inline    : `KUBE_PROMETHEUS_VERSION = "x.y.z"`
     //   - paren-wrap: `KUBE_PROMETHEUS_VERSION = (\n  "x.y.z"\n)` (IDE auto-format)
-    //   - bare or digest-pinned value: `"x.y.z"` or `"x.y.z@sha256:..."`
     //
-    // `\s*` matches newlines, `\(?` makes the opening paren optional,
-    // `[\w.@:-]*` accepts the OCI chart digest suffix Renovate appends
-    // when pinning. The closing paren is intentionally outside the
-    // match so `replaceString` stops at the closing quote — Renovate's
-    // substitution then preserves whichever style was in place.
+    // `\s*` matches newlines and `\(?` makes the opening paren
+    // optional. The currentValue is bare semver — no `@digest` suffix
+    // because helm pulls OCI charts via the URL-form for digest pinning,
+    // not via `--version`. The closing paren is intentionally outside
+    // the match so `replaceString` stops at the closing quote.
     {
       customType: "regex",
       managerFilePatterns: ["/^Tiltfile$/"],
       matchStrings: [
-        "KUBE_PROMETHEUS_VERSION\\s*=\\s*\\(?\\s*['\"](?<currentValue>\\d[\\w.@:-]*)['\"]",
+        "KUBE_PROMETHEUS_VERSION\\s*=\\s*\\(?\\s*['\"](?<currentValue>\\d[\\w.-]*)['\"]",
       ],
       depNameTemplate: "kube-prometheus-stack",
-      datasourceTemplate: "helm",
-      registryUrlTemplate: "https://prometheus-community.github.io/helm-charts",
+      datasourceTemplate: "docker",
+      packageNameTemplate: "ghcr.io/prometheus-community/charts/kube-prometheus-stack",
     },
     // Container images and tool versions pinned as Go constants in the
     // Dagger module's base.go (golang/alpine/helm/renovate/helm-docs

@@ -37,9 +37,7 @@ default_registry(
 IMAGE = "x509-certificate-exporter"
 
 # Renovate-tracked (custom regex manager in renovate.json5).
-KUBE_PROMETHEUS_VERSION = (
-    "84.5.0@cda1399b40dd6406385c491e2f209d342a5915b3fad90c4c1433d02a75ca5761"
-)
+KUBE_PROMETHEUS_VERSION = "84.5.0"
 
 # 1. Build via GoReleaser ------------------------------------------------------
 # custom_build hands the build off to GoReleaser in "tilt mode"
@@ -80,7 +78,7 @@ custom_build(
 )
 
 # 2. Deploy via Helm chart -----------------------------------------------------
-load("ext://helm_resource", "helm_resource", "helm_repo")
+load("ext://helm_resource", "helm_resource")
 
 # Prometheus Operator + minimal Prometheus instance. The bundled chart
 # (kube-prometheus-stack) brings the CRDs that the x509-certificate-exporter
@@ -88,15 +86,12 @@ load("ext://helm_resource", "helm_resource", "helm_repo")
 # disabled to keep the cluster lightweight; Prometheus selects every
 # ServiceMonitor/PrometheusRule in the cluster (no label filter) so dev work
 # does not require labeling the exporter's resources.
-helm_repo(
-    name="prometheus-community",
-    url="https://prometheus-community.github.io/helm-charts",
-    labels=["infra"],
-)
-
+#
+# The chart is consumed from prometheus-community's OCI registry — no
+# `helm_repo()` registration needed; helm 3.8+ pulls the OCI ref directly.
 helm_resource(
     name="kube-prometheus",
-    chart="prometheus-community/kube-prometheus-stack",
+    chart="oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack",
     namespace="monitoring",
     flags=[
         "--create-namespace",
@@ -153,7 +148,6 @@ helm_resource(
         "--set",
         "prometheus.prometheusSpec.replicas=1",
     ],
-    resource_deps=["prometheus-community"],
     labels=["infra"],
 )
 

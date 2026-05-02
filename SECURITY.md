@@ -12,11 +12,6 @@ is ready.
 
 [report]: https://github.com/enix/x509-certificate-exporter/security/advisories/new
 
-We aim to acknowledge new reports within **3 working days** and to
-ship a fix or mitigation within **30 days** for confirmed
-vulnerabilities. Severity, scope, and complexity may stretch that
-window — we'll keep you posted on the advisory thread.
-
 ## Scope
 
 In scope:

@@ -167,22 +167,64 @@ tasks:
       - nix flake update
 
   renovate:plan:
-    desc: 'Dry-run Renovate against the working tree — extracts deps and lists planned bumps; does NOT modify files'
-    # `platform=local` defaults to `dryRun=lookup`: every detected
-    # update is logged but nothing touches the working tree. Useful for
-    # debugging renovate.json5 without polluting GitHub. Actual bumps
-    # come from .github/workflows/renovate.yaml.
+    desc: 'Dry-run Renovate against the working tree — lists planned bumps; does NOT modify files'
+    # `platform=local` defaults to `dryRun=lookup`: extract + lookup
+    # phases only, nothing touches the working tree. The actual update
+    # plan is buried in DEBUG-level structured logs (info-level only
+    # gives extraction stats). We pull them at LOG_FORMAT=json and
+    # filter the `packageFiles with updates` event with jq for a
+    # human-readable plan: one line per planned bump (file, dep,
+    # current → new). Useful for debugging renovate.json5 without
+    # polluting GitHub. Actual bumps come from .github/workflows/renovate.yaml.
     cmds:
       - |
+        set -o pipefail
         export GITHUB_COM_TOKEN="$(gh auth token 2>/dev/null || echo '')"
         docker run --rm \
           -v "$(pwd):/usr/src/app" \
           -w /usr/src/app \
           --user "$(id -u):$(id -g)" \
           -e RENOVATE_PLATFORM=local \
-          -e LOG_LEVEL=info \
+          -e LOG_LEVEL=debug \
+          -e LOG_FORMAT=json \
           -e GITHUB_COM_TOKEN \
-          renovate/renovate:43.142.1
+          renovate/renovate:43.142.1 2>&1 \
+          | jq -r 'select(.msg == "packageFiles with updates")
+                   | .config | to_entries[] | .value[]
+                   | .packageFile as $f
+                   | .deps[]? as $d | $d.updates[]?
+                   | . as $u
+                   | ($d.currentValue // "?") as $cv
+                   | ($d.currentDigest // "") as $cd
+                   | ($u.newValue // $cv) as $nv
+                   | ($u.newDigest // "") as $nd
+                   | "\($f)\t\($d.depName)\t\($cv)\(if $cd != "" then "@\($cd)" else "" end) → \($nv)\(if $nd != "" then "@\($nd)" else "" end)"' \
+          | column -t -s "$(printf '\t')"
+
+  renovate:patch:
+    desc: 'Apply Renovate''s planned bumps to the working tree (best-effort, format-preserving)'
+    # Same Renovate dry-run as renovate:plan, but pipe the JSON debug log
+    # to scripts/renovate-patch.py — which finds the `packageFiles with
+    # updates` event and rewrites each `replaceString` in place. Intent:
+    # leave the working tree in a state Renovate's own delta logic can
+    # pick up cleanly on its next run, so we never get a diff Renovate
+    # would refuse. Any ambiguity is a SKIP with diagnostic on stderr —
+    # better to do nothing than to corrupt formatting Renovate would
+    # then have to fight.
+    cmds:
+      - |
+        set -o pipefail
+        export GITHUB_COM_TOKEN="$(gh auth token 2>/dev/null || echo '')"
+        docker run --rm \
+          -v "$(pwd):/usr/src/app" \
+          -w /usr/src/app \
+          --user "$(id -u):$(id -g)" \
+          -e RENOVATE_PLATFORM=local \
+          -e LOG_LEVEL=debug \
+          -e LOG_FORMAT=json \
+          -e GITHUB_COM_TOKEN \
+          renovate/renovate:43.142.1 2>&1 \
+          | python3 scripts/renovate-patch.py
 
   # ─── Tests ───────────────────────────────────────────────────────────────
   test:

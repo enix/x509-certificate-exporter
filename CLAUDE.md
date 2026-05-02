@@ -62,6 +62,7 @@ everything.
 | Tidy go.mod | `task go:tidy` | `go mod tidy` on main + `dagger/` (direct, no Dagger) |
 | Bump Go deps | `task go:upgrade` | `go get -u ./...` + tidy on main + `dagger/` (direct) |
 | Renovate dry-run | `task renovate:plan` | extracts deps + lists planned bumps without modifying files (debug `renovate.json5`) |
+| Renovate apply | `task renovate:patch` | applies the same bumps to the working tree, format-preserving, best-effort (skips ambiguous cases) |
 | Render chart README | `task doc:helm` | `dagger call helm-docs export --path=chart/README.md` |
 
 ## Dagger module architecture
@@ -346,6 +347,17 @@ lookup phases only, nothing written to disk. Use it to verify that
 managers catch what you expect, inspect `skipReason`s, and see how
 groupings/branches resolve. Actual bumps still come from the Actions
 workflow.
+
+`task renovate:patch` is the same dry-run, but its JSON debug output
+is piped to `scripts/renovate-patch.py`, which finds the
+`packageFiles with updates` event and applies each dep's first update
+in place — replacing the exact `replaceString` Renovate would have
+edited, preserving formatting and comments byte-for-byte. Best-effort:
+any ambiguity (replaceString missing/non-unique, pinDigest on a
+previously unpinned dep, rollback updates, etc.) is SKIPPED with a
+diagnostic on stderr. The intent is to leave the working tree in a
+state Renovate's own delta logic can pick up cleanly on its next
+scheduled run.
 
 The Renovate image tag in that task must stay in sync with the
 `renovateImage` constant in `dagger/base.go` (Renovate's dockerfile

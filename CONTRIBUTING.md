@@ -504,12 +504,19 @@ expect, inspect groupings, see `skipReason`s — without polluting GitHub
 with experimental PRs:
 
 ```sh
-task renovate:plan
+task renovate:plan      # list planned bumps, do not modify files
+task renovate:patch     # apply the same bumps to the working tree
 ```
 
-This runs the Renovate CLI in `--platform=local` mode and logs every
-detected update. It does NOT modify files. To force a real run between
-weekly cron triggers, use the `workflow_dispatch` button on the
+`renovate:plan` runs the Renovate CLI in `--platform=local` mode and
+logs every detected update. It does NOT modify files. `renovate:patch`
+runs the same dry-run, then pipes the JSON debug output to
+`scripts/renovate-patch.py` which applies each dep's first update by
+substituting the exact `replaceString` Renovate would have edited —
+formatting and comments preserved byte-for-byte. Anything ambiguous
+gets skipped (with a diagnostic on stderr) so Renovate can pick it up
+cleanly on its next run. To force a real run between weekly cron
+triggers, use the `workflow_dispatch` button on the
 Actions tab.
 
 ## Working on the Helm chart
@@ -609,6 +616,7 @@ releases.
 | `task go:upgrade` | `go get -u ./...` + tidy on main + `dagger/` (direct) |
 | `task nix:update` | `nix flake update` (refresh flake.lock) |
 | `task renovate:plan` | Dry-run Renovate locally; no PRs, just logs the bumps it would propose |
+| `task renovate:patch` | Apply Renovate's planned bumps to the working tree (best-effort, format-preserving) |
 | `task doc` | Regenerate all documentation |
 | `task doc:helm` | Regenerate chart/README.md only (Dagger) |
 

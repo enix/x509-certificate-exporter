@@ -1,0 +1,122 @@
+# Classic secretsExporter + rich on-node coverage.
+#
+# The cluster-watching side runs with chart defaults (sane for a typical
+# cluster). The interesting part is `hostPathsExporter`, with three
+# DaemonSets carved up by node OS role — each role hosts different
+# systemd-managed daemons whose PKI lives on disk by design:
+#
+#   - `controlplane`    → vanilla kubeadm PKI on the control-plane nodes
+#                         (apiserver, etcd, kubelet client, cluster-admin
+#                         / scheduler / controller-manager kubeconfigs).
+#   - `storage-nodes`   → workers that host Ceph daemons (mon / OSD /
+#                         mgr) as systemd units co-located with the
+#                         kubelet. Ceph's TLS lives under /etc/ceph/.
+#   - `edge-nodes`      → workers in remote sites that terminate a
+#                         site-to-site IPsec tunnel via strongSwan
+#                         (systemd unit). X.509 material is in
+#                         /etc/ipsec.d/certs/.
+#
+# Common thread: in all three, the PKI is on disk because the *node OS*
+# manages a daemon — not because a Pod is misusing the host filesystem.
+# Each DaemonSet sets its own `nodeSelector`; `controlplane` and
+# `storage-nodes` also carry a `tolerations:` block to clear the
+# matching node taint (control-plane convention + dedicated-storage
+# pool). Edge nodes are typically untainted, so they get a selector
+# only.
+---
+# ─── Cluster-watching side: keep it boring ────────────────────────────────────
+secretsExporter:
+  # Tautological override — kept as a visible anchor. The chart already
+  # defaults to `enabled: true` (cluster-wide `kubernetes.io/tls` watch
+  # + ServiceMonitor + PrometheusRule). For filtering, PKCS#12 and
+  # mTLS scrape tuning, see `secrets-tuned.yaml`.
+  enabled: true
+
+# ─── On-node PKI: three role-specific DaemonSets ──────────────────────────────
+hostPathsExporter:
+  # Cluster-wide defaults inherited by every entry under daemonSets:.
+  # Each DS can override individually.
+  resources:
+    requests:
+      cpu: 5m
+      memory: 16Mi
+    limits:
+      memory: 40Mi
+
+  daemonSets:
+    # ─── 1. Control plane ─────────────────────────────────────────────────────
+    controlplane:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      podExtraLabels:
+        x509-exporter.example.com/role: controlplane
+      watchFiles:
+        # apiserver
+        - /etc/kubernetes/pki/apiserver.crt
+        - /etc/kubernetes/pki/apiserver-etcd-client.crt
+        - /etc/kubernetes/pki/apiserver-kubelet-client.crt
+        - /etc/kubernetes/pki/front-proxy-client.crt
+        # CAs
+        - /etc/kubernetes/pki/ca.crt
+        - /etc/kubernetes/pki/front-proxy-ca.crt
+        - /etc/kubernetes/pki/etcd/ca.crt
+        # etcd
+        - /etc/kubernetes/pki/etcd/server.crt
+        - /etc/kubernetes/pki/etcd/peer.crt
+        - /etc/kubernetes/pki/etcd/healthcheck-client.crt
+        # kubelet client (rotated symlink)
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+      watchKubeconfFiles:
+        - /etc/kubernetes/admin.conf
+        - /etc/kubernetes/super-admin.conf
+        - /etc/kubernetes/controller-manager.conf
+        - /etc/kubernetes/scheduler.conf
+
+    # ─── 2. Storage nodes (Ceph daemons in systemd) ───────────────────────────
+    # Workers tagged as Ceph hosts run mon / OSD / mgr daemons directly
+    # on the node OS (cephadm or manual install — NOT Rook, which is
+    # Pod-level and uses Secrets). Their TLS lives under /etc/ceph/.
+    # The exact filenames depend on the deployment style; the
+    # directory-watch covers every PEM that ends up there.
+    storage-nodes:
+      nodeSelector:
+        node-role.kubernetes.io/storage: ""
+      # Storage pools are typically tainted to keep general workloads
+      # off the disks; clear the taint so the DaemonSet can run there.
+      tolerations:
+        - key: node-role.kubernetes.io/storage
+          operator: Exists
+          effect: NoSchedule
+      podExtraLabels:
+        x509-exporter.example.com/role: storage
+      watchDirectories:
+        - /etc/ceph
+      # Plus the kubelet client on every worker.
+      watchFiles:
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+
+    # ─── 3. Edge nodes (strongSwan / IPsec site-to-site) ──────────────────────
+    # Workers deployed in remote sites terminate an IKEv2 tunnel back to
+    # the cluster. strongSwan runs as a systemd unit and reads its X.509
+    # material from /etc/ipsec.d/certs/ (peer certs) and
+    # /etc/ipsec.d/cacerts/ (CAs). Surfacing those alongside the
+    # kubelet's own client cert gives one-stop-shop coverage of the
+    # node-side cryptographic surface.
+    edge-nodes:
+      nodeSelector:
+        x509-exporter.example.com/role: edge
+      podExtraLabels:
+        x509-exporter.example.com/role: edge
+      watchDirectories:
+        - /etc/ipsec.d/certs
+        - /etc/ipsec.d/cacerts
+      watchFiles:
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+
+# ─── Grafana dashboard ────────────────────────────────────────────────────────
+grafana:
+  createDashboard: true

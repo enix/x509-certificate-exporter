@@ -1,0 +1,43 @@
+# k0s (Mirantis) — control plane PKI under /var/lib/k0s/pki/, kubelet
+# data under /var/lib/k0s/kubelet/pki/. Embedded etcd lives at
+# /var/lib/k0s/pki/etcd/. The bundled k0s "controller+worker" mode
+# materialises both directories on the same node, in which case both
+# DaemonSets land on the same Pod (harmless — same PKI seen twice).
+#
+# References:
+#   https://docs.k0sproject.io/stable/configuration/
+---
+hostPathsExporter:
+  daemonSets:
+    controller:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      watchFiles:
+        # Cluster CAs
+        - /var/lib/k0s/pki/ca.crt
+        - /var/lib/k0s/pki/front-proxy-ca.crt
+        # apiserver
+        - /var/lib/k0s/pki/apiserver.crt
+        - /var/lib/k0s/pki/apiserver-kubelet-client.crt
+        - /var/lib/k0s/pki/front-proxy-client.crt
+        # Service-account / scheduler / controller-manager client certs
+        # are k0s-specific: it embeds them in admin.conf rather than
+        # writing them as separate files. See watchKubeconfFiles below.
+        # Embedded etcd
+        - /var/lib/k0s/pki/etcd/ca.crt
+        - /var/lib/k0s/pki/etcd/server.crt
+        - /var/lib/k0s/pki/etcd/peer.crt
+        - /var/lib/k0s/pki/etcd/apiserver-etcd-client.crt
+      watchKubeconfFiles:
+        - /var/lib/k0s/pki/admin.conf
+
+    workers:
+      # nodeSelector:
+      #   node-role.kubernetes.io/worker: "true"
+      watchFiles:
+        - /var/lib/k0s/kubelet/pki/kubelet-client-current.pem
+        - /var/lib/k0s/kubelet/pki/kubelet.crt

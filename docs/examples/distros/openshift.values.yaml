@@ -1,0 +1,65 @@
+# OpenShift / OKD — control plane operates as static Pods whose
+# resources are materialised under /etc/kubernetes/static-pod-resources/.
+# Kubelet client lives at /var/lib/kubelet/pki/.
+#
+# IMPORTANT — SCC: hostPathsExporter mounts host directories and runs
+# its container as root (UID 0) to read kubelet/etcd files owned by
+# root. OpenShift's default `restricted-v2` SCC forbids that. The
+# DaemonSet's ServiceAccount must be granted one of:
+#   - hostmount-anyuid     (recommended — minimum scope for hostPath + root)
+#   - privileged           (over-permissive but the easy path)
+#
+# Bind it once with:
+#   oc adm policy add-scc-to-user hostmount-anyuid \
+#     -z $RELEASE_NAME-node -n $NAMESPACE
+#
+# (Replace $RELEASE_NAME with your `helm install` release name and
+# $NAMESPACE with the namespace you installed into. The chart's
+# DaemonSet ServiceAccount is `<release>-node`.)
+#
+# Mix with a generic secrets-* file for the cluster-watching side. Same
+# SCC caveat does NOT apply to secretsExporter — that one runs unprivileged.
+#
+# References:
+#   https://docs.openshift.com/container-platform/latest/security/certificates/api-server.html
+#   https://docs.openshift.com/container-platform/latest/security/certificate_types_descriptions/etcd-certificates.html
+---
+hostPathsExporter:
+  daemonSets:
+    masters:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      podAnnotations:
+        # Required when SCC enforcement is the openshift PSA mode.
+        # Has no effect on stock kubernetes.
+        openshift.io/required-scc: hostmount-anyuid
+      # OpenShift's static-pod resources tree is deeply nested
+      # (per-revision subdirectories with the date in the name). A
+      # broad watchDirectories cast catches each revision as it
+      # rotates without us hard-coding paths.
+      watchDirectories:
+        - /etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/loadbalancer-serving-ca
+        - /etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/localhost-serving-ca
+        - /etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/internal-loadbalancer-serving-ca
+        - /etc/kubernetes/static-pod-resources/kube-apiserver-certs/secrets/service-network-serving-ca
+        - /etc/kubernetes/static-pod-resources/etcd-certs/secrets/etcd-all-certs
+      watchFiles:
+        - /etc/kubernetes/kubelet-ca.crt
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+      watchKubeconfFiles:
+        - /etc/kubernetes/kubeconfig
+
+    workers:
+      # nodeSelector:
+      #   node-role.kubernetes.io/worker: ""
+      podAnnotations:
+        openshift.io/required-scc: hostmount-anyuid
+      watchFiles:
+        - /etc/kubernetes/kubelet-ca.crt
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+      watchKubeconfFiles:
+        - /etc/kubernetes/kubeconfig

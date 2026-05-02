@@ -1,0 +1,75 @@
+# Talos Linux — full control-plane PKI coverage via hostPath.
+#
+# Talos keeps the cluster PKI under its own /system/secrets/... tree
+# (apiserver + aggregator + etcd-client material under
+# /system/secrets/kubernetes/, etcd peer/server certs under
+# /system/secrets/etcd/), with a convenience `/etc/kubernetes/pki/ca.crt`
+# copy for kubeadm-shaped tooling. All of those paths are reachable
+# from a hostPath mount when the kubelet's pre-mount type-check is
+# disabled — which is what `hostPathVolumeType: null` below does.
+#
+# Two things to know:
+#
+#   1. The chart's default `hostPath.type: Directory` makes the
+#      kubelet stat each watched parent directory before mounting.
+#      Talos's mount namespace returns a type that doesn't match
+#      "vanilla directory", so the check fails. `null` removes the
+#      check (no extra privilege granted, just a sanity check skipped).
+#
+#   2. PSA enforcement: Talos runs Pod Security Admission on user
+#      namespaces. The chart's defaults (runAsUser: 0 +
+#      readOnlyRootFilesystem + drop ALL caps + seccompProfile:
+#      RuntimeDefault + allowPrivilegeEscalation: false) sit at the
+#      `baseline` profile, which Talos accepts in any namespace. Do
+#      NOT add `privileged: true` — it would push the Pod beyond
+#      `baseline` and Talos's PSA would reject it.
+#
+#
+# References:
+#   https://www.talos.dev/latest/learn-more/control-plane/
+#   https://www.talos.dev/latest/talos-guides/howto/cert-management/
+---
+hostPathsExporter:
+  # Talos's kubelet runs in its own mount namespace; many host paths
+  # are bind mounts or symlinks back to /system/... — kubelet's stat
+  # of those returns something that doesn't match `type: Directory`,
+  # so the chart's default validation fails ("hostPath type check
+  # failed"). Setting `null` skips that pre-check (no extra access
+  # granted, just a sanity check disabled).
+  hostPathVolumeType: null
+
+  daemonSets:
+    controlplane:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      watchFiles:
+        # apiserver — serving + client certs to other components
+        - /system/secrets/kubernetes/kube-apiserver/apiserver.crt
+        - /system/secrets/kubernetes/kube-apiserver/apiserver-kubelet-client.crt
+        - /system/secrets/kubernetes/kube-apiserver/etcd-client.crt
+        - /system/secrets/kubernetes/kube-apiserver/front-proxy-client.crt
+        # CAs — the canonical copies live under /system/secrets/...;
+        # /etc/kubernetes/pki/ca.crt is a convenience copy Talos
+        # exposes for compatibility with kubeadm-shaped tooling.
+        - /etc/kubernetes/pki/ca.crt
+        - /system/secrets/kubernetes/kube-apiserver/ca.crt
+        - /system/secrets/kubernetes/kube-apiserver/aggregator-ca.crt
+        - /system/secrets/kubernetes/kube-apiserver/etcd-client-ca.crt
+        - /system/secrets/etcd/ca.crt
+        # etcd — server + peer-mesh certs, plus the etcdctl admin cert
+        - /system/secrets/etcd/server.crt
+        - /system/secrets/etcd/peer.crt
+        - /system/secrets/etcd/admin.crt
+        # kubelet client (rotated symlink, resolved on every walk)
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+
+    workers:
+      # nodeSelector:
+      #   node-role.kubernetes.io/worker: ""
+      watchFiles:
+        - /etc/kubernetes/pki/ca.crt
+        - /var/lib/kubelet/pki/kubelet-client-current.pem

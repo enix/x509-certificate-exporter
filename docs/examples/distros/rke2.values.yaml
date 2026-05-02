@@ -1,0 +1,62 @@
+# RKE2 (Rancher) — server PKI under /var/lib/rancher/rke2/server/tls/,
+# agent PKI under /var/lib/rancher/rke2/agent/, kubeconfig in
+# /etc/rancher/rke2/. RKE2 keeps the kube-apiserver / etcd PKI in its
+# own directory tree rather than the upstream /etc/kubernetes/pki path.
+#
+# Mix with a generic secrets-* file for the cluster-watching side.
+#
+# References:
+#   https://docs.rke2.io/security/certificates
+---
+hostPathsExporter:
+  # RKE2 ships an embedded kubelet that runs with its own mount
+  # namespace; `/var/lib/kubelet/` and `/etc/kubernetes/` are
+  # redirected via bind mounts/symlinks to /var/lib/rancher/rke2/...
+  # The kubelet's stat of those paths can return a mode that doesn't
+  # match `type: Directory`, so the chart's default validation fails
+  # ("hostPath type check failed"). Setting `null` skips that
+  # pre-check (no extra access granted, just a sanity check disabled).
+  hostPathVolumeType: null
+
+  daemonSets:
+    controlplane:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/etcd
+          operator: Exists
+          effect: NoExecute
+      watchFiles:
+        # Server-side CAs and bundles
+        - /var/lib/rancher/rke2/server/tls/server-ca.crt
+        - /var/lib/rancher/rke2/server/tls/client-ca.crt
+        - /var/lib/rancher/rke2/server/tls/request-header-ca.crt
+        # Serving certs for the apiserver
+        - /var/lib/rancher/rke2/server/tls/serving-kube-apiserver.crt
+        # Client certs
+        - /var/lib/rancher/rke2/server/tls/client-kube-apiserver.crt
+        - /var/lib/rancher/rke2/server/tls/client-controller.crt
+        - /var/lib/rancher/rke2/server/tls/client-scheduler.crt
+        - /var/lib/rancher/rke2/server/tls/client-kube-proxy.crt
+        # etcd — RKE2 writes per-node files; the kube-apiserver client
+        # cert lives next to the rest of the server TLS.
+        - /var/lib/rancher/rke2/server/tls/etcd/server-ca.crt
+        - /var/lib/rancher/rke2/server/tls/etcd/peer-ca.crt
+        - /var/lib/rancher/rke2/server/tls/etcd/client-ca.crt
+        # kubelet client + serving (agent role on the CP node too)
+        - /var/lib/rancher/rke2/agent/client-kubelet.crt
+        - /var/lib/rancher/rke2/agent/serving-kubelet.crt
+      watchKubeconfFiles:
+        - /etc/rancher/rke2/rke2.yaml
+
+    agents:
+      # nodeSelector:
+      #   node-role.kubernetes.io/worker: "true"
+      watchFiles:
+        - /var/lib/rancher/rke2/agent/client-kubelet.crt
+        - /var/lib/rancher/rke2/agent/serving-kubelet.crt
+        - /var/lib/rancher/rke2/agent/client-ca.crt
+        - /var/lib/rancher/rke2/agent/server-ca.crt

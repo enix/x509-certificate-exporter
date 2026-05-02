@@ -1,0 +1,52 @@
+# k3s (Rancher) — same shape as RKE2, smaller surface. Single-node
+# clusters are common with k3s; the example keeps both DaemonSets
+# anyway so it scales when more nodes join.
+#
+# k3s rotates the kubelet client cert under
+# /var/lib/rancher/k3s/agent/client-kubelet.crt — it's a regular file,
+# not a "current.pem" symlink, so no symlink-following is needed.
+#
+# References:
+#   https://docs.k3s.io/cli/certificate
+---
+hostPathsExporter:
+  daemonSets:
+    server:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      watchFiles:
+        # Server-side CAs and bundles
+        - /var/lib/rancher/k3s/server/tls/server-ca.crt
+        - /var/lib/rancher/k3s/server/tls/client-ca.crt
+        - /var/lib/rancher/k3s/server/tls/request-header-ca.crt
+        # Serving certs for the apiserver
+        - /var/lib/rancher/k3s/server/tls/serving-kube-apiserver.crt
+        # Client certs
+        - /var/lib/rancher/k3s/server/tls/client-kube-apiserver.crt
+        - /var/lib/rancher/k3s/server/tls/client-controller.crt
+        - /var/lib/rancher/k3s/server/tls/client-scheduler.crt
+        - /var/lib/rancher/k3s/server/tls/client-kube-proxy.crt
+        # etcd — only present when k3s is configured with embedded
+        # etcd (default is sqlite). Drop these lines on sqlite-backed
+        # single-server installs.
+        - /var/lib/rancher/k3s/server/tls/etcd/server-ca.crt
+        - /var/lib/rancher/k3s/server/tls/etcd/peer-ca.crt
+        - /var/lib/rancher/k3s/server/tls/etcd/client-ca.crt
+        # Agent role on the server node
+        - /var/lib/rancher/k3s/agent/client-kubelet.crt
+        - /var/lib/rancher/k3s/agent/serving-kubelet.crt
+      watchKubeconfFiles:
+        - /etc/rancher/k3s/k3s.yaml
+
+    agents:
+      # nodeSelector:
+      #   node-role.kubernetes.io/worker: "true"
+      watchFiles:
+        - /var/lib/rancher/k3s/agent/client-kubelet.crt
+        - /var/lib/rancher/k3s/agent/serving-kubelet.crt
+        - /var/lib/rancher/k3s/agent/client-ca.crt
+        - /var/lib/rancher/k3s/agent/server-ca.crt

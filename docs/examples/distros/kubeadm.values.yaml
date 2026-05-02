@@ -1,0 +1,49 @@
+# Vanilla upstream kubeadm — control plane and worker PKI layout as
+# produced by `kubeadm init` / `kubeadm join`. Reference layout that
+# the other distro-specific files in this directory derive from.
+#
+# Two DaemonSets:
+#   - controlplane: apiserver + etcd + admin/scheduler/controller
+#                   kubeconfigs + kubelet client
+#   - workers:      kubelet client only (kubeadm doesn't drop anything
+#                   else cert-shaped on a worker)
+#
+# Mix with a generic secrets-* file for the cluster-watching side.
+---
+hostPathsExporter:
+  daemonSets:
+    controlplane:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      watchFiles:
+        # apiserver
+        - /etc/kubernetes/pki/apiserver.crt
+        - /etc/kubernetes/pki/apiserver-etcd-client.crt
+        - /etc/kubernetes/pki/apiserver-kubelet-client.crt
+        - /etc/kubernetes/pki/front-proxy-client.crt
+        # CAs
+        - /etc/kubernetes/pki/ca.crt
+        - /etc/kubernetes/pki/front-proxy-ca.crt
+        - /etc/kubernetes/pki/etcd/ca.crt
+        # etcd
+        - /etc/kubernetes/pki/etcd/server.crt
+        - /etc/kubernetes/pki/etcd/peer.crt
+        - /etc/kubernetes/pki/etcd/healthcheck-client.crt
+        # kubelet client (rotated symlink)
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+      watchKubeconfFiles:
+        - /etc/kubernetes/admin.conf
+        - /etc/kubernetes/super-admin.conf
+        - /etc/kubernetes/controller-manager.conf
+        - /etc/kubernetes/scheduler.conf
+
+    workers:
+      # nodeSelector:
+      #   node-role.kubernetes.io/worker: ""
+      watchFiles:
+        - /etc/kubernetes/pki/ca.crt
+        - /var/lib/kubelet/pki/kubelet-client-current.pem

@@ -94,8 +94,9 @@ spec:
   url: oci://quay.io/enix/charts
 ```
 
-The chart is cosign-signed; verifying the OCI artifact is documented in
-[the README](../README.md#-verifying-authenticity).
+The chart is cosign-signed; the verification recipes (cosign keyless,
+SLSA-3 provenance, CycloneDX SBOM attestations, image-digest pinning)
+live in the [hardening guide](./hardening.md).
 
 ---
 
@@ -246,6 +247,82 @@ process info). It's enabled by default in the chart (`web.enableStats:
 true`). Disable it with `--set web.enableStats=false` if you want strict
 metrics-only exposure.
 
+### Image schema — `digest` and split `migration.image`
+
+Every image block (`image`, `migration.image`, `rbacProxy.image`) now
+exposes the same five fields: `registry`, `repository`, `tag`,
+`digest`, `pullPolicy` (plus `tagSuffix` on `image` for the
+`busybox`/`scratch` flavor switch). When set, `digest` takes precedence
+over `tag` and produces a `registry/repository@sha256:...` reference —
+the recommended form in production once you have run `cosign verify`.
+
+One small schema break: `migration.image.repository` used to bundle the
+registry (`registry.k8s.io/kubectl`); v4 splits it into
+`registry: registry.k8s.io` + `repository: kubectl`. If you override
+the kubectl image in `values.yaml`, update both keys.
+
+### `kubeVersion` value removed
+
+v3 exposed a top-level `kubeVersion: ""` knob to override the cluster
+version detection — useful only with `helm template`. Helm 3.10+
+exposes the `--kube-version` CLI flag for the same purpose, so v4
+drops the value. If you set `kubeVersion:` in `values.yaml`, remove it
+and pass `--kube-version v1.29.0` (or similar) when rendering.
+
+### PSA-restricted hardening on by default
+
+Every component (`secretsExporter`, `hostPathsExporter`, `migration`,
+`rbacProxy`) now ships with the two extra fields the Pod Security
+Admission `restricted` profile requires:
+
+- `podSecurityContext.seccompProfile.type: RuntimeDefault`
+- `securityContext.allowPrivilegeEscalation: false`
+
+The chart was already running as `runAsNonRoot: true` with `drop: [ALL]`
+capabilities and `readOnlyRootFilesystem: true`; the two new fields
+close the remaining PSA gap. No action required for stock deployments
+— modern container runtimes (containerd, CRI-O, Docker) ship a
+permissive default seccomp profile that any HTTP-server-on-Go
+workload runs under unchanged. If you have an unusual cluster that
+forbids `seccompProfile: RuntimeDefault`, override per-component:
+
+```yaml
+secretsExporter:
+  podSecurityContext:
+    seccompProfile: null
+```
+
+### Service: `headless: true` is the new default
+
+`service.headless` flips from `false` (v3) to `true` (v4). The Service
+is now created with `clusterIP: None` by default, which is the right
+shape for a metrics endpoint: a Pod-level discovery anchor, not a
+load-balanced application.
+
+In practice, **this changes nothing for the dominant scrape paths**:
+
+- `prometheus-operator` `ServiceMonitor` and `PodMonitor` discover
+  Pods via Endpoints / EndpointSlices and scrape Pod IPs directly —
+  the Service's ClusterIP is irrelevant.
+- Prometheus' `kubernetes_sd_configs` does the same.
+- `kubectl port-forward svc/x509-certificate-exporter 9793` still
+  works (kubectl picks a backing Pod).
+
+The one case where the change is observable is a Prometheus job using
+`dns_sd_configs` (or a `static_configs` with the Service DNS name):
+the resolver now returns one A record per Pod instead of a single
+ClusterIP. If you have `replicas > 1` and were relying on the
+ClusterIP's round-robin to distribute scrapes, you almost certainly
+had a latent bug — only one Pod was scraped per attempt. Headless
+fixes that.
+
+To restore the v3 behaviour explicitly:
+
+```yaml
+service:
+  headless: false
+```
+
 ---
 
 ## 4. Configuration: CLI flags → YAML file
@@ -264,9 +341,9 @@ edited and ships it as a `ConfigMap`. The breaking-ness applies only to:
 2. Forks of the chart that assemble flags by hand instead of going
    through the official chart's templates.
 
-For standalone use, see the
-[example config in the README](../README.md#how-do-i-monitor-a-non-kubernetes-host)
-and the exhaustive `dev/values.yaml` for every supported source kind.
+For standalone use, see [`docs/faq.md`](./faq.md) (the
+"non-Kubernetes host" entry) and the exhaustive `dev/values.yaml` for
+every supported source kind.
 
 ---
 
@@ -425,12 +502,14 @@ Kubernetes, two things change:
    x509-certificate-exporter --config /etc/x509-exporter.yaml
    ```
 
-2. **Pre-built binaries** are still attached to every GitHub Release
-   for Linux, macOS, Windows on amd64/arm64. The binary name is
+2. **Pre-built binaries** are still attached to every GitHub Release.
+   v4 broadens the matrix to Linux, macOS, FreeBSD, OpenBSD, NetBSD
+   and Windows across `amd64`, `arm64`, `armv7` and `riscv64` (with
+   exclusions for non-existent OS/arch combos). The binary name is
    `x509-certificate-exporter` (unchanged across forks). SLSA-3
    provenance and SHA256 checksums are published next to each binary —
-   see [the README](../README.md#-verifying-authenticity) for the
-   `slsa-verifier` recipe.
+   see the [hardening guide](./hardening.md) for the `slsa-verifier`
+   recipe.
 
 This path is supported, but most operational documentation in v4 is
 written assuming the Helm chart. If you need a feature that isn't

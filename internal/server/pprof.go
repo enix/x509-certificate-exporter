@@ -55,9 +55,10 @@ func RunPprof(ctx context.Context, srv *http.Server, logger *slog.Logger) {
 	}()
 	select {
 	case <-ctx.Done():
+		// Fresh context: parent ctx is already canceled here.
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		_ = srv.Shutdown(shutdownCtx)
+		_ = srv.Shutdown(shutdownCtx) //nolint:contextcheck
 		logger.Info("pprof stopped")
 	case err := <-errCh:
 		if err != nil {

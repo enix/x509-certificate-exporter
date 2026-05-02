@@ -194,9 +194,10 @@ func Run(ctx context.Context, srv *http.Server, logger *slog.Logger) error {
 	}()
 	select {
 	case <-ctx.Done():
+		// Fresh context: parent ctx is already canceled here.
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = srv.Shutdown(shutdownCtx)
+		_ = srv.Shutdown(shutdownCtx) //nolint:contextcheck
 		logger.Info("http server stopped")
 		return ctx.Err()
 	case err := <-errCh:

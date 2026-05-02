@@ -16,5 +16,6 @@ func inodeOf(info fs.FileInfo) (uint64, bool) {
 	if !ok {
 		return 0, false
 	}
-	return uint64(st.Dev)<<32 | uint64(st.Ino), true
+	// Conversions kept for cross-platform: on Darwin/BSD st.Dev is int32.
+	return uint64(st.Dev)<<32 | uint64(st.Ino), true //nolint:unconvert
 }

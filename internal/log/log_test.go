@@ -80,7 +80,7 @@ func TestTimedEmitsError(t *testing.T) {
 	l := New(&buf, slog.LevelDebug, FormatText)
 	want := errors.New("boom")
 	got := Timed(context.Background(), l, "x", func(ctx context.Context) error { return want })
-	if got != want {
+	if !errors.Is(got, want) {
 		t.Fatalf("err propagation broken")
 	}
 	if !strings.Contains(buf.String(), "boom") {

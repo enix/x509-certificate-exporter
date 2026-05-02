@@ -21,30 +21,33 @@ func TestEndpoints(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler)
 	defer ts.Close()
 
-	resp, _ := http.Get(ts.URL + "/healthz")
-	if resp.StatusCode != 200 {
-		t.Fatalf("healthz: %d", resp.StatusCode)
+	get := func(path string) int {
+		resp, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatalf("get %s: %v", path, err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		return resp.StatusCode
 	}
-	resp, _ = http.Get(ts.URL + "/readyz")
-	if resp.StatusCode != 503 {
-		t.Fatalf("readyz before mark: %d", resp.StatusCode)
+
+	if got := get("/healthz"); got != 200 {
+		t.Fatalf("healthz: %d", got)
+	}
+	if got := get("/readyz"); got != 503 {
+		t.Fatalf("readyz before mark: %d", got)
 	}
 	r.Mark()
-	resp, _ = http.Get(ts.URL + "/readyz")
-	if resp.StatusCode != 200 {
-		t.Fatalf("readyz after mark: %d", resp.StatusCode)
+	if got := get("/readyz"); got != 200 {
+		t.Fatalf("readyz after mark: %d", got)
 	}
-	resp, _ = http.Get(ts.URL + "/metrics")
-	if resp.StatusCode != 200 {
-		t.Fatalf("metrics: %d", resp.StatusCode)
+	if got := get("/metrics"); got != 200 {
+		t.Fatalf("metrics: %d", got)
 	}
-	resp, _ = http.Get(ts.URL + "/")
-	if resp.StatusCode != 200 {
-		t.Fatalf("root: %d", resp.StatusCode)
+	if got := get("/"); got != 200 {
+		t.Fatalf("root: %d", got)
 	}
-	resp, _ = http.Get(ts.URL + "/nope")
-	if resp.StatusCode != 404 {
-		t.Fatalf("not-found: %d", resp.StatusCode)
+	if got := get("/nope"); got != 404 {
+		t.Fatalf("not-found: %d", got)
 	}
 }
 

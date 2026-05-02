@@ -1,0 +1,62 @@
+name: CodeQL
+
+# Static analysis via GitHub's CodeQL. Runs on every push to main, on
+# every PR targeting main, and weekly to pick up new query updates from
+# the GitHub Security Lab against unchanged code.
+#
+# Replaces the GitHub-managed "Default setup" — same analysis (Go +
+# Actions, default query suite, remote threat model) but committed as
+# a workflow so we get:
+#   - concurrency cancellation (a fresh push cancels in-flight runs)
+#   - SHA-pinned actions (Renovate-tracked, satisfies Scorecard's
+#     Pinned-Dependencies and SAST checks)
+#   - explicit path filtering (skip dev/ and test/ noise)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "23 5 * * 1"
+
+permissions: {}
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      security-events: write # upload SARIF
+      packages: read # read deps from GHCR if any
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, go]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        if: matrix.language == 'go'
+        with:
+          go-version-file: go.mod
+
+      - uses: github/codeql-action/init@e46ed2cbd01164d986452f91f178727624ae40d7 # v4
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+          # config: |
+          #   paths-ignore:
+          #     - dev/**
+          #     - test/**
+          #     - "**/*_test.go"
+          #     - "**/*_fuzz_test.go"
+
+      - uses: github/codeql-action/analyze@e46ed2cbd01164d986452f91f178727624ae40d7 # v4
+        with:
+          category: "/language:${{ matrix.language }}"

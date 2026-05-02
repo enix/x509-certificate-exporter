@@ -67,7 +67,7 @@ func validateBundle(t *testing.T, sc Scenario, key string, exps []ExpectCert, b 
 		}
 		found := false
 		for _, e := range b.Errors {
-			if string(e.Reason) == wantErr {
+			if e.Reason == wantErr {
 				found = true
 				break
 			}

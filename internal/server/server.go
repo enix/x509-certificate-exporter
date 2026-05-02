@@ -10,6 +10,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -187,7 +188,7 @@ func Run(ctx context.Context, srv *http.Server, logger *slog.Logger) error {
 	errCh := make(chan error, 1)
 	go func() {
 		err := srv.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 		close(errCh)

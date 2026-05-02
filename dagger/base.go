@@ -7,7 +7,7 @@ import (
 // Pinned image versions. Renovate's `regex` manager (configured in
 // renovate.json5) tracks the `<name>Image = "..."` literals here.
 const (
-	golangImage       = "golang:1.26.2-alpine"
+	golangImage = "golang:1.26.2-alpine@sha256:f85330846cde1e57ca9ec309382da3b8e6ae3ab943d2739500e08c86393a21b1"
 	alpineImage       = "alpine:3.23.4"
 	helmImage         = "alpine/helm:4.1.4"
 	renovateImage     = "renovate/renovate:43.160.5"

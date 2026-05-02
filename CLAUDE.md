@@ -27,13 +27,15 @@ everything.
 - **GoReleaser** (`.goreleaser.yaml`) — every container image in the
   repo, dev OR release. Release pipeline: cross-compile binaries × OS/
   arch, archives, checksums, multi-arch container images for the
-  busybox + scratch variants, push to ghcr/quay/docker.io, cosign
-  keyless on everything, GitHub Release (CI via `release.yaml`).
+  scratch (default) + busybox (alt) variants, push to
+  ghcr/quay/docker.io, cosign keyless on everything, GitHub Release
+  (CI via `release.yaml`).
   Local: `task image` (full snapshot), `task image:local` (host-arch
   only). Dev: Tilt's `custom_build` calls `goreleaser` directly with
   `GORELEASER_TILT=1`, gating a dedicated dockers_v2 entry that uses
-  the same `build/Dockerfile.busybox` as the release — single source of
-  truth for the image, dev == release.
+  `build/Dockerfile.busybox` (the alt release variant — chosen for
+  dev because it ships a shell for `kubectl exec` debugging, not
+  because it's the project default).
 - **Direct CLI** for things that don't need a sandbox: k3d/tilt/helm
   on the dev cluster, Renovate dry-run via Docker, and `go mod tidy`
   / `go get -u` (pure toolchain operations — Dagger overhead would buy
@@ -171,9 +173,10 @@ Layout:
 GoReleaser + Tilt hookup: `custom_build()` watches `cmd/`, `pkg/`,
 `internal/`, `go.mod`, `go.sum`, `build/Dockerfile.busybox`, `.goreleaser.yaml`.
 On any change Tilt invokes `goreleaser release --snapshot ...` with
-`GORELEASER_TILT=1`, which builds a single host-arch busybox image
-(via `build/Dockerfile.busybox` — same as the release) and loads it into
-the local Docker daemon. A `docker tag` post-step strips the
+`GORELEASER_TILT=1`, which builds a single host-arch image from
+`build/Dockerfile.busybox` (the alt release variant — kept for dev
+because it ships a shell, even though scratch is the project default)
+and loads it into the local Docker daemon. A `docker tag` post-step strips the
 `-<arch>` suffix that dockers_v2 appends in snapshot mode so Tilt
 finds the image at exactly `EXPECTED_REF`. Tilt then pushes to the
 local registry; Helm is reconfigured with the new tag and the pod
@@ -263,10 +266,10 @@ Triggered by the tag created above. Three jobs, all driven by
    builds binaries × 6 OS / 4 archs (with exclusions for non-existent
    combos), packages as `.tar.gz` / `.zip`, computes checksums, signs
    the checksums file with cosign keyless. Builds two multi-arch
-   container images (busybox + scratch, each spanning amd64/arm64/
-   riscv64) via GoReleaser's `dockers_v2` — one `docker buildx build
-   --push --platform=...` per variant, hitting ghcr/quay/docker.io in
-   one go. Each pushed multi-arch image is signed with cosign keyless
+   container images (scratch is the default, busybox is the alt with
+   shell; each spans amd64/arm64/riscv64) via GoReleaser's
+   `dockers_v2` — one `docker buildx build --push --platform=...` per
+   variant, hitting ghcr/quay/docker.io in one go. Each pushed multi-arch image is signed with cosign keyless
    (`docker_signs` → `artifacts: images`). Then a post-loop reads
    `dist/artifacts.json`, resolves each pushed image tag → digest,
    runs syft for an image SBOM, and attaches it as a cosign
@@ -368,9 +371,10 @@ declarations directly — both rely on regex managers configured in
 Config validated via `task lint:renovate` (runs `renovate-config-validator`
 inside the official Renovate image, sandboxed by Dagger). Highlights:
 
-- `build/Dockerfile.busybox` and `build/Dockerfile.scratch` `FROM` lines tracked
-  natively by the dockerfile manager, with `pinDigests: true` (via
-  packageRule with `matchCategories: ["docker"]`).
+- `build/Dockerfile.scratch` (default variant) and `build/Dockerfile.busybox`
+  (alt variant with shell) `FROM` lines tracked natively by the
+  dockerfile manager, with `pinDigests: true` (via packageRule with
+  `matchCategories: ["docker"]`).
 - Custom regex managers for the K3s image in `Taskfile.yml`
   (`DEV_K3S_IMAGE`), the kube-prometheus-stack version in `Tiltfile`
   (`KUBE_PROMETHEUS_VERSION`), the container images pinned as Go

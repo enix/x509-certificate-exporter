@@ -11,7 +11,10 @@
 # a cluster that came up after it).
 #
 # Pipeline:
-#   1. goreleaser release --snapshot (tilt mode) → builds busybox image, loads
+#   1. goreleaser release --snapshot (tilt mode) → builds busybox-variant
+#                                                  image (kept for the dev
+#                                                  shell — scratch is the
+#                                                  project default), loads
 #                                                  into local Docker daemon
 #   2. tilt push                                  → Tilt tags and pushes to 127.0.0.1:5000
 #   3. helm install                               → deploys exporter, image pulled from local registry
@@ -42,9 +45,11 @@ KUBE_PROMETHEUS_VERSION = (
 # 1. Build via GoReleaser ------------------------------------------------------
 # custom_build hands the build off to GoReleaser in "tilt mode"
 # (GORELEASER_TILT=1), which gates a dedicated dockers_v2 entry that:
-#   - uses the same Dockerfile.busybox as the release pipeline (single
-#     source of truth for the dev image == release image),
-#   - builds only the host arch + only the busybox variant,
+#   - uses Dockerfile.busybox — the same Dockerfile the release uses
+#     for the busybox alt variant. We pick busybox here (not the
+#     project default `scratch`) because we want a shell in the dev
+#     pod for `kubectl exec` debugging,
+#   - builds only the host arch + only this variant,
 #   - tags directly with what Tilt expects via TILT_IMAGE_REPO/TAG.
 #
 # GoReleaser's dockers_v2 appends a `-<arch>` suffix to local tags in

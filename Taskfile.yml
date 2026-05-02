@@ -66,7 +66,7 @@ tasks:
     # GORELEASER_LOCAL_PLATFORM=1 flips two switches at once:
     #   1. builds[]: swaps the full 23-target cross-OS matrix for a
     #      Linux-only x509ce-local build (amd64).
-    #   2. dockers_v2: enables only the busybox-local / scratch-local
+    #   2. dockers_v2: enables only the scratch-local / busybox-local
     #      entries, which build for `linux/{{ .Runtime.Goarch }}` —
     #      the host arch, no QEMU emulation.
     # Disabled cross-arch entries are reported as "configuration is

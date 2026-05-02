@@ -118,13 +118,18 @@ signs:
     output: true
 
 # ─── Container images ────────────────────────────────────────────────────────
-# Two variants (busybox, scratch). Each entry runs a single
-# `docker buildx build` with all platforms + all registries +
-# all tags resolved in one go — no manual manifest stitching.
+# Two variants. `scratch` is the project default — minimal attack
+# surface, no shell, no libc — and gets the bare tag. `busybox` is the
+# alternative for environments that need a shell for debugging via
+# `kubectl exec` and gets the `-busybox` suffix.
 #
-# Tag layout (preserved from the previous dockers + docker_manifests setup):
-#   busybox: :VERSION  + :latest        (latest skipped on snapshots)
-#   scratch: :VERSION-scratch + :scratch  (floating ":scratch" skipped on snapshots)
+# Each entry runs a single `docker buildx build` with all platforms +
+# all registries + all tags resolved in one go — no manual manifest
+# stitching.
+#
+# Tag layout:
+#   scratch: :VERSION         + :latest    (default; floating ":latest" skipped on snapshots)
+#   busybox: :VERSION-busybox + :busybox   (alt;     floating ":busybox" skipped on snapshots)
 #
 # Built-in `sbom: false` because the release.yaml post-loop produces
 # CycloneDX SBOMs via syft + cosign attestation — that's the canonical
@@ -143,46 +148,6 @@ signs:
 # Exactly one entry per variant is active per run via the `disable:`
 # template. Labels are reused across pairs via YAML anchors.
 dockers_v2:
-  - id: busybox
-    disable: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") }}true{{ end }}'
-    ids: [x509ce]
-    dockerfile: build/Dockerfile.busybox
-    platforms:
-      - linux/amd64
-      - linux/arm64
-      - linux/riscv64
-    images:
-      - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
-      - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
-      - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
-    tags:
-      - "{{ .Version }}"
-      - "{{ if not .IsSnapshot }}latest{{ end }}"
-    sbom: false
-    labels: &busybox-labels
-      org.opencontainers.image.title: "{{ .ProjectName }}"
-      org.opencontainers.image.source: "https://github.com/enix/x509-certificate-exporter"
-      org.opencontainers.image.version: "{{ .Version }}"
-      org.opencontainers.image.revision: "{{ .FullCommit }}"
-      org.opencontainers.image.created: "{{ .Date }}"
-      org.opencontainers.image.licenses: "MIT"
-
-  - id: busybox-local
-    disable: '{{ if eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1" }}{{ else }}true{{ end }}'
-    ids: [x509ce-local]
-    dockerfile: build/Dockerfile.busybox
-    platforms:
-      - "linux/{{ .Runtime.Goarch }}"
-    images:
-      - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
-      - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
-      - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
-    tags:
-      - "{{ .Version }}"
-      - "{{ if not .IsSnapshot }}latest{{ end }}"
-    sbom: false
-    labels: *busybox-labels
-
   - id: scratch
     disable: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") }}true{{ end }}'
     ids: [x509ce]
@@ -196,8 +161,8 @@ dockers_v2:
       - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
       - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
     tags:
-      - "{{ .Version }}-scratch"
-      - "{{ if not .IsSnapshot }}scratch{{ end }}"
+      - "{{ .Version }}"
+      - "{{ if not .IsSnapshot }}latest{{ end }}"
     sbom: false
     labels: &scratch-labels
       org.opencontainers.image.title: "{{ .ProjectName }}"
@@ -218,17 +183,59 @@ dockers_v2:
       - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
       - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
     tags:
-      - "{{ .Version }}-scratch"
-      - "{{ if not .IsSnapshot }}scratch{{ end }}"
+      - "{{ .Version }}"
+      - "{{ if not .IsSnapshot }}latest{{ end }}"
     sbom: false
     labels: *scratch-labels
 
-  # Tilt mode: single image consumed by `Tiltfile`'s custom_build. Only
-  # the busybox variant (no scratch — we want a shell in the dev pod for
-  # debugging), only host arch. The image+tag are read from the env
-  # vars Tilt sets via the wrapper script in the Tiltfile, so the
-  # resulting image lands in local Docker under exactly the ref Tilt
-  # expects (skips_local_docker=False).
+  - id: busybox
+    disable: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") }}true{{ end }}'
+    ids: [x509ce]
+    dockerfile: build/Dockerfile.busybox
+    platforms:
+      - linux/amd64
+      - linux/arm64
+      - linux/riscv64
+    images:
+      - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
+    tags:
+      - "{{ .Version }}-busybox"
+      - "{{ if not .IsSnapshot }}busybox{{ end }}"
+    sbom: false
+    labels: &busybox-labels
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.source: "https://github.com/enix/x509-certificate-exporter"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.licenses: "MIT"
+
+  - id: busybox-local
+    disable: '{{ if eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1" }}{{ else }}true{{ end }}'
+    ids: [x509ce-local]
+    dockerfile: build/Dockerfile.busybox
+    platforms:
+      - "linux/{{ .Runtime.Goarch }}"
+    images:
+      - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
+      - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
+    tags:
+      - "{{ .Version }}-busybox"
+      - "{{ if not .IsSnapshot }}busybox{{ end }}"
+    sbom: false
+    labels: *busybox-labels
+
+  # Tilt mode: single image consumed by `Tiltfile`'s custom_build. The
+  # dev image deliberately uses the `busybox` variant (not the project
+  # default `scratch`) so we get a shell in the dev pod for `kubectl
+  # exec` debugging — a developer ergonomics choice, not the release
+  # default. Only host arch. The image+tag are read from the env vars
+  # Tilt sets via the wrapper script in the Tiltfile, so the resulting
+  # image lands in local Docker under exactly the ref Tilt expects
+  # (skips_local_docker=False).
   - id: tilt
     disable: '{{ if eq (envOrDefault "GORELEASER_TILT" "") "1" }}{{ else }}true{{ end }}'
     ids: [x509ce-local]

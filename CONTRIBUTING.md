@@ -177,9 +177,9 @@ debugging a pipeline definition, the SDK code is heavily commented in
 [GoReleaser](https://goreleaser.com) handles every container image in
 the repo. For releases: cross-compile binaries × OS/arch, package as
 `.tar.gz` / `.zip`, compute checksums, build multi-arch container
-images for the busybox and scratch variants, push to the three
-registries, sign everything with sigstore/cosign keyless, attach
-assets to a GitHub Release.
+images for the scratch (default) and busybox (alt) variants, push to
+the three registries, sign everything with sigstore/cosign keyless,
+attach assets to a GitHub Release.
 
 Locally:
 
@@ -188,8 +188,10 @@ Locally:
 - `task image:local` — same but only the host arch; fast iteration.
 - Tilt's `custom_build` invokes `goreleaser` directly with
   `GORELEASER_TILT=1`, which gates a dedicated `dockers_v2` entry
-  using the same `build/Dockerfile.busybox` as the release. The dev image is
-  the release image — minus the multi-arch and the registry push.
+  using `build/Dockerfile.busybox` (the alt release variant — picked
+  for dev because it ships a shell, even though scratch is the project
+  default). The dev image is the release image's alt variant — minus
+  the multi-arch and the registry push.
 
 The whole pipeline is declared in [`.goreleaser.yaml`](./.goreleaser.yaml).
 CI runs it via [`.github/workflows/release.yaml`](./.github/workflows/release.yaml).
@@ -255,9 +257,9 @@ Two Tiltfiles in the repo:
 Tilt's secret sauce in this repo is its `custom_build()` directive: when
 a watched file changes, Tilt invokes `goreleaser release --snapshot`
 in tilt mode (`GORELEASER_TILT=1`), which builds a single host-arch
-busybox image from the same `build/Dockerfile.busybox` the release uses,
-loads it into local Docker, then Tilt pushes to the k3d registry and
-lets Helm reconcile. End-to-end on a small change is about a minute.
+image from `build/Dockerfile.busybox` (kept for dev because of the
+shell — scratch is the project default), loads it into local Docker,
+then Tilt pushes to the k3d registry and lets Helm reconcile. End-to-end on a small change is about a minute.
 
 When something looks weird, the Tilt UI shows the build log per resource
 in real time — usually the fastest way to debug.
@@ -326,8 +328,8 @@ direnv.
 │   └── *.go                          One file per concern (lint, test, ...)
 ├── .goreleaser.yaml                  Release pipeline (binaries + images)
 ├── build/                            Dockerfiles for GoReleaser image variants
-│   ├── Dockerfile.busybox
-│   └── Dockerfile.scratch
+│   ├── Dockerfile.scratch            (default — minimal, no shell)
+│   └── Dockerfile.busybox            (alt — shell for kubectl exec debugging)
 ├── Taskfile.yml                      Developer façade
 ├── Tiltfile                          Dev loop orchestration
 ├── flake.nix                         Dev shell definition

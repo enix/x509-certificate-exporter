@@ -1,6 +1,11 @@
-# See Dockerfile.busybox for the GoReleaser dockers_v2 context conventions.
-# `FROM scratch` means no shell, no libc, no nothing — the tiniest
-# possible image around the static Go binary.
+# Project default image variant. `FROM scratch` means no shell, no
+# libc, no nothing — the tiniest possible image around the static Go
+# binary. The busybox variant (Dockerfile.busybox) is the alternative
+# for environments that need a shell for `kubectl exec` debugging.
+#
+# GoReleaser dockers_v2 hands the binary to the build context under
+# `$TARGETPLATFORM/<binary>` (e.g. `linux_amd64/x509-certificate-exporter`)
+# — required by the per-platform context layout.
 
 FROM scratch
 

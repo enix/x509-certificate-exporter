@@ -19,7 +19,7 @@ deploy via Helm and won't be affected.
 | Area | v3 | v4 |
 | --- | --- | --- |
 | Helm chart distribution | `https://charts.enix.io` (classic) **and** `oci://quay.io/enix/charts/...` | `oci://quay.io/enix/charts/x509-certificate-exporter` only |
-| Container image variants | `busybox`, `alpine`, `scratch` | `busybox`, `scratch` (Alpine retired) |
+| Container image variants | `busybox` (default), `alpine`, `scratch` | `scratch` (default, minimal), `busybox` (alt, with shell) — Alpine retired |
 | Image registries | Docker Hub (canonical) | Docker Hub, GHCR, Quay (all three) |
 | Architectures | `amd64`, `arm64` | `amd64`, `arm64`, `riscv64` |
 | Exporter configuration | CLI flags | YAML config file (`--config`) |
@@ -119,18 +119,27 @@ needed unless you want to switch.
 ### Variants
 
 v3 published three variants via tag suffix (`-busybox`, `-alpine`,
-`-scratch`). **v4 retires the Alpine variant.** Only two variants
-remain:
+`-scratch`). **v4 retires the Alpine variant** and **flips the
+default**:
 
-- `busybox` (default — empty `tagSuffix`)
-- `scratch` (set `image.tagSuffix: -scratch`)
+- `scratch` (default — empty `tagSuffix`). Distroless, no shell, no
+  utilities. Smallest image; use `kubectl debug` to inspect a running
+  pod when needed.
+- `busybox` (set `image.tagSuffix: -busybox`). Ships `/bin/sh`,
+  `wget`, `cat`, etc., for `kubectl exec` debugging.
+
+> [!IMPORTANT]
+> Plain upgrades that don't override `image.tagSuffix` will move from
+> the busybox base to scratch. If your operational tooling assumes a
+> shell in the running pod (init scripts, `kubectl exec`-based
+> diagnostics, sidecars with shared `command:`/`args:`), set
+> `image.tagSuffix: -busybox` to stay on the previous base.
 
 If you currently set `image.tagSuffix: -alpine`, switch to one of:
 
-- `image.tagSuffix: ""` → `busybox`. Closest to Alpine: still has
-  `/bin/sh`, `wget`, `cat`, etc., useful for `kubectl exec` debugging.
-- `image.tagSuffix: -scratch` → distroless. No shell, no utilities.
-  Smallest image; `kubectl debug` is the way to inspect a running pod.
+- `image.tagSuffix: ""` → `scratch`. Distroless, smallest, no shell.
+- `image.tagSuffix: -busybox` → closest replacement for Alpine:
+  still has `/bin/sh`, `wget`, `cat`, etc.
 
 ### Architectures
 
@@ -252,7 +261,7 @@ metrics-only exposure.
 Every image block (`image`, `migration.image`, `rbacProxy.image`) now
 exposes the same five fields: `registry`, `repository`, `tag`,
 `digest`, `pullPolicy` (plus `tagSuffix` on `image` for the
-`busybox`/`scratch` flavor switch). When set, `digest` takes precedence
+`scratch`/`busybox` flavor switch). When set, `digest` takes precedence
 over `tag` and produces a `registry/repository@sha256:...` reference —
 the recommended form in production once you have run `cosign verify`.
 

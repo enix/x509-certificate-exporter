@@ -1,4 +1,9 @@
-# Used by GoReleaser via .goreleaser.yaml's `dockers_v2:` entries.
+# Alternative image variant — the project default is `scratch`
+# (Dockerfile.scratch). This busybox-based variant exists for
+# environments that want a shell in the running pod for `kubectl exec`
+# debugging. Tagged as `:VERSION-busybox` and `:busybox` by GoReleaser;
+# also reused as the dev image for Tilt for the same reason.
+#
 # dockers_v2 lays out the build context with one subdirectory per
 # target platform (e.g. linux_amd64/, linux_arm64/), and exposes the
 # matching one as the $TARGETPLATFORM build arg. So the COPY below

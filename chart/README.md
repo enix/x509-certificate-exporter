@@ -32,6 +32,18 @@ cluster it observes, but equally happy as a standalone binary.
 
 ---
 
+| [🚀 Quick install](#-quick-install) | [📚 Examples](#-examples--starting-points) | [🛡️ Hardening](#-supply-chain-verification) | [🎛️ Values](#values) |
+| --- | --- | --- | --- |
+
+> [!WARNING]
+> **Upgrading from version 3?** Start with the [v3 → v4 migration guide][v3-v4]
+> — chart distribution moved to OCI on `quay.io`, the Alpine image variant is
+> retired, and a few values keys changed shape.
+
+[v3-v4]: https://github.com/enix/x509-certificate-exporter/blob/main/docs/migration-v3-to-v4.md
+
+---
+
 ## 🔍️ What it watches
 
 - **TLS Secrets** of any type — `kubernetes.io/tls`, opaque PEM bundles,

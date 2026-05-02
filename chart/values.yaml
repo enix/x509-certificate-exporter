@@ -305,8 +305,8 @@ webConfigurationExistingSecret: ""
 service:
   # -- Should a Service be installed, targeting all Deployment and DaemonSet instances (required for ServiceMonitor)
   create: true
-  # -- Should the Service be headless
-  headless: false
+  # -- Should the Service be headless (`clusterIP: None`).
+  headless: true
   # -- TCP port to expose the Service on
   port: 9793
   # -- Annotations to add to the Service

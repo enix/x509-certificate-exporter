@@ -23,7 +23,7 @@ deploy via Helm and won't be affected.
 | Image registries | Docker Hub (canonical) | Docker Hub, GHCR, Quay (all three) |
 | Architectures | `amd64`, `arm64` | `amd64`, `arm64`, `riscv64` |
 | Exporter configuration | CLI flags | YAML config file (`--config`) |
-| Helm `secretTypes` shape | `{type, key}` | `{type, key, format?, pkcs12?}` (extended) |
+| Helm `secretTypes` shape | `{type, key}` | `{type, key, format, pkcs12}` — `format` and `pkcs12` are optional |
 | Node-PKI DaemonSet config | `hostPathsDaemonSet:` (single, flat) | `hostPathsExporter.daemonSets.<name>:` (map, multi-instance) |
 | `kube-rbac-proxy` sidecar | Required for TLS / BasicAuth on `/metrics` | Not needed — exporter-toolkit handles both natively |
 | `kube-rbac-proxy` image tag | `v0.13.1` | `v0.22.0` |

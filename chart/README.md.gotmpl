@@ -108,22 +108,22 @@ override into your `values.yaml` and re-run the same command.
 
 ```sh
 # Initial install
-helm install x509-certificate-exporter \
-  oci://quay.io/enix/charts/x509-certificate-exporter \
-  --values x509-certificate-exporter.values.yaml
 
-# Pin to a specific version
-helm install x509-certificate-exporter \
-  oci://quay.io/enix/charts/x509-certificate-exporter \
-  --version 4.1.0 \
-  --values x509-certificate-exporter.values.yaml
+### 🛡️ Supply-chain verification
 
-# Upgrade
-helm upgrade x509-certificate-exporter \
-  oci://quay.io/enix/charts/x509-certificate-exporter \
-  --values x509-certificate-exporter.values.yaml
-```
+Curious how the chart and images are signed, or want to enforce that only
+verified releases run in your cluster? The [hardening guide][hardening]
+covers the territory:
 
+- Immutable image-digest pinning via the chart's `image.digest` value
+- cosign keyless signature verification (sigstore, Fulcio, Rekor)
+- CycloneDX SBOM attestations on container images
+- Strict certificate-identity pinning to the release workflow at a
+  given tag
+- Wiring cosign verification into CI pipelines and cluster admission
+  (sigstore/policy-controller, Kyverno)
+
+[hardening]: https://github.com/enix/x509-certificate-exporter/blob/main/docs/hardening.md
 
 
 ## 📜 Configuring the chart

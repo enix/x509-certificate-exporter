@@ -575,7 +575,7 @@ When the release PR is merged, three things happen automatically:
    the provenance file, and pointers to all signed artifacts
 
 Verification commands for downstream consumers are documented in the
-[main README](./README.md#-verifying-authenticity).
+[hardening guide](./docs/hardening.md).
 
 If you push a tag manually (e.g. to test the Release workflow without
 going through release-please), Chart.yaml's `version`/`appVersion` and
@@ -781,7 +781,7 @@ into implementation.
 - **For the supply-chain story**: the [release workflow](./.github/workflows/release.yaml)
   documents how images are signed (cosign keyless), how SBOMs are attached,
   and how SLSA Level 3 provenance is generated. Verification commands are
-  in [README.md](./README.md#-verifying-authenticity).
+  in [docs/hardening.md](./docs/hardening.md).
 - **For AI-assisted development**: the repository has a [`CLAUDE.md`](./CLAUDE.md)
   giving Claude / Cursor / Aider / similar tools the architectural context
   in a denser, agent-tuned format. Keep it up to date alongside this file

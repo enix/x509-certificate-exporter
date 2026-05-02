@@ -320,7 +320,7 @@ Registry credentials live on the `release` Environment:
   for images and ghcr.io for the chart, or vice-versa).
 
 Verification commands for downstream consumers are documented in the
-[README](./README.md#-verifying-authenticity).
+[hardening guide](./docs/hardening.md).
 
 ## Renovate
 

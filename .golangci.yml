@@ -2,8 +2,40 @@ version: "2"
 
 linters:
   enable:
-    - staticcheck
+    - bodyclose
+    - contextcheck
     - errcheck
-    - ineffassign
-    - unused
+    - errorlint
+    - gocheckcompilerdirectives
     - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - noctx
+    - predeclared
+    - staticcheck
+    - unconvert
+    - unused
+
+  settings:
+    gosec:
+      # Rules that don't fit this project:
+      #   G304 — opening user-provided paths IS the file-watcher's job
+      #   G404 — math/rand is correct for backoff jitter (non-security)
+      #   G115 — byte truncation in registry/labels.go is intentional bit packing
+      excludes:
+        - G304
+        - G404
+        - G115
+
+  exclusions:
+    rules:
+      # gosec on tests + dev tooling (cluster seeders, fixture builders):
+      # 0755 dirs, 0644 files, stub servers without ReadHeaderTimeout —
+      # none of this affects production code.
+      - path: (_test\.go|^dev/)
+        linters:
+          - gosec
+          - noctx

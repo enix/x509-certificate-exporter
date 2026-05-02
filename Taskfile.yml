@@ -181,6 +181,13 @@ tasks:
       - |
         set -o pipefail
         export GITHUB_COM_TOKEN="$(gh auth token 2>/dev/null || echo '')"
+        # Authenticate to Docker Hub if credentials are in the env —
+        # avoids the 100/6h anonymous rate limit that otherwise aborts
+        # the run with `external-host-error`. Set DOCKERHUB_USERNAME +
+        # DOCKERHUB_TOKEN locally (e.g. via direnv) to opt in.
+        if [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+          export RENOVATE_HOST_RULES='[{"matchHost":"index.docker.io","username":"'"$DOCKERHUB_USERNAME"'","password":"'"$DOCKERHUB_TOKEN"'"}]'
+        fi
         docker run --rm \
           -v "$(pwd):/usr/src/app" \
           -w /usr/src/app \
@@ -189,6 +196,7 @@ tasks:
           -e LOG_LEVEL=debug \
           -e LOG_FORMAT=json \
           -e GITHUB_COM_TOKEN \
+          ${RENOVATE_HOST_RULES:+-e RENOVATE_HOST_RULES} \
           renovate/renovate:43.142.1 2>&1 \
           | jq -r 'select(.msg == "packageFiles with updates")
                    | .config | to_entries[] | .value[]
@@ -216,6 +224,10 @@ tasks:
       - |
         set -o pipefail
         export GITHUB_COM_TOKEN="$(gh auth token 2>/dev/null || echo '')"
+        # See `renovate:plan` for the rationale on Docker Hub auth.
+        if [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+          export RENOVATE_HOST_RULES='[{"matchHost":"index.docker.io","username":"'"$DOCKERHUB_USERNAME"'","password":"'"$DOCKERHUB_TOKEN"'"}]'
+        fi
         docker run --rm \
           -v "$(pwd):/usr/src/app" \
           -w /usr/src/app \
@@ -224,6 +236,7 @@ tasks:
           -e LOG_LEVEL=debug \
           -e LOG_FORMAT=json \
           -e GITHUB_COM_TOKEN \
+          ${RENOVATE_HOST_RULES:+-e RENOVATE_HOST_RULES} \
           renovate/renovate:43.142.1 2>&1 \
           | python3 scripts/renovate-patch.py
 

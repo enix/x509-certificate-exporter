@@ -105,15 +105,22 @@
     // managers — one for Docker images, one for `go install` tools —
     // since the datasource differs.
     //
-    // The Docker regex's currentValue accepts `@:` so a manually-added
-    // (or Renovate-injected) digest suffix doesn't break extraction —
-    // same defensive shape as the Tiltfile manager above.
+    // The Docker regex captures `currentDigest` separately from
+    // `currentValue` so the global `pinDigests: true` rule (under
+    // matchCategories: ["docker"]) can write back `image:tag@sha256:...`
+    // — these images run our CI/release sandbox and inherit the
+    // associated tokens, so they're a real supply-chain target.
+    // `autoReplaceStringTemplate` is set explicitly because the default
+    // regex-manager template doesn't preserve the surrounding
+    // `<name>Image = "..."` Go-source structure. gofmt re-aligns the
+    // const block on the next save once digests land.
     {
       customType: "regex",
       managerFilePatterns: ["/^dagger/base\\.go$/"],
       matchStrings: [
-        "(?<depName>[a-zA-Z0-9./_-]+)Image\\s*=\\s*\"(?<packageName>[a-zA-Z0-9./_-]+):(?<currentValue>[\\w.@:-]+)\"",
+        "(?<depName>[a-zA-Z0-9./_-]+)Image\\s*=\\s*\"(?<packageName>[a-zA-Z0-9./_-]+):(?<currentValue>[\\w.-]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?\"",
       ],
+      autoReplaceStringTemplate: "{{depName}}Image = \"{{packageName}}:{{newValue}}{{#if newDigest}}@{{newDigest}}{{/if}}\"",
       datasourceTemplate: "docker",
     },
     {
@@ -137,9 +144,14 @@
   ],
 
   packageRules: [
-    // Pin digests on every Docker FROM (Dockerfiles) for reproducibility.
+    // Pin digests on everything that resolves through the docker
+    // datasource — the native dockerfile manager (build/Dockerfile.*)
+    // AND the regex manager that tracks the dagger/base.go const block.
+    // matchDatasources is broader than matchCategories: it propagates
+    // the rule to custom.regex managers too, which `categories: ["docker"]`
+    // alone does not consistently do across Renovate versions.
     {
-      matchCategories: ["docker"],
+      matchDatasources: ["docker"],
       pinDigests: true,
     },
     // Pin GitHub Actions to commit SHAs. Renovate will rewrite floating

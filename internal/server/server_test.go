@@ -94,6 +94,5 @@ func TestRunGracefulShutdown(t *testing.T) {
 	defer ts.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	go cancel()
 	_ = Run(ctx, &http.Server{Addr: "127.0.0.1:0", Handler: srv.Handler}, nopLogger())
 }

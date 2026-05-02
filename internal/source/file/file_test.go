@@ -98,7 +98,9 @@ func TestRunOnceDiscoversAndDeletes(t *testing.T) {
 func TestRunOnceReadError(t *testing.T) {
 	dir := t.TempDir()
 	bad := filepath.Join(dir, "bad.pem")
-	_ = os.WriteFile(bad, []byte("not a cert"), 0o600)
+	if err := os.WriteFile(bad, []byte("not a cert"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	pat, _ := fileglob.Compile(filepath.Join(dir, "*.pem"))
 	sink := &fakeSink{}
 	src := New(Options{

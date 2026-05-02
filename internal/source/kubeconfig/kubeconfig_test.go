@@ -88,7 +88,9 @@ func TestKubeconfigFileRef(t *testing.T) {
 	}
 	yaml := "clusters:\n- name: c1\n  cluster:\n    certificate-authority: " + caPath + "\n"
 	p := filepath.Join(dir, "kc.yaml")
-	_ = os.WriteFile(p, []byte(yaml), 0o600)
+	if err := os.WriteFile(p, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	src := New(Options{Name: "kc", Paths: []string{p}}, nopLogger())
 	sink := &fakeSink{}
 	src.runOnce(context.Background(), sink, true)
@@ -115,7 +117,9 @@ func TestKubeconfigBadPath(t *testing.T) {
 func TestKubeconfigBadYAML(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "x")
-	_ = os.WriteFile(p, []byte("not-yaml: ["), 0o600)
+	if err := os.WriteFile(p, []byte("not-yaml: ["), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	src := New(Options{Name: "kc", Paths: []string{p}}, nopLogger())
 	sink := &fakeSink{}
 	src.runOnce(context.Background(), sink, true)
@@ -130,7 +134,9 @@ func TestKubeconfigBadYAML(t *testing.T) {
 func TestKubeconfigBadBase64(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "x")
-	_ = os.WriteFile(p, []byte("clusters:\n- name: c1\n  cluster:\n    certificate-authority-data: \"!!!\"\n"), 0o600)
+	if err := os.WriteFile(p, []byte("clusters:\n- name: c1\n  cluster:\n    certificate-authority-data: \"!!!\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	src := New(Options{Name: "kc", Paths: []string{p}}, nopLogger())
 	sink := &fakeSink{}
 	src.runOnce(context.Background(), sink, true)
@@ -145,7 +151,9 @@ func TestKubeconfigDeleteOnDisappear(t *testing.T) {
 	yaml := "clusters:\n- name: c1\n  cluster:\n    certificate-authority-data: " +
 		base64.StdEncoding.EncodeToString(caPEM) + "\n"
 	p := filepath.Join(dir, "kc.yaml")
-	_ = os.WriteFile(p, []byte(yaml), 0o600)
+	if err := os.WriteFile(p, []byte(yaml), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	src := New(Options{Name: "kc", Paths: []string{p}}, nopLogger())
 	sink := &fakeSink{}
 	src.runOnce(context.Background(), sink, true)

@@ -136,7 +136,9 @@ func TestApplyCLI(t *testing.T) {
 func TestFindAndLoadExplicit(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "c.yaml")
-	_ = os.WriteFile(p, []byte("server:\n  listen: \":99\"\n"), 0o600)
+	if err := os.WriteFile(p, []byte("server:\n  listen: \":99\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	c, gotPath, err := FindAndLoad(p)
 	if err != nil {
 		t.Fatal(err)

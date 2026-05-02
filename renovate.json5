@@ -144,14 +144,24 @@
   ],
 
   packageRules: [
-    // Pin digests on everything that resolves through the docker
-    // datasource — the native dockerfile manager (build/Dockerfile.*)
-    // AND the regex manager that tracks the dagger/base.go const block.
-    // matchDatasources is broader than matchCategories: it propagates
-    // the rule to custom.regex managers too, which `categories: ["docker"]`
-    // alone does not consistently do across Renovate versions.
+    // Pin digests on the production-shipping Dockerfiles (chart-published
+    // images and seed-hostpath e2e image) AND on the dagger/base.go
+    // const block (CI / release sandbox images that inherit our tokens
+    // — real supply-chain target).
+    //
+    // Explicitly NOT in scope: the Taskfile DEV_K3S_IMAGE (dev-cluster
+    // bootstrap, ephemeral) and the Tiltfile KUBE_PROMETHEUS_VERSION
+    // (dev-cluster prometheus operator). Both are dev tooling whose
+    // digest churn would just produce refresh-PRs without any sec gain.
+    //
+    // matchFileNames is the scoping knob — matchDatasources alone would
+    // pull in the dev regex managers too (since they also resolve via
+    // datasource=docker). matchCategories was used previously but doesn't
+    // propagate consistently to custom.regex managers across Renovate
+    // versions.
     {
       matchDatasources: ["docker"],
+      matchFileNames: ["build/Dockerfile.*", "dagger/base.go"],
       pinDigests: true,
     },
     // Pin GitHub Actions to commit SHAs. Renovate will rewrite floating

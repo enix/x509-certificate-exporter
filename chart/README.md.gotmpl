@@ -32,8 +32,8 @@ cluster it observes, but equally happy as a standalone binary.
 
 ---
 
-| [🚀 Quick install](#-quick-install) | [📚 Examples](#-examples--starting-points) | [🛡️ Hardening](#-supply-chain-verification) | [🎛️ Values](#values) |
-| --- | --- | --- | --- |
+| [🚀 Quick install](#-quick-install) | [📚 Examples](#-examples--starting-points) | [🧩 Concepts](#-configuration-concepts) | [🛡️ Hardening](#-supply-chain-verification) | [🎛️ Values](#-values-reference) |
+| --- | --- | --- | --- | --- |
 
 > [!WARNING]
 > **Upgrading from version 3?** Start with the [v3 → v4 migration guide][v3-v4]
@@ -62,9 +62,7 @@ cluster it observes, but equally happy as a standalone binary.
   series, so intermediate CAs and trust roots appear alongside leaf certs
   with no extra configuration.
 
-## 🚢 Deploying with Helm
-
-### 🚀 Quick install
+## 🚀 Quick install
 
 The chart ships as an OCI artifact on `quay.io` — no `helm repo add`,
 Helm 3.8+ pulls OCI refs directly. One command:
@@ -99,7 +97,7 @@ secretsExporter:
     prometheus.io/scrape: "true"
 ```
 
-### 📚 Examples & starting points
+## 📚 Examples & starting points
 
 A curated set of ready-to-adapt `values.yaml` files lives in
 [`docs/examples/`][examples] — generic baselines (a fully tuned
@@ -115,7 +113,7 @@ RKE2, k3s, k0s and OpenShift.
 
 [faq]: https://github.com/enix/x509-certificate-exporter/blob/main/docs/faq.md
 
-### 🛡️ Supply-chain verification
+## 🛡️ Supply-chain verification
 
 Curious how the chart and images are signed, or want to enforce that only
 verified releases run in your cluster? The [hardening guide][hardening]
@@ -131,197 +129,74 @@ covers the territory:
 
 [hardening]: https://github.com/enix/x509-certificate-exporter/blob/main/docs/hardening.md
 
-### 📜 Configuring the chart
+## 🧩 Configuration concepts
 
+Every knob is documented in the [Values](#values) section below; this
+prose just sketches *what each block lets you do*. Ready-to-adapt
+`values.yaml` for the common shapes — including kubeadm, Talos, RKE2,
+k3s, k0s, OpenShift, and a fully tuned `hostPathsExporter` with
+role-split DaemonSets — lives in [`docs/examples/`][examples].
 
+### Watching Secrets
 
-#### Watching Secrets
+The default install runs a single Deployment watching
+`kubernetes.io/tls` Secrets across all namespaces — disable with
+`secretsExporter.enabled: false`.
 
-The default install runs a single Deployment that watches
-`kubernetes.io/tls` Secrets across all namespaces. That's enough to keep
-tabs on `cert-manager` issuances or anything else providing TLS to your
-workloads.
+### Multiple Secret types and PKCS#12
 
-Disable Secret watching entirely with `secretsExporter.enabled: false`.
+`secretsExporter.secretTypes` accepts any mix of types and keys: a
+literal `key` (regex `^<key>$` is built for you) or a `keyPatterns`
+list for full regex control, with optional `format: pkcs12` plus a
+`pkcs12:` block. Passphrases are pulled from a sibling Secret key
+(`pkcs12.passphraseKey`), an external file, a cross-namespace Secret
+ref, or skipped entirely with `tryEmptyPassphrase: true` for
+passwordless keystores.
 
-#### Multiple Secret types and PKCS#12
+### Watching ConfigMaps
 
-`secretsExporter.secretTypes` accepts any combination of types and key
-patterns. Either `key` (a literal data key, regex `^<key>$` is built for
-you) or `keyPatterns` (full regex control), with optional `format: pkcs12`
-and a `pkcs12:` block:
+Set `secretsExporter.configMapKeys` to a list of data keys and
+ConfigMaps are watched alongside Secrets. Series come out under
+`configmap_namespace` / `configmap_name` / `configmap_key` instead of
+the `secret_*` set — same `subject_CN`, `not_after`, alerts.
 
-```yaml
-secretsExporter:
-  secretTypes:
-    # Standard kubernetes.io/tls
-    - type: kubernetes.io/tls
-      key: tls.crt
-    # Opaque PEM with a custom key
-    - type: Opaque
-      key: cert.pem
-    # PKCS#12 keystore — passphrase stored as `keystore-passphrase` in the same Secret
-    - type: Opaque
-      key: keystore.p12
-      format: pkcs12
-      pkcs12:
-        passphraseKey: keystore-passphrase
-    # PKCS#12 truststore (multiple CAs, no leaf), same passphrase pattern
-    - type: Opaque
-      key: truststore.p12
-      format: pkcs12
-      pkcs12:
-        passphraseKey: keystore-passphrase
-    # Passwordless PKCS#12 — try empty passphrase before failing
-    - type: Opaque
-      key: keystore-empty.p12
-      format: pkcs12
-      pkcs12:
-        tryEmptyPassphrase: true
-```
+### Filtering by namespace and label
 
-#### Watching ConfigMaps
+Four orthogonal axes evaluated server-side: namespace name (globs
+supported), namespace label, Secret label, each with `include*` and
+`exclude*` flavours under `secretsExporter.*`. `exclude*` runs after
+`include*`. Namespace-label filters trigger Namespace watching too, so
+membership re-evaluates whenever a namespace's labels change.
 
-ConfigMaps are watched as soon as `secretsExporter.configMapKeys` is set:
+### Surfacing Secret labels as Prometheus labels
 
-```yaml
-secretsExporter:
-  configMapKeys:
-    - tls.crt
-    - ca.crt
-```
+`secretsExporter.exposeSecretLabels` lifts selected Secret labels onto
+every cert metric, prefixed with `secret_label_` —
+e.g. `x509_cert_not_after{..., secret_label_environment="prod"}`.
 
-Series come out under the `configmap_namespace` / `configmap_name` /
-`configmap_key` label set instead of the `secret_*` one — same `subject_CN`,
-same `not_after`, same alerts.
+### Metrics for node certificates (hostPath)
 
-#### Filtering by namespace and label
+Cluster PKI (kubelet, etcd, kube-apiserver, kubeconfigs, …) is the
+most common preventable outage source. `hostPathsExporter` deploys
+DaemonSets with hostPath mounts so each node publishes metrics for its
+own PKI. Defaults under `hostPathsExporter.*` cascade into every
+`hostPathsExporter.daemonSets` entry, which can override individually
+— spawn one DaemonSet per node role (control plane, ingress, …) with
+its own `nodeSelector` / `tolerations` / watch list. Three watch knobs:
 
-Four orthogonal axes, all evaluated server-side:
+* `watchDirectories` — every PEM in a directory (no recursion)
+* `watchFiles` — explicit paths (recommended when paths are predictable)
+* `watchKubeconfFiles` — kubeconfigs with embedded or referenced PEMs
 
-```yaml
-secretsExporter:
-  # Namespace by name (globs supported).
-  includeNamespaces: []
-  excludeNamespaces: ["kube-system", "kube-public"]
-  # Namespace by label (key or key=value).
-  includeNamespaceLabels: []
-  excludeNamespaceLabels: ["x509-exporter/ignore=true"]
-  # Secret by label (server-side selector).
-  includeLabels: []
-  excludeLabels: ["x509-exporter/ignore=true"]
-```
-
-`exclude*` is applied after `include*`. When `includeNamespaceLabels` /
-`excludeNamespaceLabels` are set, the exporter watches Namespaces too and
-re-evaluates accepted Secrets when a namespace's labels change.
-
-#### Surfacing Secret labels as Prometheus labels
-
-`secretsExporter.exposeSecretLabels` lifts selected Secret labels onto every
-cert metric, prefixed with `secret_label_`:
-
-```yaml
-secretsExporter:
-  exposeSecretLabels:
-    - environment
-    - team
-```
-
-→ `x509_cert_not_after{..., secret_label_environment="prod", secret_label_team="payments"}`.
-
-#### Metrics for node certificates (hostPath)
-
-Kubernetes components rely on a long list of certificates that, left
-unattended, *will* expire and bring down a cluster. This is one of the
-most common preventable outages.
-
-`hostPathsExporter` deploys one or more **DaemonSets** with a hostPath
-volume mount, so each node can publish metrics for its own PKI. All the
-defaults under `hostPathsExporter.*` flow into every DaemonSet defined in
-`hostPathsExporter.daemonSets`, which can override individually.
-
-Minimal kubeadm-style setup with a single DaemonSet:
-
-```yaml
-hostPathsExporter:
-  daemonSets:
-    nodes:
-      watchFiles:
-        - /var/lib/kubelet/pki/kubelet-client-current.pem
-        - /etc/kubernetes/pki/apiserver.crt
-        - /etc/kubernetes/pki/apiserver-etcd-client.crt
-        - /etc/kubernetes/pki/apiserver-kubelet-client.crt
-        - /etc/kubernetes/pki/ca.crt
-        - /etc/kubernetes/pki/front-proxy-ca.crt
-        - /etc/kubernetes/pki/front-proxy-client.crt
-        - /etc/kubernetes/pki/etcd/ca.crt
-        - /etc/kubernetes/pki/etcd/healthcheck-client.crt
-        - /etc/kubernetes/pki/etcd/peer.crt
-        - /etc/kubernetes/pki/etcd/server.crt
-      watchKubeconfFiles:
-        - /etc/kubernetes/admin.conf
-        - /etc/kubernetes/controller-manager.conf
-        - /etc/kubernetes/scheduler.conf
-```
-
-When nodes have specialised roles (control plane, dedicated ingress,
-etc.), spawn a DaemonSet per role and attach the right `nodeSelector` /
-`tolerations`:
-
-```yaml
-hostPathsExporter:
-  podAnnotations:
-    prometheus.io/port: "9793"
-    prometheus.io/scrape: "true"
-
-  daemonSets:
-    cp:
-      nodeSelector:
-        node-role.kubernetes.io/control-plane: ""
-      tolerations:
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/control-plane
-          operator: Exists
-      watchFiles:
-        - /var/lib/kubelet/pki/kubelet-client-current.pem
-        - /etc/kubernetes/pki/apiserver.crt
-        # ... full control-plane PKI list
-      watchKubeconfFiles:
-        - /etc/kubernetes/admin.conf
-        - /etc/kubernetes/controller-manager.conf
-        - /etc/kubernetes/scheduler.conf
-
-    nodes:
-      watchFiles:
-        - /var/lib/kubelet/pki/kubelet-client-current.pem
-        - /etc/kubernetes/pki/ca.crt
-```
-
-The three "watch" knobs:
-
-* `watchDirectories` — every PEM file in a directory (no recursion)
-* `watchFiles` — explicit paths, recommended whenever paths are
-  predictable
-* `watchKubeconfFiles` — kubeconfig files with embedded certs or PEM
-  references
+Distribution-specific starter values live in [`docs/examples/`][examples].
 
 ### Custom Resources for the Prometheus Operator
 
-When [prometheus-operator](https://github.com/prometheus-operator/prometheus-operator)
-is installed, the chart creates a `ServiceMonitor` (or `PodMonitor` if
-`podMonitor.create=true`) and a `PrometheusRule` with batteries-included
-alerts.
-
-Without the operator's CRDs, Helm will fail to render those resources —
-disable them:
-
-```yaml
-prometheusServiceMonitor:
-  create: false
-prometheusRules:
-  create: false
-```
+When [prometheus-operator][po] is installed, the chart creates a
+`ServiceMonitor` (or `PodMonitor` if `podMonitor.create=true`) plus a
+`PrometheusRule`. Without the operator's CRDs, Helm fails to render
+them — disable with `prometheusServiceMonitor.create=false` and
+`prometheusRules.create=false`.
 
 The shipped alerts:
 
@@ -332,32 +207,29 @@ The shipped alerts:
 | `CertificateRenewal` | `(x509_cert_not_after - time()) / 86400 < 28` | warning |
 | `CertificateExpiration` | `(x509_cert_not_after - time()) / 86400 < 14` | critical |
 
-Tunable via `prometheusRules.warningDaysLeft` /
-`criticalDaysLeft`. Disable any of them with
+Tunable via `prometheusRules.warningDaysLeft` / `criticalDaysLeft`;
+disable any individually with
 `prometheusRules.alertOn{ReadErrors,CertificateError,CertificateRenewal,CertificateExpiration}`.
 
 > ⚠️ `X509ExporterReadErrors` is the early-warning canary for
-> misconfigurations (RBAC, missing files, malformed Secrets). Keep it on,
-> and split your `hostPathsExporter` DaemonSets along role boundaries
-> rather than disabling the alert.
+> misconfigurations (RBAC, missing files, malformed Secrets). Keep it
+> on, and split your `hostPathsExporter` DaemonSets along role
+> boundaries rather than disabling the alert.
 
 ### Securing the `/metrics` endpoint
 
 v4 supports `prometheus/exporter-toolkit` natively — set
-`webConfiguration` to the contents of a [web-config](https://prometheus.io/docs/prometheus/latest/configuration/https/)
-file (TLS cert/key, BasicAuth users) and the chart wires it as a Secret +
-volume mount + `--web.config.file`:
-
-```yaml
-webConfiguration: |
-  basic_auth_users:
-    prometheus: $2y$10$...    # bcrypt hash
-```
-
-For an existing Secret, use `webConfigurationExistingSecret`.
+`webConfiguration` to a [web-config][web-config] body (TLS cert/key,
+BasicAuth users) and the chart wires a Secret + volume mount +
+`--web.config.file`. Use `webConfigurationExistingSecret` to point at
+an existing Secret instead.
 
 The legacy `kube-rbac-proxy` sidecar (`rbacProxy.enabled`) is still
-available for clusters that authenticate scrapes via TokenReview, but
+available for clusters authenticating scrapes via TokenReview, but
 exporter-toolkit is the recommended path on new installs.
 
-{{ template "chart.valuesSection" . }}
+[web-config]: https://prometheus.io/docs/prometheus/latest/configuration/https/
+
+# 🎛️ Values reference
+
+{{ template "chart.valuesTable" . }}

@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.0.0-alpha.3](https://github.com/enix/x509-certificate-exporter/compare/v4.0.0-alpha.2...v4.0.0-alpha.3) (2026-05-03)
+
+
+* release 4.0.0-alpha.3 ([39d54d6](https://github.com/enix/x509-certificate-exporter/commit/39d54d62289867c5ae1e48ac8a305e2427045a64))
+
+
+### Documentation
+
+* **metrics:** new gates ; fixed labels ; better promql snippets ;  cardinality clarification ([c28eb69](https://github.com/enix/x509-certificate-exporter/commit/c28eb69fdac472b49f9a972fd0f808958d9409d7))
+
 ## [4.0.0-alpha.2](https://github.com/enix/x509-certificate-exporter/compare/v4.0.0-alpha.1...v4.0.0-alpha.2) (2026-05-03)
 
 

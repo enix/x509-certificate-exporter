@@ -1,5 +1,5 @@
-version: "4.0.0-alpha.2" # x-release-please-version
-appVersion: "4.0.0-alpha.2" # x-release-please-version
+version: "4.0.0-alpha.3" # x-release-please-version
+appVersion: "4.0.0-alpha.3" # x-release-please-version
 annotations:
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/prerelease: "true"

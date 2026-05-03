@@ -255,6 +255,12 @@ jobs:
         with:
           version: "3.18.0"
       - uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4
+      # Two separate logins because helm and cosign use different auth stores:
+      #   - `helm registry login` writes to helm's own config (used by `helm push` below)
+      #   - `cosign login` writes to ~/.docker/config.json (used by cosign when
+      #     it uploads the signature blob as an OCI artifact in the final step)
+      # Without the cosign login, `cosign sign` fails with UNAUTHORIZED on the
+      # signature blob upload to the chart registry.
       - name: Login to chart OCI registry
         env:
           CHART_REGISTRY_USERNAME: ${{ secrets.CHART_REGISTRY_USERNAME }}
@@ -263,6 +269,7 @@ jobs:
           set -euo pipefail
           host="${CHART_REGISTRY%%/*}"
           echo "$CHART_REGISTRY_TOKEN" | helm registry login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
+          echo "$CHART_REGISTRY_TOKEN" | cosign login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
       - name: Override chart name if needed
         run: |
           set -euo pipefail

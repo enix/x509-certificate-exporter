@@ -58,8 +58,9 @@
   },
 
   customManagers: [
-    // K3s image pinned for the dev cluster bootstrap (Taskfile var
-    // DEV_K3S_IMAGE). Tag format `v<sem>-k3s<n>`.
+    // K3s image pinned for both the dev cluster bootstrap and the
+    // throwaway e2e cluster (Taskfile var K3S_IMAGE). Tag format
+    // `v<sem>-k3s<n>`.
     //
     // The regex tolerates YAML quoting variants: bare value, single
     // quotes, double quotes — whichever a formatter happens to apply.
@@ -69,7 +70,7 @@
       customType: "regex",
       managerFilePatterns: ["/^Taskfile\\.ya?ml$/"],
       matchStrings: [
-        "DEV_K3S_IMAGE:\\s*['\"]?rancher/k3s:(?<currentValue>v\\d+\\.\\d+\\.\\d+-k3s\\d+)",
+        "K3S_IMAGE:\\s*['\"]?rancher/k3s:(?<currentValue>v\\d+\\.\\d+\\.\\d+-k3s\\d+)",
       ],
       depNameTemplate: "rancher/k3s",
       datasourceTemplate: "docker",
@@ -149,9 +150,10 @@
     // const block (CI / release sandbox images that inherit our tokens
     // — real supply-chain target).
     //
-    // Explicitly NOT in scope: the Taskfile DEV_K3S_IMAGE (dev-cluster
-    // bootstrap, ephemeral) and the Tiltfile KUBE_PROMETHEUS_VERSION
-    // (dev-cluster prometheus operator). Both are dev tooling whose
+    // Explicitly NOT in scope: the Taskfile K3S_IMAGE (dev + e2e
+    // cluster bootstrap, ephemeral) and the Tiltfile
+    // KUBE_PROMETHEUS_VERSION (dev-cluster prometheus operator).
+    // Both are dev tooling whose
     // digest churn would just produce refresh-PRs without any sec gain.
     //
     // matchFileNames is the scoping knob — matchDatasources alone would

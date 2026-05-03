@@ -375,7 +375,7 @@ inside the official Renovate image, sandboxed by Dagger). Highlights:
   dockerfile manager, with `pinDigests: true` (via packageRule with
   `matchCategories: ["docker"]`).
 - Custom regex managers for the K3s image in `Taskfile.yml`
-  (`DEV_K3S_IMAGE`), the kube-prometheus-stack version in `Tiltfile`
+  (`K3S_IMAGE`, shared by dev + e2e clusters), the kube-prometheus-stack version in `Tiltfile`
   (`KUBE_PROMETHEUS_VERSION`), the container images pinned as Go
   constants in `dagger/base.go` (`golangImage`, `alpineImage`,
   `helmImage`, `renovateImage`, `helmDocsImage`), and the

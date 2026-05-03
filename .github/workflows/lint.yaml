@@ -10,6 +10,23 @@ name: Linting
 on:
   pull_request:
   workflow_call:
+    inputs:
+      skip-go:
+        description: Skip the Go linter.
+        type: boolean
+        default: false
+      skip-helm:
+        description: Skip the Helm linter.
+        type: boolean
+        default: false
+      skip-renovate:
+        description: Skip the Renovate config validator.
+        type: boolean
+        default: false
+      skip-markdown:
+        description: Skip the Markdown linter.
+        type: boolean
+        default: false
 
 # Read-only by default — every job here just inspects the source tree
 # and reports findings. Override at the job level if a future job ever
@@ -79,6 +96,7 @@ jobs:
     needs: changes
     if: |
       always() &&
+      !inputs.skip-go &&
       (github.event_name != 'pull_request' || needs.changes.outputs.go == 'true')
     runs-on: ubuntu-latest
     steps:
@@ -97,6 +115,7 @@ jobs:
     needs: changes
     if: |
       always() &&
+      !inputs.skip-helm &&
       (github.event_name != 'pull_request' || needs.changes.outputs.helm == 'true')
     runs-on: ubuntu-latest
     steps:
@@ -115,6 +134,7 @@ jobs:
     needs: changes
     if: |
       always() &&
+      !inputs.skip-renovate &&
       (github.event_name != 'pull_request' || needs.changes.outputs.renovate == 'true')
     runs-on: ubuntu-latest
     steps:
@@ -133,6 +153,7 @@ jobs:
     needs: changes
     if: |
       always() &&
+      !inputs.skip-markdown &&
       (github.event_name != 'pull_request' || needs.changes.outputs.markdown == 'true')
     runs-on: ubuntu-latest
     steps:

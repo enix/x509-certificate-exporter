@@ -630,6 +630,8 @@ releases.
 | `task renovate:patch` | Apply Renovate's planned bumps to the working tree (best-effort, format-preserving) |
 | `task doc` | Regenerate all documentation |
 | `task doc:helm` | Regenerate chart/README.md only (Dagger) |
+| `task analysis:graph` | Render & open the full package dependency graph (goda + graphviz) |
+| `task analysis:size` | Build the host-arch binary then explore its size with `gsa --tui` |
 
 ## Troubleshooting
 

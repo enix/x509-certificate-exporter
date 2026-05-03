@@ -67,6 +67,8 @@ everything.
 | Renovate dry-run | `task renovate:plan` | extracts deps + lists planned bumps without modifying files (debug `renovate.json5`) |
 | Renovate apply | `task renovate:patch` | applies the same bumps to the working tree, format-preserving, best-effort (skips ambiguous cases) |
 | Render chart README | `task doc:helm` | `dagger call helm-docs export --path=chart/README.md` |
+| Visualize package deps | `task analysis:graph` | `goda graph ./...` → `dot -Tsvg` → `xdg-open` (writes to `dist/graph.svg`) |
+| Inspect binary size | `task analysis:size` | builds the host-arch binary then opens `gsa --tui` on it |
 
 ## Dagger module architecture
 

@@ -405,3 +405,21 @@ tasks:
     desc: Regenerate chart/README.md from values.yaml + .gotmpl
     cmds:
       - dagger call helm-docs export --path=chart/README.md
+
+  # ─── Analysis ────────────────────────────────────────────────────────────
+  analysis:graph:
+    desc: "Render & open the full package dependency graph (goda → graphviz → xdg-open)"
+    # Output sits under dist/ so it inherits the repo's "build outputs
+    # live in dist/" convention. Caveat: `task build` and
+    # `task image:*` use `goreleaser --clean`, which wipes dist/ —
+    # re-run this task if the SVG disappears.
+    cmds:
+      - mkdir -p dist
+      - goda graph ./... | dot -Tsvg > dist/graph.svg
+      - xdg-open dist/graph.svg 2>/dev/null || open dist/graph.svg 2>/dev/null || echo "Graph saved to dist/graph.svg — open it manually."
+
+  analysis:size:
+    desc: "Inspect host-arch binary size (gsa TUI, compact view) — builds first"
+    deps: [build]
+    cmds:
+      - gsa ./dist/x509-certificate-exporter --tui

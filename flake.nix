@@ -69,6 +69,8 @@
             cosign
             rekor-cli
             goda
+            graphviz   # `dot`, used by `task analysis:graph` to render goda's DOT output
+            xdg-utils  # `xdg-open`, used by `task analysis:graph` to open the SVG
           ]);
         };
       });

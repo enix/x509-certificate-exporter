@@ -256,6 +256,23 @@ tasks:
             --no-lb \
             --wait
       - k3d kubeconfig get "$_CLUSTER" > "$_KUBECONFIG_E2E"
+      # k3d's `--wait` only signals that the server container is
+      # reachable, not that cluster add-ons have converged. Without an
+      # explicit barrier, Tilt's `helm install` races the flannel CNI
+      # bringing up `/run/flannel/subnet.env`, which fails the first
+      # pod sandbox with `failed to load flannel 'subnet.env' file`.
+      # K3s bootstrap is asynchronous: the API answers before the
+      # controllers have populated kube-system, so `kubectl wait` would
+      # exit "no matching resources" if called too early. We poll until
+      # at least one kube-system pod exists, then wait for full Ready.
+      - cmd: |
+          export KUBECONFIG="$_KUBECONFIG_E2E"
+          for _ in $(seq 1 60); do
+            [ "$(kubectl --namespace=kube-system get pods --no-headers 2>/dev/null | wc -l)" -gt 0 ] && break
+            sleep 1
+          done
+          kubectl --namespace=kube-system wait \
+            --for=condition=Ready pods --all --timeout=120s
       - cmd: |
           export KUBECONFIG="$_KUBECONFIG_E2E"
           export E2E_CLUSTER_NAME="$_CLUSTER"
@@ -401,6 +418,17 @@ tasks:
           fi
       - k3d kubeconfig get "$_DEV_CLUSTER" > "$_KUBECONFIG_DEV"
       - chmod 600 "$_KUBECONFIG_DEV"
+      # See `test:e2e` for the rationale: k3d's `--wait` doesn't cover
+      # CNI / DNS readiness, and `kubectl wait` would race the empty
+      # kube-system namespace right after a fresh cluster create.
+      - cmd: |
+          export KUBECONFIG="$_KUBECONFIG_DEV"
+          for _ in $(seq 1 60); do
+            [ "$(kubectl --namespace=kube-system get pods --no-headers 2>/dev/null | wc -l)" -gt 0 ] && break
+            sleep 1
+          done
+          kubectl --namespace=kube-system wait \
+            --for=condition=Ready pods --all --timeout=120s
       - printf '[cluster] ready — KUBECONFIG=%s\n' "$_KUBECONFIG_DEV"
       - echo "[cluster] reminder — when you're done, free the resources with 'task dev:cluster:down'"
     run: once

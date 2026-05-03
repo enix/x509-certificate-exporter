@@ -32,10 +32,10 @@ type X509Ce struct {
 // `source` is the working tree to operate on. `defaultPath="/"`
 // resolves to the module root (repo root, since dagger.json lives
 // there). Build outputs and VCS junk are excluded so the cache key
-// isn't busted by a stray `bin/` change.
+// isn't busted by a stray `dist/` change.
 func New(
 	// +defaultPath="/"
-	// +ignore=["bin/", "dist/", ".git/", "kubeconfig.yaml", "renovate-debug.log", "node_modules/", "dagger/"]
+	// +ignore=["dist/", ".git/", "kubeconfig.yaml", "renovate-debug.log", "node_modules/", "dagger/"]
 	source *dagger.Directory,
 ) *X509Ce {
 	return &X509Ce{Source: source}

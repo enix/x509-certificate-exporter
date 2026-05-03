@@ -82,7 +82,7 @@ Layout:
 - `dagger/main.go` — `X509Ce` struct + `New` constructor. `New`'s
   `source *dagger.Directory` parameter has `+defaultPath="/"` (resolves
   to the module root = repo root) and a `+ignore=` list for cache-key
-  hygiene (excludes `bin/`, `dist/`, `.git/`, etc.).
+  hygiene (excludes `dist/`, `.git/`, etc.).
 - `dagger/base.go` — pinned image versions (Renovate-tracked via the
   regex manager in `renovate.json5`) and the `goBase` helper that
   prepares a Go container with go.mod/sum prefetched and cache

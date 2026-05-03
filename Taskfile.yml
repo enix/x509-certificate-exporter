@@ -48,25 +48,20 @@ tasks:
 
   # ─── Build ───────────────────────────────────────────────────────────────
   build:
-    desc: Build binary for the host platform (direct, no sandbox)
+    desc: 'Host-arch binary via GoReleaser snapshot — output under dist/'
+    # Goes through GoReleaser (same flags, ldflags, version stamping
+    # as the release pipeline) instead of a direct `go build`, so the
+    # local binary matches what the tag-driven release would produce.
+    # `--single-target` builds only the host platform, picked from the
+    # cross-OS matrix in .goreleaser.yaml's `x509ce` build entry.
+    # `--clean` wipes dist/ before building — running `task build` and
+    # `task image:local` back-to-back will clobber each other's
+    # artifacts; both are local iteration shortcuts, that's acceptable.
     cmds:
-      - mkdir -p bin
-      - go build -trimpath -tags netgo,osusergo -o bin/x509-certificate-exporter ./cmd/x509-certificate-exporter
-
-  image:
-    desc: 'Build all release image variants locally via GoReleaser snapshot — no push, no sign'
-    # Snapshot mode skips git tag validation, push, and signing, so
-    # this is safe to run on any branch / dirty tree. Useful to verify
-    # the .goreleaser.yaml config produces what's expected.
-    # IMAGE_NAME defaults to the project name for local snapshots; CI
-    # overrides it via the `release` Environment's `vars.IMAGE_NAME`.
-    env:
-      IMAGE_NAME: '{{.IMAGE_NAME | default "x509-certificate-exporter"}}'
-    cmds:
-      - goreleaser release --snapshot --skip=publish,sign --clean
+      - goreleaser build --single-target --snapshot --clean
 
   image:local:
-    desc: 'Like `task image` but only the host architecture — fast iteration, no QEMU cross-build'
+    desc: 'Build the host-arch image variants locally via GoReleaser snapshot — fast iteration, no QEMU cross-build'
     # GORELEASER_LOCAL_PLATFORM=1 flips two switches at once:
     #   1. builds[]: swaps the full 23-target cross-OS matrix for a
     #      Linux-only x509ce-local build (amd64).

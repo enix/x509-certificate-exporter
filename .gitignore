@@ -5,7 +5,6 @@
 dist/
 
 # Binaries
-bin/
 *.exe
 
 # Air temp dirs

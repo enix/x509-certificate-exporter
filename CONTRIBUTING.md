@@ -600,9 +600,9 @@ releases.
 
 | Task | What it does |
 | --- | --- |
-| `task build` | Build binary for host platform (direct `go build`) |
-| `task image` | Build all release variants locally via GoReleaser snapshot — no push, no sign |
-| `task image:local` | Like `task image` but only host arch (skips QEMU cross-build) |
+| `task build` | Build host-arch binary via GoReleaser snapshot — output under `dist/x509ce_<os>_<arch>_<v>/x509-certificate-exporter` |
+| `task image:local` | Host-arch image variants via GoReleaser snapshot — fast iteration, no QEMU cross-build |
+| `task image:all` | Like `task image:local` but every cross-arch variant — validates the full release matrix without pushing |
 | `task dev:cluster:up` | Bring up dev k3d cluster + registry |
 | `task dev:up` | Tilt up — full dev loop |
 | `task dev:down` | Tilt down + full cluster teardown |

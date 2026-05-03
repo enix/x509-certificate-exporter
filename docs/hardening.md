@@ -106,8 +106,27 @@ an attacker who compromises a maintainer's local laptop cannot forge a
 release that passes this check.
 
 A `checksums.txt` file is also published next to each release for
-quick byte-level integrity checks (cheaper than SLSA verification but
-weaker — checksums alone don't tell you who produced them).
+byte-level integrity checks. It carries its own cosign keyless
+signature in a sigstore bundle (`checksums.txt.sigstore.json`) — a
+faster path than SLSA when you only need "the maintainer of this repo
+signed these hashes":
+
+```sh
+# Verify the cosign signature on checksums.txt, then verify each
+# archive's hash from there.
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp '^https://github\.com/enix/x509-certificate-exporter/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+sha256sum --check --ignore-missing checksums.txt
+```
+
+The bundle is a single self-contained file (introduced as the cosign
+v3 default — replaces the legacy `.sig` + `.pem` pair). For the
+strongest binary provenance signal, prefer `gh attestation verify`
+above; the bundle is the lighter alternative when you don't need the
+full SLSA-3 contract.
 
 ### Stricter verification: pinning identity to workflow and tag
 

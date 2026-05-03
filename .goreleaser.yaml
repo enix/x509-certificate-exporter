@@ -102,18 +102,29 @@ checksum:
 
 # ─── Cosign signature on the checksums file ──────────────────────────────────
 # Signing the checksums (rather than each archive individually) is the
-# canonical SLSA-friendly pattern. Verifiers fetch checksums.txt + .sig
-# + .pem, verify the signature, then verify each archive's hash from
-# the checksums file.
+# canonical SLSA-friendly pattern. Verifiers fetch checksums.txt + the
+# sigstore bundle, verify the signature, then verify each archive's
+# hash from the checksums file.
+#
+# Bundle format (cosign v3+ default): one self-contained
+# `checksums.txt.sigstore.json` carries both the signature and the
+# signing certificate, replacing the v2-era pair `.sig` + `.pem`. We
+# repurpose goreleaser's `${signature}` template to point at the
+# bundle path so goreleaser still uploads the artifact to the GitHub
+# Release. Recommended migration path per goreleaser upstream
+# (https://goreleaser.com/blog/cosign-v3/).
+#
+# Verification: `cosign verify-blob --bundle checksums.txt.sigstore.json checksums.txt`
+# (one file, one flag — see docs/hardening.md).
 signs:
   - id: checksum-cosign
     cmd: cosign
     artifacts: checksum
+    signature: "${artifact}.sigstore.json"
     args:
       - sign-blob
       - --yes
-      - --output-signature=${signature}
-      - --output-certificate=${certificate}
+      - --bundle=${signature}
       - ${artifact}
     output: true
 

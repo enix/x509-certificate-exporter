@@ -198,6 +198,83 @@ func TestRecordBundleErrorsBumpsCounters(t *testing.T) {
 	}
 }
 
+// TestStatsCacheTracksAllCounters is the regression guard for the
+// `/` stats page: every field of CacheStats is fed by its canonical
+// setter. A future setter that writes directly to the prometheus vec
+// (the way `recordBundleErrors` historically did for sourceErrors)
+// would silently leave the UI counter empty and this test would
+// catch it.
+func TestStatsCacheTracksAllCounters(t *testing.T) {
+	r := New(Config{EnableStats: true}, nopLogger())
+
+	r.MarkSourceError("file", "files", cert.ReasonWalkError)
+	r.SetInformerQueueDepth("k8s", "secrets", 7)
+	r.MarkWatchResync("k8s", "secrets")
+	r.MarkPanic("walker")
+	r.ObserveKubeRequest("LIST", "secrets", 5*time.Millisecond)
+
+	stats := r.Stats()
+	if got := stats.Errors["files:walk_error"]; got != 1 {
+		t.Errorf("Errors[files:walk_error] = %v want 1", got)
+	}
+	if got := stats.QueueDepths["k8s:secrets"]; got != 7 {
+		t.Errorf("QueueDepths[k8s:secrets] = %v want 7", got)
+	}
+	if got := stats.WatchResyncs["k8s:secrets"]; got != 1 {
+		t.Errorf("WatchResyncs[k8s:secrets] = %v want 1", got)
+	}
+	if got := stats.Panics; got != 1 {
+		t.Errorf("Panics = %v want 1", got)
+	}
+	if got := stats.KubeRequests; got != 1 {
+		t.Errorf("KubeRequests = %v want 1", got)
+	}
+}
+
+// TestStatsCacheUpdatedWhenDiagnosticsGated locks in the ordering
+// inside `ObserveKubeRequest` and `SetInformerQueueDepth`: the UI
+// counter update must happen BEFORE the nil-check on the diagnostic
+// metric, so disabling `ExposeDiagnostics` doesn't blind the stats
+// page.
+func TestStatsCacheUpdatedWhenDiagnosticsGated(t *testing.T) {
+	r := New(Config{EnableStats: true /* ExposeDiagnostics: false */}, nopLogger())
+	if r.kubeRequestDuration != nil || r.informerQueueDepth != nil {
+		t.Fatalf("test premise broken: diagnostic metrics should be nil when ExposeDiagnostics=false")
+	}
+
+	r.SetInformerQueueDepth("k8s", "secrets", 12)
+	r.ObserveKubeRequest("GET", "secrets", time.Millisecond)
+
+	stats := r.Stats()
+	if got := stats.QueueDepths["k8s:secrets"]; got != 12 {
+		t.Errorf("QueueDepths[k8s:secrets] = %v want 12 (UI must still update with diagnostics off)", got)
+	}
+	if got := stats.KubeRequests; got != 1 {
+		t.Errorf("KubeRequests = %v want 1 (UI must still update with diagnostics off)", got)
+	}
+}
+
+// TestBundleErrorsFeedUIStats verifies that errors emitted as part of
+// a bundle (parse failures, bad passphrases, etc.) reach the UI
+// counter cache that drives the `/` stats endpoint — previously they
+// went straight to the prometheus vec and the stats page never saw
+// them.
+func TestBundleErrorsFeedUIStats(t *testing.T) {
+	r := New(Config{EnableStats: true}, nopLogger())
+	b := cert.Bundle{
+		Source: cert.SourceRef{Kind: "file", Location: "/x.pem", SourceName: "files"},
+		Errors: []cert.ItemError{
+			{Index: -1, Reason: cert.ReasonBadPEM, Err: errors.New("nope")},
+			{Index: -1, Reason: cert.ReasonBadPEM, Err: errors.New("nope")},
+		},
+	}
+	r.Upsert(b)
+	stats := r.Stats()
+	if got := stats.Errors["files:bad_pem"]; got != 2 {
+		t.Errorf("stats.Errors[files:bad_pem] = %v want 2", got)
+	}
+}
+
 // TestPkcs12FailuresGatedOff verifies that when no source declares
 // PKCS#12 (`Pkcs12InUse=false`), `recordBundleErrors` doesn't panic
 // even though a bundle reports a passphrase failure — the metric

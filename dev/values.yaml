@@ -65,9 +65,13 @@ secretsExporter:
     - environment
     - team
 
-# Enable both extra metric families so the e2e suite can assert on them.
+# Enable the gated metric families so dev sees everything and the e2e
+# suite can assert on them. `exposeNotBeforeMetric` is needed in
+# particular for the `not-yet-valid` scenario, which is precisely about
+# `NotBefore > now`.
 exposePerCertificateErrorMetrics: true
 exposeRelativeMetrics: true
+exposeNotBeforeMetric: true
 
 image:
   pullPolicy: Always

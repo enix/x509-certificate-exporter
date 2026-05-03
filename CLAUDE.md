@@ -140,15 +140,20 @@ Layout:
   `tryEmptyPassphrase`), enables ConfigMap watching, exposes a couple of
   Secret labels, and excludes the negative-test namespace by label.
 - `Taskfile.yml` `test:e2e` task — pure-Taskfile pipeline (no shell wrapper).
-  Stands up an isolated, throwaway k3d cluster (`x509ce-e2e`) + registry
-  (port 5001), generates an ephemeral KUBECONFIG via `mktemp`, hands off
-  to `tilt -f test/e2e/Tiltfile ci`. Teardown is registered as a `defer:`
-  command at the top of `cmds:` and runs unconditionally — success,
-  failure, or Ctrl-C — covering cluster delete, registry delete, and
-  KUBECONFIG removal. A pre-flight cleanup pass clears any leftover
-  state from a previous run that died before its defer could fire
-  (SIGKILL, power loss). Completely independent from the dev cluster:
-  different cluster name, different registry port, ephemeral kubeconfig.
+  Stands up a fully isolated, throwaway k3d cluster + registry whose
+  names are suffixed with a random `RUN_ID` (`x509ce-e2e-<hex>` and
+  `x509ce-e2e-registry-<hex>`), and asks the kernel for a free
+  registry port via `socket.bind(0)` — so multiple `task test:e2e`
+  invocations can run in parallel without colliding on docker
+  container names or host ports. Generates an ephemeral KUBECONFIG
+  via `mktemp`, exports the cluster/registry coordinates as
+  `E2E_CLUSTER_NAME` / `E2E_REGISTRY_NAME` / `E2E_REGISTRY_PORT`,
+  then hands off to `tilt -f test/e2e/Tiltfile ci`. Teardown is
+  registered as a `defer:` command at the top of `cmds:` and runs
+  unconditionally — success, failure, or Ctrl-C — covering cluster
+  delete, registry delete, and KUBECONFIG removal. No pre-flight
+  cleanup pass: stale state from a previous run cannot share names
+  with this one. Completely independent from the dev cluster.
 - `test/e2e/Tiltfile` — drives everything that runs *inside* the e2e cluster:
   Dagger image build + push to local e2e registry → `helm_resource()`
   with `dev/values.yaml` + `test/e2e/values.yaml` overrides → seed →

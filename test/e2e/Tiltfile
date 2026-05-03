@@ -26,12 +26,20 @@
 # constant below. Local-dir paths (./values.yaml) stay unprefixed.
 ROOT = "../.."
 
-# Constants below must match the e2e vars in Taskfile.yml's `e2e` task
-# (CLUSTER, REGISTRY, REGISTRY_PORT). If they drift, the cluster created
-# by the task and the cluster Tilt deploys to will not be the same.
-CLUSTER_NAME = "x509ce-e2e"
-REGISTRY_HOST_PORT = 5001
-REGISTRY_NAME = "x509ce-e2e-registry"
+# Cluster + registry coordinates are injected by `task test:e2e` —
+# names are randomised per run so multiple e2e runs are race-free.
+# We require the env vars rather than defaulting: invoking
+# `tilt -f test/e2e/Tiltfile ci` outside the wrapper task would
+# otherwise silently target a stale cluster from a previous run.
+def _require_env(key):
+    val = os.getenv(key, "")
+    if not val:
+        fail("missing env var %s — invoke via `task test:e2e`" % key)
+    return val
+
+CLUSTER_NAME = _require_env("E2E_CLUSTER_NAME")
+REGISTRY_NAME = _require_env("E2E_REGISTRY_NAME")
+REGISTRY_HOST_PORT = int(_require_env("E2E_REGISTRY_PORT"))
 
 allow_k8s_contexts("k3d-" + CLUSTER_NAME)
 default_registry(

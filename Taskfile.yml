@@ -267,11 +267,24 @@ tasks:
       - go test -run=^$ -fuzz=FuzzCompile -fuzztime=5s ./internal/fileglob/
 
   test:e2e:
-    desc: 'End-to-end against a throwaway cluster — built and torn down by the task'
+    desc: 'End-to-end against a fully isolated throwaway cluster — random names + free port, race-free across parallel runs'
+    # Each invocation gets a unique RUN_ID, embedded in the cluster
+    # name, registry name, and (via socket bind(0)) registry port.
+    # Multiple `task test:e2e` runs can therefore execute concurrently
+    # without colliding on docker container names or host ports. No
+    # pre-cleanup step is needed since stale state from a prior run
+    # cannot share names with this one. The defer chain still
+    # guarantees teardown on success, failure, or Ctrl+C.
     vars:
-      CLUSTER: x509ce-e2e
-      REGISTRY: x509ce-e2e-registry
-      REGISTRY_PORT: 5001
+      RUN_ID:
+        sh: python3 -c "import secrets; print(secrets.token_hex(4))"
+      CLUSTER: 'x509ce-e2e-{{.RUN_ID}}'
+      REGISTRY: 'x509ce-e2e-registry-{{.RUN_ID}}'
+      # Ask the kernel for a free port via bind(0) → getsockname →
+      # close. Tiny TOCTOU window between close and `k3d registry
+      # create`, in practice negligible for local dev.
+      REGISTRY_PORT:
+        sh: python3 -c "import socket; s=socket.socket(); s.bind(('',0)); port=s.getsockname()[1]; s.close(); print(port)"
       KUBECONFIG_E2E:
         sh: mktemp -t e2e-XXXXXX.kubeconfig.yaml
     env:
@@ -279,17 +292,15 @@ tasks:
       _REGISTRY: '{{.REGISTRY}}'
       _REGISTRY_PORT: '{{.REGISTRY_PORT}}'
       _KUBECONFIG_E2E: '{{.KUBECONFIG_E2E}}'
+      _K3S_IMAGE: '{{.K3S_IMAGE}}'
     cmds:
       - defer: rm -f -- "$_KUBECONFIG_E2E"
       - defer: k3d registry delete "$_REGISTRY"
       - defer: k3d cluster delete "$_CLUSTER"
-      - cmd: k3d cluster delete "$_CLUSTER" >/dev/null 2>&1
-        ignore_error: true
-      - cmd: k3d registry delete "$_REGISTRY" >/dev/null 2>&1
-        ignore_error: true
       - k3d registry create "$_REGISTRY" --port "$_REGISTRY_PORT" --no-help
       - cmd: |
           k3d cluster create "$_CLUSTER" \
+            --image "$_K3S_IMAGE" \
             --registry-use "k3d-${_REGISTRY}:${_REGISTRY_PORT}" \
             --kubeconfig-update-default=false \
             --kubeconfig-switch-context=false \
@@ -300,6 +311,9 @@ tasks:
       - k3d kubeconfig get "$_CLUSTER" > "$_KUBECONFIG_E2E"
       - cmd: |
           export KUBECONFIG="$_KUBECONFIG_E2E"
+          export E2E_CLUSTER_NAME="$_CLUSTER"
+          export E2E_REGISTRY_NAME="$_REGISTRY"
+          export E2E_REGISTRY_PORT="$_REGISTRY_PORT"
           tilt -f test/e2e/Tiltfile ci
 
   # ─── Quality ─────────────────────────────────────────────────────────────

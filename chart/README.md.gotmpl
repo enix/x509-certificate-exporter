@@ -32,7 +32,7 @@ cluster it observes, but equally happy as a standalone binary.
 
 ---
 
-| [🚀 Quick install](#-quick-install) | [📚 Examples](#-examples--starting-points) | [🧩 Concepts](#-configuration-concepts) | [🛡️ Hardening](#-supply-chain-verification) | [🎛️ Values](#-values-reference) |
+| [🚀 Quick install](#-quick-install) | [📚 Examples](#-examples--starting-points) | [🧩 Concepts](#-configuration-concepts) | [🛡️ Hardening](#%EF%B8%8F-supply-chain-verification) | [🎛️ Values](#%EF%B8%8F-values-reference) |
 | --- | --- | --- | --- | --- |
 
 > [!WARNING]

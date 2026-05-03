@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.0.0-alpha.2](https://github.com/enix/x509-certificate-exporter/compare/v4.0.0-alpha.1...v4.0.0-alpha.2) (2026-05-03)
+
+
+* release 4.0.0-alpha.2 ([c43ed24](https://github.com/enix/x509-certificate-exporter/commit/c43ed24bd81a3d72ef463fcfa3b759a627fc9906))
+
 ## [4.0.0-alpha.1](https://github.com/enix/x509-certificate-exporter/compare/v3.21.0...v4.0.0-alpha.1) (2026-05-03)
 
 

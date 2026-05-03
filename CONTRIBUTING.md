@@ -232,10 +232,10 @@ nothing builds the binary or the images via Nix.
 
 The flake's `devShells.default` lists every CLI you need (`go`, `task`,
 `dagger`, `goreleaser`, `tilt`, `k3d`, `kubectl`, `helm`, `cosign`,
-`rekor-cli`). Activating the shell sets
-`$PATH` to include those, so they resolve without you ever installing
-them globally. When you leave the shell, they're gone from your
-`$PATH` again. No system pollution.
+`rekor-cli`, plus `goda` and `gsa` for Go binary-size analysis).
+Activating the shell sets `$PATH` to include those, so they resolve
+without you ever installing them globally. When you leave the shell,
+they're gone from your `$PATH` again. No system pollution.
 
 Adding a new tool: edit [`flake.nix`](./flake.nix), add the package to
 `packages`, and run `task nix:update` to refresh the lockfile. Open a PR.
@@ -252,8 +252,8 @@ Two Tiltfiles in the repo:
   exporter into the long-lived `x509ce-dev` cluster alongside
   kube-prometheus-stack. Use this for daily development.
 - **[`test/e2e/Tiltfile`](./test/e2e/Tiltfile)** drives `task test:e2e`. It runs
-  in a throwaway cluster (`x509ce-e2e`), seeds fixtures, runs the e2e
-  test, and exits non-zero if anything fails.
+  in a throwaway cluster (`x509ce-e2e-<hex>`), seeds fixtures, runs the
+  e2e test, and exits non-zero if anything fails.
 
 Tilt's secret sauce in this repo is its `custom_build()` directive: when
 a watched file changes, Tilt invokes `goreleaser release --snapshot`
@@ -275,12 +275,18 @@ Two clusters live side by side:
 | Cluster | Created by | Purpose | Registry port |
 | --- | --- | --- | --- |
 | `x509ce-dev` | `task dev:cluster:up` | Long-lived dev loop | 5000 |
-| `x509ce-e2e` | `task test:e2e` | Throwaway, per-run | 5001 |
+| `x509ce-e2e-<hex>` | `task test:e2e` | Throwaway, per-run | random (free port allocated by the kernel) |
+
+The e2e cluster + registry names carry a random hex suffix and the
+registry port is allocated dynamically, so multiple `task test:e2e`
+invocations can run in parallel without colliding on docker container
+names or host ports.
 
 Both clusters run with Traefik and ServiceLB disabled (we don't need
-ingress) and use a local registry (`k3d-x509ce-{dev,e2e}-registry:5000/5001`)
-that the cluster nodes pull from natively via `--registry-use`. This
-means Tilt can push to a fast local registry instead of a remote one.
+ingress) and use a local registry (dev: `k3d-x509ce-dev-registry:5000`;
+e2e: `k3d-x509ce-e2e-registry-<hex>:<random>`) that the cluster nodes
+pull from natively via `--registry-use`. This means Tilt can push to a
+fast local registry instead of a remote one.
 
 The kubeconfig for the dev cluster is written to `kubeconfig.yaml` at the
 repo root (gitignored). Your `~/.kube/config` is **never** modified —
@@ -421,8 +427,10 @@ task test:e2e
 
 What happens:
 
-1. Spins up an isolated `x509ce-e2e` k3d cluster (separate from the dev
-   cluster — both can run side by side without colliding).
+1. Spins up an isolated `x509ce-e2e-<hex>` k3d cluster with a random
+   per-run suffix (separate from the dev cluster, and from any other
+   concurrent `task test:e2e` invocation — multiple runs can race-free
+   coexist).
 2. Builds the exporter image via Dagger, pushes it to the e2e local
    registry.
 3. Helm-installs the chart with `dev/values.yaml` + `test/e2e/values.yaml`
@@ -701,8 +709,10 @@ its timeout was hit but the cluster is stuck. The `defer:`
 will eventually clean up, but you can force it:
 
 ```sh
-k3d cluster delete x509ce-e2e
-k3d registry delete x509ce-e2e-registry
+# Each run names its cluster x509ce-e2e-<hex> — find the leftover:
+k3d cluster list
+k3d cluster delete x509ce-e2e-<hex>          # replace <hex>
+k3d registry delete x509ce-e2e-registry-<hex>
 ```
 
 ### `cosign verify` fails on a tagged release I just made

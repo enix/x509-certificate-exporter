@@ -166,6 +166,14 @@ jobs:
         with:
           version: latest
           args: release --clean
+        # GITHUB_TOKEN is the credential goreleaser uses to attach
+        # archives + checksums + signatures to the GitHub Release stub
+        # release-please created. The action does NOT inject the
+        # token automatically — it has to be in the env. The job's
+        # `permissions.contents: write` is what gives this token the
+        # write-Release scope.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # SLSA Build Level 3 provenance for every binary listed in
       # GoReleaser's dist/checksums.txt (sha256sum -c format). Signed

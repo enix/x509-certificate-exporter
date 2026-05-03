@@ -24,6 +24,9 @@ data:
     metrics:
       exposeRelative: {{ .Values.exposeRelativeMetrics | default true }}
       exposePerCertError: {{ .Values.exposePerCertificateErrorMetrics | default true }}
+      exposeNotBefore: {{ .Values.exposeNotBeforeMetric }}
+      exposeExpired: {{ .Values.exposeExpiredMetric }}
+      exposeDiagnostics: {{ .Values.exposeDiagnosticMetrics }}
       {{- if not (kindIs "invalid" .Values.metricLabelsFilterList) }}
       exposeSubjectFields: {{ .Values.metricLabelsFilterList | toJson }}
       exposeIssuerFields: {{ .Values.metricLabelsFilterList | toJson }}
@@ -101,6 +104,9 @@ data:
     metrics:
       exposeRelative: {{ $.Values.exposeRelativeMetrics | default true }}
       exposePerCertError: {{ $.Values.exposePerCertificateErrorMetrics | default true }}
+      exposeNotBefore: {{ $.Values.exposeNotBeforeMetric }}
+      exposeExpired: {{ $.Values.exposeExpiredMetric }}
+      exposeDiagnostics: {{ $.Values.exposeDiagnosticMetrics }}
       trimPathComponents: 3
       {{- if not (kindIs "invalid" $.Values.metricLabelsFilterList) }}
       exposeSubjectFields: {{ $.Values.metricLabelsFilterList | toJson }}

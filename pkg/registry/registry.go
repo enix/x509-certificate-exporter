@@ -34,6 +34,21 @@ const (
 type Config struct {
 	ExposeRelative         bool
 	ExposePerCertError     bool
+	ExposeNotBefore        bool
+	// ExposeExpired gates `x509_cert_expired`. Defaults to true at the
+	// config-loading layer; passing the zero value here disables the
+	// metric entirely.
+	ExposeExpired          bool
+	// ExposeDiagnostics enables the exporter's self-introspection
+	// metrics (parse / kube API latencies, informer scope and queue
+	// depth). Off by default.
+	ExposeDiagnostics      bool
+	// Pkcs12InUse, when true, registers the
+	// `x509_pkcs12_passphrase_failures_total` counter. The flag is
+	// computed by the caller from the source list, so the metric only
+	// shows up in `/metrics` when at least one source actually parses
+	// PKCS#12 material.
+	Pkcs12InUse            bool
 	SubjectFields          []string
 	IssuerFields           []string
 	TrimPathComponents     int
@@ -127,31 +142,35 @@ func (r *Registry) initSelfMetrics() {
 		Help:    "Total time spent serving a /metrics scrape.",
 		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30},
 	})
-	r.parseDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "x509_parse_duration_seconds",
-		Help:    "Time spent parsing one bundle, by format.",
-		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
-	}, []string{"format"})
 	r.panicTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "x509_panic_total", Help: "Goroutine panics caught by recover, by component.",
 	}, []string{"component"})
-	r.informerScope = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "x509_kube_informer_scope", Help: "Scope of an informer: 1 for the active scope, 0 otherwise.",
-	}, []string{"source_name", "scope"})
-	r.informerQueueDepth = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "x509_informer_queue_depth", Help: "Current depth of an informer event queue.",
-	}, []string{"source_name", "resource"})
 	r.watchResyncs = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "x509_kube_watch_resyncs_total", Help: "Number of forced resyncs (WatchExpired / 410 Gone).",
 	}, []string{"source_name", "resource"})
-	r.pkcs12PassphraseFailures = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "x509_pkcs12_passphrase_failures_total", Help: "PKCS#12 decoding attempts failed because of a wrong passphrase.",
-	}, []string{"source_name"})
-	r.kubeRequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "x509_kube_request_duration_seconds",
-		Help:    "Latency of Kubernetes API requests issued by the exporter.",
-		Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30},
-	}, []string{"verb", "resource"})
+	if r.cfg.ExposeDiagnostics {
+		r.parseDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "x509_parse_duration_seconds",
+			Help:    "Time spent parsing one bundle, by format.",
+			Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
+		}, []string{"format"})
+		r.informerScope = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "x509_kube_informer_scope", Help: "Scope of an informer: 1 for the active scope, 0 otherwise.",
+		}, []string{"source_name", "scope"})
+		r.informerQueueDepth = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "x509_informer_queue_depth", Help: "Current depth of an informer event queue.",
+		}, []string{"source_name", "resource"})
+		r.kubeRequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "x509_kube_request_duration_seconds",
+			Help:    "Latency of Kubernetes API requests issued by the exporter.",
+			Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30},
+		}, []string{"verb", "resource"})
+	}
+	if r.cfg.Pkcs12InUse {
+		r.pkcs12PassphraseFailures = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "x509_pkcs12_passphrase_failures_total", Help: "PKCS#12 decoding attempts failed because of a wrong passphrase.",
+		}, []string{"source_name"})
+	}
 	variadicBuildInfo := product.VariadicBuildInfo()
 	buildLabels := make(prometheus.Labels, len(variadicBuildInfo)/2)
 	for i := 0; i < len(variadicBuildInfo); i += 2 {
@@ -251,7 +270,7 @@ func (r *Registry) Delete(ref cert.SourceRef) {
 func (r *Registry) recordBundleErrors(b cert.Bundle) {
 	for _, e := range b.Errors {
 		r.sourceErrors.WithLabelValues(b.Source.Kind, b.Source.SourceName, e.Reason).Inc()
-		if e.Reason == cert.ReasonBadPassphrase {
+		if e.Reason == cert.ReasonBadPassphrase && r.pkcs12PassphraseFailures != nil {
 			r.pkcs12PassphraseFailures.WithLabelValues(b.Source.SourceName).Inc()
 		}
 	}
@@ -306,17 +325,26 @@ func (r *Registry) MarkSourceError(kind, name, reason string) {
 	r.sourceErrors.WithLabelValues(kind, name, reason).Inc()
 }
 
-// ObserveParse observes a parse duration.
+// ObserveParse observes a parse duration. No-op when diagnostic
+// metrics are gated off.
 func (r *Registry) ObserveParse(format string, d time.Duration) {
+	if r.parseDuration == nil {
+		return
+	}
 	r.parseDuration.WithLabelValues(format).Observe(d.Seconds())
 }
 
-// ObserveKubeRequest observes a kubernetes request duration.
+// ObserveKubeRequest observes a kubernetes request duration. The UI
+// counter still updates so the cache-stats endpoint remains useful
+// even when diagnostic histograms are gated off.
 func (r *Registry) ObserveKubeRequest(verb, resource string, d time.Duration) {
 	if r.cfg.EnableStats {
 		r.statsMu.Lock()
 		r.uiKubeReqs++
 		r.statsMu.Unlock()
+	}
+	if r.kubeRequestDuration == nil {
+		return
 	}
 	r.kubeRequestDuration.WithLabelValues(verb, resource).Observe(d.Seconds())
 }
@@ -332,7 +360,11 @@ func (r *Registry) MarkPanic(component string) {
 }
 
 // MarkInformerScope sets the active scope for a kubernetes source.
+// No-op when diagnostic metrics are gated off.
 func (r *Registry) MarkInformerScope(sourceName, scope string) {
+	if r.informerScope == nil {
+		return
+	}
 	for _, s := range []string{"cluster", "namespace"} {
 		v := 0.0
 		if s == scope {
@@ -342,12 +374,17 @@ func (r *Registry) MarkInformerScope(sourceName, scope string) {
 	}
 }
 
-// SetInformerQueueDepth updates the queue depth gauge.
+// SetInformerQueueDepth updates the queue depth gauge. The UI cache
+// still tracks depth so the cache-stats endpoint reflects backpressure
+// even when the diagnostic gauge is gated off.
 func (r *Registry) SetInformerQueueDepth(sourceName, resource string, depth int) {
 	if r.cfg.EnableStats {
 		r.statsMu.Lock()
 		r.uiQueues[sourceName+":"+resource] = depth
 		r.statsMu.Unlock()
+	}
+	if r.informerQueueDepth == nil {
+		return
 	}
 	r.informerQueueDepth.WithLabelValues(sourceName, resource).Set(float64(depth))
 }

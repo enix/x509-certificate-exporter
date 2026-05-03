@@ -141,6 +141,18 @@ type ConfigMapsCfg struct {
 type Metrics struct {
 	ExposeRelative               bool     `yaml:"exposeRelative"`
 	ExposePerCertError           bool     `yaml:"exposePerCertError"`
+	ExposeNotBefore              bool     `yaml:"exposeNotBefore"`
+	// ExposeExpired controls the per-cert `x509_cert_expired` gauge. It
+	// defaults to `true` (the metric is essential for the canonical
+	// "is this cert expired" alert); setting it false halves the
+	// per-cert series count for users who alert exclusively on
+	// `not_after - time()`.
+	ExposeExpired                bool     `yaml:"exposeExpired"`
+	// ExposeDiagnostics gates a group of self-introspection metrics
+	// (parse latency, kube API latency, informer scope/queue) that help
+	// debugging the exporter itself but provide no certificate-side
+	// signal. Off by default to keep `/metrics` lean.
+	ExposeDiagnostics            bool     `yaml:"exposeDiagnostics"`
 	ExposeSubjectFields          []string `yaml:"exposeSubjectFields,omitempty"`
 	ExposeIssuerFields           []string `yaml:"exposeIssuerFields,omitempty"`
 	TrimPathComponents           int      `yaml:"trimPathComponents,omitempty"`
@@ -171,6 +183,7 @@ func Default() Config {
 		Log:         Log{Level: "info", Format: "text", Timing: true},
 		Diagnostics: Diagnostics{Pprof: Pprof{Listen: ":6060"}},
 		Metrics: Metrics{
+			ExposeExpired:                true,
 			CollisionDiscriminator:       "auto",
 			CollisionDiscriminatorLength: 8,
 		},

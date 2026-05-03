@@ -110,6 +110,10 @@ func run() error {
 	reg := registry.New(registry.Config{
 		ExposeRelative:         cfg.Metrics.ExposeRelative,
 		ExposePerCertError:     cfg.Metrics.ExposePerCertError,
+		ExposeNotBefore:        cfg.Metrics.ExposeNotBefore,
+		ExposeExpired:          cfg.Metrics.ExposeExpired,
+		ExposeDiagnostics:      cfg.Metrics.ExposeDiagnostics,
+		Pkcs12InUse:            pkcs12InUse(cfg),
 		SubjectFields:          cfg.Metrics.ExposeSubjectFields,
 		IssuerFields:           cfg.Metrics.ExposeIssuerFields,
 		TrimPathComponents:     cfg.Metrics.TrimPathComponents,
@@ -207,6 +211,31 @@ func recoverPanic(r *registry.Registry, component string, logger *slog.Logger) {
 		logger.Error("goroutine panic", "component", component, "panic", fmt.Sprint(rv))
 		r.MarkPanic(component)
 	}
+}
+
+// pkcs12InUse reports whether any source declares a `pkcs12` format,
+// either at the source level (file sources) or per-secret-type
+// (kubernetes sources). The result drives whether the registry
+// registers the `x509_pkcs12_passphrase_failures_total` counter.
+func pkcs12InUse(cfg config.Config) bool {
+	for _, s := range cfg.Sources {
+		for _, f := range s.Formats {
+			if f == "pkcs12" {
+				return true
+			}
+		}
+		if s.Secrets != nil {
+			for _, t := range s.Secrets.Types {
+				if t.Format == "pkcs12" {
+					return true
+				}
+			}
+		}
+		if s.ConfigMaps != nil && s.ConfigMaps.Format == "pkcs12" {
+			return true
+		}
+	}
+	return false
 }
 
 func exposedLabelsFromConfig(cfg config.Config) (secrets, configmaps []string) {

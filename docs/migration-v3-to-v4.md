@@ -315,9 +315,14 @@ The `reason` label gives a stable error code (e.g.
 These v3 metrics are kept verbatim in v4. PromQL queries, alerts and
 dashboards using them continue to work:
 
-- `x509_cert_expired`
-- `x509_cert_not_before`
 - `x509_cert_not_after`
+- `x509_cert_expired` (now gated by `metrics.exposeExpired`, **on by
+  default** — set to `false` if your alerts only consume
+  `x509_cert_not_after - time()` and you want to halve the per-cert
+  series count)
+- `x509_cert_not_before` (now gated by `metrics.exposeNotBefore`,
+  **off by default** — turn on to detect certificates issued in the
+  future or clock-skew issues)
 - `x509_cert_expires_in_seconds` (still gated by `metrics.exposeRelative`)
 - `x509_cert_valid_since_seconds` (still gated by `metrics.exposeRelative`)
 - `x509_cert_error` (still gated by `metrics.exposePerCertError`)
@@ -328,25 +333,39 @@ The per-certificate label set (`subject_CN`, `issuer_CN`,
 `exposeLabels`) is unchanged. v4 adds `configmap_name`,
 `configmap_namespace` for the new ConfigMap source kind.
 
+> [!IMPORTANT]
+> **`x509_cert_not_before` is off by default in v4.** v3 always
+> emitted it. If you have an alert/dashboard panel relying on it, set
+> `metrics.exposeNotBefore: true` (chart: `exposeNotBeforeMetric: true`)
+> to keep the series.
+
 ### New in v4
 
 These series are entirely new and worth wiring into your dashboards:
 
-| Metric | Type | Use it for |
-| --- | --- | --- |
-| `x509_source_up{source_kind, source_name}` | gauge | Per-source liveness — `== 0` means a source has stopped reporting |
-| `x509_source_bundles{source_kind, source_name}` | gauge | Number of bundles (Secrets, files, etc.) currently held by each source |
-| `x509_source_errors_total{source_kind, source_name, reason}` | counter | Per-source, per-reason error count (replaces `x509_read_errors`) |
-| `x509_kube_watch_resyncs_total{source_name, resource}` | counter | API watch resyncs / 410 Gone events; sustained increase signals an unhealthy informer |
-| `x509_kube_request_duration_seconds{verb, resource}` | histogram | client-go API call latency |
-| `x509_pkcs12_passphrase_failures_total{source_name}` | counter | Specific to PKCS#12; a sustained increase usually means a Secret was rotated but the passphrase wasn't |
-| `x509_parse_duration_seconds{format}` | histogram | Per-format (PEM / PKCS#12) parse latency |
-| `x509_scrape_duration_seconds` | histogram | Total time to serve a `/metrics` request |
-| `x509_panic_total{component}` | counter | Recovered goroutine panics; should always be `0` in steady state |
+| Metric | Type | Default | Use it for |
+| --- | --- | --- | --- |
+| `x509_source_up{source_kind, source_name}` | gauge | on | Per-source liveness — `== 0` means a source has stopped reporting |
+| `x509_source_bundles{source_kind, source_name}` | gauge | on | Number of bundles (Secrets, files, etc.) currently held by each source |
+| `x509_source_errors_total{source_kind, source_name, reason}` | counter | on | Per-source, per-reason error count (replaces `x509_read_errors`) |
+| `x509_kube_watch_resyncs_total{source_name, resource}` | counter | on | API watch resyncs / 410 Gone events; sustained increase signals an unhealthy informer |
+| `x509_scrape_duration_seconds` | histogram | on | Total time to serve a `/metrics` request |
+| `x509_panic_total{component}` | counter | on | Recovered goroutine panics; should always be `0` in steady state |
+| `x509_kube_request_duration_seconds{verb, resource}` | histogram | gated by `metrics.exposeDiagnostics` | client-go API call latency |
+| `x509_kube_informer_scope{source_name, scope}` | gauge | gated by `metrics.exposeDiagnostics` | Whether an informer is namespace-scoped or cluster-scoped |
+| `x509_informer_queue_depth{source_name, resource}` | gauge | gated by `metrics.exposeDiagnostics` | Real-time event-queue depth per resource — useful to spot backpressure |
+| `x509_parse_duration_seconds{format}` | histogram | gated by `metrics.exposeDiagnostics` | Per-format (PEM / PKCS#12) parse latency |
+| `x509_pkcs12_passphrase_failures_total{source_name}` | counter | auto (only if a source declares `format: pkcs12`) | Specific to PKCS#12; a sustained increase usually means a Secret was rotated but the passphrase wasn't |
 
 The chart's bundled `PrometheusRule` already references the new metrics;
 re-enable rendering with `prometheusRules.create=true` to pick up the
 defaults.
+
+> [!NOTE]
+> The four metrics gated by `metrics.exposeDiagnostics` (chart:
+> `exposeDiagnosticMetrics`) are useful when troubleshooting the
+> exporter itself, not when monitoring certificates. Default off keeps
+> `/metrics` lean; flip on whenever you need to look inside.
 
 ---
 

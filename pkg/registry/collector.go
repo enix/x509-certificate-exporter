@@ -28,9 +28,13 @@ func newDescTable(cfg Config) descTable {
 	}
 	s := newSchema(opts, cfg.ExposedSecretLabels, cfg.ExposedConfigMapLabels, includeDisc)
 	t := descTable{cfg: cfg, schema: s}
-	t.notBefore = prometheus.NewDesc("x509_cert_not_before", "Unix timestamp of the certificate's NotBefore.", s.names, nil)
 	t.notAfter = prometheus.NewDesc("x509_cert_not_after", "Unix timestamp of the certificate's NotAfter.", s.names, nil)
-	t.expired = prometheus.NewDesc("x509_cert_expired", "1 if the certificate is expired, 0 otherwise.", s.names, nil)
+	if cfg.ExposeNotBefore {
+		t.notBefore = prometheus.NewDesc("x509_cert_not_before", "Unix timestamp of the certificate's NotBefore.", s.names, nil)
+	}
+	if cfg.ExposeExpired {
+		t.expired = prometheus.NewDesc("x509_cert_expired", "1 if the certificate is expired, 0 otherwise.", s.names, nil)
+	}
 	if cfg.ExposeRelative {
 		t.expiresIn = prometheus.NewDesc("x509_cert_expires_in_seconds", "Seconds until the certificate's NotAfter.", s.names, nil)
 		t.validSince = prometheus.NewDesc("x509_cert_valid_since_seconds", "Seconds since the certificate's NotBefore.", s.names, nil)
@@ -42,9 +46,13 @@ func newDescTable(cfg Config) descTable {
 }
 
 func (t descTable) describe(ch chan<- *prometheus.Desc) {
-	ch <- t.notBefore
 	ch <- t.notAfter
-	ch <- t.expired
+	if t.notBefore != nil {
+		ch <- t.notBefore
+	}
+	if t.expired != nil {
+		ch <- t.expired
+	}
 	if t.expiresIn != nil {
 		ch <- t.expiresIn
 	}
@@ -63,13 +71,23 @@ func (r *Registry) Describe(ch chan<- *prometheus.Desc) {
 	r.sourceBundles.Describe(ch)
 	r.collisionTotal.Describe(ch)
 	ch <- r.scrapeDuration.Desc()
-	r.parseDuration.Describe(ch)
 	r.panicTotal.Describe(ch)
-	r.informerScope.Describe(ch)
-	r.informerQueueDepth.Describe(ch)
 	r.watchResyncs.Describe(ch)
-	r.pkcs12PassphraseFailures.Describe(ch)
-	r.kubeRequestDuration.Describe(ch)
+	if r.parseDuration != nil {
+		r.parseDuration.Describe(ch)
+	}
+	if r.informerScope != nil {
+		r.informerScope.Describe(ch)
+	}
+	if r.informerQueueDepth != nil {
+		r.informerQueueDepth.Describe(ch)
+	}
+	if r.kubeRequestDuration != nil {
+		r.kubeRequestDuration.Describe(ch)
+	}
+	if r.pkcs12PassphraseFailures != nil {
+		r.pkcs12PassphraseFailures.Describe(ch)
+	}
 	ch <- r.buildInfo.Desc()
 	r.descs.describe(ch)
 }
@@ -90,13 +108,23 @@ func (r *Registry) Collect(ch chan<- prometheus.Metric) {
 	r.sourceErrors.Collect(ch)
 	r.sourceBundles.Collect(ch)
 	r.collisionTotal.Collect(ch)
-	r.parseDuration.Collect(ch)
 	r.panicTotal.Collect(ch)
-	r.informerScope.Collect(ch)
-	r.informerQueueDepth.Collect(ch)
 	r.watchResyncs.Collect(ch)
-	r.pkcs12PassphraseFailures.Collect(ch)
-	r.kubeRequestDuration.Collect(ch)
+	if r.parseDuration != nil {
+		r.parseDuration.Collect(ch)
+	}
+	if r.informerScope != nil {
+		r.informerScope.Collect(ch)
+	}
+	if r.informerQueueDepth != nil {
+		r.informerQueueDepth.Collect(ch)
+	}
+	if r.kubeRequestDuration != nil {
+		r.kubeRequestDuration.Collect(ch)
+	}
+	if r.pkcs12PassphraseFailures != nil {
+		r.pkcs12PassphraseFailures.Collect(ch)
+	}
 	ch <- r.buildInfo
 
 	bundles := r.snapshot()

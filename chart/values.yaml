@@ -77,6 +77,15 @@ exposePerCertificateErrorMetrics: false
 # -- Enable additional metrics with relative durations instead of absolute timestamps ; not recommended with Prometheus
 exposeRelativeMetrics: false
 
+# -- Expose `x509_cert_not_before` (Unix timestamp of the certificate's NotBefore). Off by default — most users only alert on expiry; enable if you specifically need to detect "issued in the future" misconfigurations or clock skew.
+exposeNotBeforeMetric: false
+
+# -- Expose `x509_cert_expired` (1 if the certificate is expired, 0 otherwise). On by default ; turn off to halve the per-cert series count if you only alert on `x509_cert_not_after - time()`.
+exposeExpiredMetric: true
+
+# -- Expose self-introspection metrics for debugging the exporter itself (`x509_parse_duration_seconds`, `x509_kube_request_duration_seconds`, `x509_kube_informer_scope`, `x509_informer_queue_depth`). Off by default ; enable when you actually need to look inside.
+exposeDiagnosticMetrics: false
+
 # -- (list) Restrict metric labels to this list if set. **Warning** : use with caution as reducing cardinality may yield metrics collisions and force the exporter to ignore certificates. This will also degrade the usability of the Grafana dashboard. This list should always include at least `filepath`, `secret_namespace` and `secret_name`. Also `subject_CN` is highly recommended for when a file contains multiple certificates.
 metricLabelsFilterList: null
 

@@ -79,6 +79,14 @@ jobs:
     permissions:
       contents: read
       pull-requests: write # gitleaks-action posts on PRs; no-op on tag pushes
+    # `secrets: inherit` propagates GITLEAKS_LICENSE (a repo-level
+    # secret) into the called workflow. Scope is safe: this `security`
+    # job has no `environment:` set, and neither does any job inside
+    # security.yaml — so the `environment: release` secrets used by
+    # the goreleaser/chart jobs below remain out of reach throughout
+    # this chain. `inherit` propagates the calling job's context, not
+    # the entire workflow's.
+    secrets: inherit
   test:
     uses: ./.github/workflows/test.yaml
     permissions:

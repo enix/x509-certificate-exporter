@@ -3,14 +3,7 @@
 This guide walks through every breaking change between the v3 and v4
 releases of the x509-certificate-exporter. The order below reflects
 operational priority: distribution channels first (because the wrong URL
-gets you `404`), then chart values shape, then metrics changes (which
-need PromQL/dashboard updates), then the rest.
-
-The Go module path also changed from
-`github.com/enix/x509-certificate-exporter/v3` to
-`github.com/enix/x509-certificate-exporter/v4`. If you import the
-exporter as a library, update your imports accordingly. Most operators
-deploy via Helm and won't be affected.
+gets you `404`), then chart values shape, then metrics changes, then the rest.
 
 ---
 
@@ -20,13 +13,9 @@ deploy via Helm and won't be affected.
 | --- | --- | --- |
 | Helm chart distribution | `https://charts.enix.io` (classic) **and** `oci://quay.io/enix/charts/...` | `oci://quay.io/enix/charts/x509-certificate-exporter` only |
 | Container image variants | `busybox` (default), `alpine`, `scratch` | `scratch` (default, minimal), `busybox` (alt, with shell) — Alpine retired |
-| Image registries | Docker Hub (canonical) | Docker Hub, GHCR, Quay (all three) |
-| Architectures | `amd64`, `arm64` | `amd64`, `arm64`, `riscv64` |
+| Image registries | Docker Hub, Quay | Docker Hub, Quay, GHCR |
 | Exporter configuration | CLI flags | YAML config file (`--config`) |
 | Helm `secretTypes` shape | `{type, key}` | `{type, key, format, pkcs12}` — `format` and `pkcs12` are optional |
-| Node-PKI DaemonSet config | `hostPathsDaemonSet:` (single, flat) | `hostPathsExporter.daemonSets.<name>:` (map, multi-instance) |
-| `kube-rbac-proxy` sidecar | Required for TLS / BasicAuth on `/metrics` | Not needed — exporter-toolkit handles both natively |
-| `kube-rbac-proxy` image tag | `v0.13.1` | `v0.22.0` |
 | `x509_read_errors` metric | Single gauge per error | Removed — see metrics section |
 | Per-source observability | None | `x509_source_up`, `x509_source_bundles`, `x509_source_errors_total{reason}` |
 
@@ -37,7 +26,7 @@ deploy via Helm and won't be affected.
 In v3 the chart was double-published — to the classic Helm repository at
 `https://charts.enix.io` *and* as an OCI artifact on `quay.io`. In v4
 the classic repo is **retired**; only the OCI publication is kept. The
-chart on disk is the same name (`x509-certificate-exporter`); only the
+chart keeps the same name (`x509-certificate-exporter`); only the
 download URL changes.
 
 This requires Helm **3.8 or later** (OCI support became GA in 3.8.0).
@@ -141,11 +130,6 @@ If you currently set `image.tagSuffix: -alpine`, switch to one of:
 - `image.tagSuffix: -busybox` → closest replacement for Alpine:
   still has `/bin/sh`, `wget`, `cat`, etc.
 
-### Architectures
-
-v4 adds `linux/riscv64` to the previous `linux/amd64,arm64` matrix. No
-action required for existing AMD64/ARM64 deployments.
-
 ---
 
 ## 3. Helm chart values
@@ -189,118 +173,6 @@ secretTypes:
 If you don't use PKCS#12 or regex matching, ignore this — the v3 form is
 still parsed.
 
-### Node-PKI DaemonSets — restructured
-
-The chart used to expose **one** `hostPathsDaemonSet` block. v4 replaces
-it with **a map of named DaemonSets** so the same chart release can ship
-several disjoint hostPath scanners (kubelet PKI, etcd PKI, kube-apiserver
-PKI on different nodes, etc.).
-
-#### Before (v3)
-
-```yaml
-hostPathsDaemonSet:
-  enabled: true
-  watchDirectories:
-    - /etc/kubernetes/pki
-  watchFiles:
-    - /var/lib/kubelet/pki/kubelet.crt
-  watchKubeconfFiles:
-    - /etc/kubernetes/admin.conf
-```
-
-#### After (v4)
-
-```yaml
-hostPathsExporter:
-  # Cluster-wide defaults applied to every entry under daemonSets:
-  debug: false
-  restartPolicy: Always
-  resources:
-    requests: { cpu: 10m, memory: 20Mi }
-    limits:   { memory: 40Mi }
-
-  daemonSets:
-    node-pki:
-      watchDirectories:
-        - /etc/kubernetes/pki
-      watchFiles:
-        - /var/lib/kubelet/pki/kubelet.crt
-      watchKubeconfFiles:
-        - /etc/kubernetes/admin.conf
-```
-
-The keys under `daemonSets.<name>` are the same fields as v3's flat
-block. The wrapping is the only structural change.
-
-### `kube-rbac-proxy` — sidecar no longer required
-
-v3 documented `kube-rbac-proxy` as the sidecar to terminate TLS or
-enforce BasicAuth on `/metrics`. v4 ships the
-[`prometheus-exporter-toolkit`](https://github.com/prometheus/exporter-toolkit/tree/master/web)
-inside the exporter itself: TLS + BasicAuth are first-class config
-options on the exporter, no sidecar needed.
-
-If you still want the sidecar (e.g. because policy mandates the proxy
-pattern), the chart keeps it; the sidecar's image tag was bumped from
-`v0.13.1` to `v0.22.0`. If you pin the tag in `values.yaml`, update.
-
-If you don't, consider removing `kubeRBACProxy.enabled: true` and using
-the exporter's native `web.config.file` and TLS config. One pod, one
-process, one less network hop.
-
-### `web.enableStats` — new optional endpoint
-
-v4 exposes a small HTML status page at `/` (cache stats, source health,
-process info). It's enabled by default in the chart (`web.enableStats:
-true`). Disable it with `--set web.enableStats=false` if you want strict
-metrics-only exposure.
-
-### Image schema — `digest` and split `migration.image`
-
-Every image block (`image`, `migration.image`, `rbacProxy.image`) now
-exposes the same five fields: `registry`, `repository`, `tag`,
-`digest`, `pullPolicy` (plus `tagSuffix` on `image` for the
-`scratch`/`busybox` flavor switch). When set, `digest` takes precedence
-over `tag` and produces a `registry/repository@sha256:...` reference —
-the recommended form in production once you have run `cosign verify`.
-
-One small schema break: `migration.image.repository` used to bundle the
-registry (`registry.k8s.io/kubectl`); v4 splits it into
-`registry: registry.k8s.io` + `repository: kubectl`. If you override
-the kubectl image in `values.yaml`, update both keys.
-
-### `kubeVersion` value removed
-
-v3 exposed a top-level `kubeVersion: ""` knob to override the cluster
-version detection — useful only with `helm template`. Helm 3.10+
-exposes the `--kube-version` CLI flag for the same purpose, so v4
-drops the value. If you set `kubeVersion:` in `values.yaml`, remove it
-and pass `--kube-version v1.29.0` (or similar) when rendering.
-
-### PSA-restricted hardening on by default
-
-Every component (`secretsExporter`, `hostPathsExporter`, `migration`,
-`rbacProxy`) now ships with the two extra fields the Pod Security
-Admission `restricted` profile requires:
-
-- `podSecurityContext.seccompProfile.type: RuntimeDefault`
-- `securityContext.allowPrivilegeEscalation: false`
-
-The chart was already running as `runAsNonRoot: true` with `drop: [ALL]`
-capabilities and `readOnlyRootFilesystem: true`; the two new fields
-close the remaining PSA gap. No action required for stock deployments
-— modern container runtimes (containerd, CRI-O, Docker) ship a
-permissive default seccomp profile that any HTTP-server-on-Go
-workload runs under unchanged. If you have an unusual cluster that
-forbids `seccompProfile: RuntimeDefault`, override per-component:
-
-```yaml
-secretsExporter:
-  podSecurityContext:
-    seccompProfile: null
-```
-
 ### Service: `headless: true` is the new default
 
 `service.headless` flips from `false` (v3) to `true` (v4). The Service
@@ -325,12 +197,64 @@ ClusterIP's round-robin to distribute scrapes, you almost certainly
 had a latent bug — only one Pod was scraped per attempt. Headless
 fixes that.
 
-To restore the v3 behaviour explicitly:
+To restore the v3 behavior explicitly:
 
 ```yaml
 service:
   headless: false
 ```
+
+### Image schema — `digest` and split `migration.image`
+
+Every image block (`image`, `migration.image`, `rbacProxy.image`) now
+exposes the same five fields: `registry`, `repository`, `tag`,
+`digest`, `pullPolicy` (plus `tagSuffix` on `image` for the
+`scratch`/`busybox` flavor switch). When set, `digest` takes precedence
+over `tag` and produces a `registry/repository@sha256:...` reference —
+the recommended form in production once you have run `cosign verify`.
+
+One small schema break: `migration.image.repository` used to bundle the
+registry (`registry.k8s.io/kubectl`); v4 splits it into
+`registry: registry.k8s.io` + `repository: kubectl`. If you override
+the kubectl image in `values.yaml`, update both keys.
+
+### PSA-restricted hardening on by default
+
+Every component (`secretsExporter`, `hostPathsExporter`, `migration`,
+`rbacProxy`) now ships with the two extra fields the Pod Security
+Admission `restricted` profile requires:
+
+- `podSecurityContext.seccompProfile.type: RuntimeDefault`
+- `securityContext.allowPrivilegeEscalation: false`
+
+The chart was already running as `runAsNonRoot: true` with `drop: [ALL]`
+capabilities and `readOnlyRootFilesystem: true`; the two new fields
+close the remaining PSA gap. No action required for stock deployments
+— modern container runtimes (containerd, CRI-O, Docker) ship a
+permissive default seccomp profile that a plain Go HTTP server
+runs under unchanged. If you have an unusual cluster that
+forbids `seccompProfile: RuntimeDefault`, override per-component:
+
+```yaml
+secretsExporter:
+  podSecurityContext:
+    seccompProfile: null
+```
+
+### `web.enableStats` — new optional endpoint
+
+v4 exposes a small HTML status page at `/` (cache stats, source health,
+process info). It's enabled by default in the chart (`web.enableStats:
+true`). Disable it with `--set web.enableStats=false` if you want strict
+metrics-only exposure.
+
+### `kubeVersion` value removed
+
+v3 exposed a top-level `kubeVersion: ""` knob to override the cluster
+version detection — useful only with `helm template`. Helm 3.10+
+exposes the `--kube-version` CLI flag for the same purpose, so v4
+drops the value. If you set `kubeVersion:` in `values.yaml`, remove it
+and pass `--kube-version v1.29.0` (or similar) when rendering.
 
 ---
 
@@ -343,7 +267,7 @@ of flags (`--config`, `--debug`, `--version`).
 
 If you deploy via the Helm chart, **you don't see this**: the chart
 generates the YAML config from the same `values.yaml` you've always
-edited and ships it as a `ConfigMap`. The breaking-ness applies only to:
+edited and ships it as a `ConfigMap`. The break applies only to:
 
 1. Custom CLI invocations (systemd units, dev environments running the
    binary directly).
@@ -357,24 +281,6 @@ every supported source kind.
 ---
 
 ## 5. Metrics: changed series
-
-### Same name, same labels — no change needed
-
-These v3 metrics are kept verbatim in v4. PromQL queries, alerts and
-dashboards using them continue to work:
-
-- `x509_cert_expired`
-- `x509_cert_not_before`
-- `x509_cert_not_after`
-- `x509_cert_expires_in_seconds` (still gated by `metrics.exposeRelative`)
-- `x509_cert_valid_since_seconds` (still gated by `metrics.exposeRelative`)
-- `x509_cert_error` (still gated by `metrics.exposePerCertError`)
-- `x509_exporter_build_info`
-
-The per-certificate label set (`subject_CN`, `issuer_CN`,
-`serial_number`, `secret_*`, `filepath`, surfaced Secret labels via
-`exposeLabels`) is unchanged. v4 adds `configmap_name`,
-`configmap_namespace` for the new ConfigMap source kind.
 
 ### Removed: `x509_read_errors`
 
@@ -397,6 +303,24 @@ increase(x509_source_errors_total[15m]) > 0
 The `reason` label gives a stable error code (e.g.
 `source_unreachable`, `parse_failed`, `passphrase_wrong`,
 `invalid_key_format`) — useful for routing alerts.
+
+### Same name, same labels — no change needed
+
+These v3 metrics are kept verbatim in v4. PromQL queries, alerts and
+dashboards using them continue to work:
+
+- `x509_cert_expired`
+- `x509_cert_not_before`
+- `x509_cert_not_after`
+- `x509_cert_expires_in_seconds` (still gated by `metrics.exposeRelative`)
+- `x509_cert_valid_since_seconds` (still gated by `metrics.exposeRelative`)
+- `x509_cert_error` (still gated by `metrics.exposePerCertError`)
+- `x509_exporter_build_info`
+
+The per-certificate label set (`subject_CN`, `issuer_CN`,
+`serial_number`, `secret_*`, `filepath`, surfaced Secret labels via
+`exposeLabels`) is unchanged. v4 adds `configmap_name`,
+`configmap_namespace` for the new ConfigMap source kind.
 
 ### New in v4
 
@@ -423,9 +347,9 @@ defaults.
 ## 6. Performance and caching
 
 v4 substantially reduced informer footprint and parsing redundancy. No
-configuration is required to benefit from the changes; document them
-here mostly so you know what changed when you read about lower memory
-usage post-upgrade.
+configuration is required to benefit from the changes; we document them
+here so you understand what changed if you notice lower memory usage
+post-upgrade.
 
 - **Server-side filtering.** The old behavior was to list every Secret
   cluster-wide, then drop in-process. v4 pushes label selectors and
@@ -472,18 +396,11 @@ worth mentioning during a migration:
 
 - **`/healthz` and `/readyz`** are now first-class endpoints alongside
   `/metrics`. The chart wires both into the Pod's probes by default.
-  v3 deployments that disabled probes (because they didn't exist) can
+  v3 deployments that disabled probes (because they didn't work) can
   re-enable them with no extra config.
 - **ConfigMap watching is native.** v3 needed `--configmap-keys`; v4
   treats ConfigMaps as a regular source kind, with the same filtering
   options as Secrets (label selectors, namespace include/exclude).
-- **`PrometheusPodMonitor`** alongside `PrometheusServiceMonitor`. If
-  your Prometheus is configured to discover via PodMonitor instead, the
-  chart now supports that (`prometheusPodMonitor.create: true`).
-- **Multiple node-PKI DaemonSets per release.** Useful when control-plane
-  nodes and worker nodes have different PKI layouts and you want a
-  scanner sized differently for each — see the `daemonSets:` map in
-  Section 3.
 
 ---
 
@@ -512,12 +429,12 @@ Kubernetes, two things change:
    ```
 
 2. **Pre-built binaries** are still attached to every GitHub Release.
-   v4 broadens the matrix to Linux, macOS, FreeBSD, OpenBSD, NetBSD
-   and Windows across `amd64`, `arm64`, `armv7` and `riscv64` (with
-   exclusions for non-existent OS/arch combos). The binary name is
-   `x509-certificate-exporter` (unchanged across forks). SLSA-3
-   provenance attestations (queryable via `gh attestation verify`) and
-   SHA256 checksums are published alongside each binary — see the
+   v4 keeps the matrix to Linux, macOS, Windows, FreeBSD, OpenBSD,
+   NetBSD, Illumos and Solaris across `amd64`, `arm64`, `armv7` and
+   `riscv64` (with exclusions for non-existent OS/arch combos). The
+   binary name is `x509-certificate-exporter` (unchanged across forks).
+   SLSA-3 provenance attestations (queryable via `gh attestation verify`)
+   and SHA256 checksums are published alongside each binary — see the
    [hardening guide](./hardening.md) for the verification recipe.
 
 This path is supported, but most operational documentation in v4 is

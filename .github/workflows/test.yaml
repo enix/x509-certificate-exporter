@@ -6,6 +6,11 @@ name: Tests
 on:
   pull_request:
   workflow_call:
+    inputs:
+      skip-e2e:
+        description: Skip the E2E suite.
+        type: boolean
+        default: false
 
 # Read-only by default — every job here just runs the test suite. The
 # release.yaml caller doesn't pass any privileged token through.
@@ -82,6 +87,7 @@ jobs:
     needs: changes
     if: |
       always() &&
+      !inputs.skip-e2e &&
       (github.event_name != 'pull_request' || needs.changes.outputs.e2e == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20

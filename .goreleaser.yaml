@@ -271,6 +271,16 @@ release:
     name: x509-certificate-exporter
   # Auto-detect prerelease from semver suffix (-alpha, -beta, -rc).
   prerelease: auto
+  # release-please creates the Release stub as a draft (per its
+  # `draft: true` config). With `mode: append`, goreleaser appends our
+  # assets to that stub without flipping the draft flag — the
+  # maintainer publishes it manually once everything is verified.
+  # We also set `draft: true` here as a defensive default: if for
+  # whatever reason the stub doesn't exist (release-please outage,
+  # manual retry, fork without the release-please workflow), goreleaser
+  # would fall back to creating a new release, and we want THAT one to
+  # be a draft too.
+  draft: true
   # release-please created an empty Release stub at tag-merge time.
   # `mode: append` adds our assets to it instead of complaining that
   # the release already exists.

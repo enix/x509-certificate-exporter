@@ -21,6 +21,7 @@
   ],
   "packages": {
     ".": {
+      "draft": true,
       "extra-files": [
         {
           "type": "generic",

@@ -75,7 +75,7 @@ jobs:
     needs: changes
     if: |
       always() &&
-      (github.event_name == 'workflow_call' || needs.changes.outputs.go == 'true')
+      (github.event_name != 'pull_request' || needs.changes.outputs.go == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -97,7 +97,7 @@ jobs:
     needs: changes
     if: |
       always() &&
-      (github.event_name == 'workflow_call' || needs.changes.outputs.deps == 'true')
+      (github.event_name != 'pull_request' || needs.changes.outputs.deps == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -114,7 +114,7 @@ jobs:
     needs: changes
     if: |
       always() &&
-      (github.event_name == 'workflow_call' || needs.changes.outputs.chart == 'true')
+      (github.event_name != 'pull_request' || needs.changes.outputs.chart == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6

@@ -63,7 +63,7 @@ jobs:
     needs: changes
     if: |
       always() &&
-      (github.event_name == 'workflow_call' || needs.changes.outputs.go == 'true')
+      (github.event_name != 'pull_request' || needs.changes.outputs.go == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -82,7 +82,7 @@ jobs:
     needs: changes
     if: |
       always() &&
-      (github.event_name == 'workflow_call' || needs.changes.outputs.e2e == 'true')
+      (github.event_name != 'pull_request' || needs.changes.outputs.e2e == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

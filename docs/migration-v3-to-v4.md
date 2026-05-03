@@ -261,9 +261,15 @@ and pass `--kube-version v1.29.0` (or similar) when rendering.
 ## 4. Configuration: CLI flags → YAML file
 
 v3 was driven entirely by CLI flags (`--watch-dir`, `--secret-type`,
-`--include-namespace`, …). v4 takes a single YAML config file
-(`--config /etc/x509-exporter/config.yaml`) and exposes only a handful
-of flags (`--config`, `--debug`, `--version`).
+`--include-namespace`, …). v4 makes a YAML config file the source of
+truth (`--config /etc/x509-exporter/config.yaml`). A subset of the v3
+flags (`--watch-file`, `--watch-dir`, `--watch-kubeconf`,
+`--watch-kube-secrets`, `--listen-address`, `--web.config.file`,
+`--debug`, `--profile`) still works as ergonomic shortcuts mapped
+onto the YAML schema at parse time, but **their use is deprecated and
+not recommended** — they may be removed in a future release. The
+richer flags (`--secret-type`, `--include-namespace`, …) have no v4
+CLI equivalent: express those rules in YAML.
 
 If you deploy via the Helm chart, **you don't see this**: the chart
 generates the YAML config from the same `values.yaml` you've always
@@ -409,9 +415,14 @@ worth mentioning during a migration:
 If you run the binary on bare metal / VMs / systemd units rather than in
 Kubernetes, two things change:
 
-1. **CLI flags are gone.** v3's `--watch-dir`, `--watch-file`,
-   `--secret-type` etc. no longer exist. Write a small YAML config and
-   pass it via `--config`:
+1. **Prefer a YAML config file.** A handful of v3-era CLI shortcuts
+   (`--watch-file`, `--watch-dir`, `--watch-kubeconf`, …) still work,
+   but they're a deprecated surface: they don't expose every v4
+   capability (PKCS#12, ConfigMaps, regex key patterns, namespace
+   labels, per-source rate limits, …) and may be removed in a future
+   release. Write a small YAML config and pass it via `--config` to
+   insulate yourself from future churn and to unlock the full feature
+   set:
 
    ```yaml
    server:

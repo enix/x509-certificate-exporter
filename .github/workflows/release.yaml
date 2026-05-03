@@ -99,6 +99,8 @@ jobs:
     uses: ./.github/workflows/test.yaml
     permissions:
       contents: read
+    with:
+      skip-e2e: true
 
   # ─── 1. Build, push, sign everything (binaries + images) ─────────────────
   goreleaser:

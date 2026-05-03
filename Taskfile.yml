@@ -7,8 +7,9 @@ version: '3'
 #   - GoReleaser for ALL image builds — release pipeline AND the dev
 #     image consumed by Tilt (one Dockerfile path, dev image == release
 #     image). Driven by .goreleaser.yaml; in CI via release.yaml;
-#     locally via `task image` (full) or `task image:local` (host-arch
-#     only). Tilt invokes goreleaser directly with GORELEASER_TILT=1.
+#     locally via `task image:local` (host-arch, fast) or
+#     `task image:all` (every cross-arch variant). Tilt invokes
+#     goreleaser directly with GORELEASER_TILT=1.
 #   - Direct CLI for things that don't need sandboxing: k3d/tilt for
 #     the dev cluster, Renovate dry-run via Docker, and `go mod tidy` /
 #     `go get -u`. GitHub Action SHA-pinning is owned by Renovate
@@ -76,6 +77,18 @@ tasks:
     # disabled" — cosmetic, exit code is 0.
     env:
       GORELEASER_LOCAL_PLATFORM: '1'
+      IMAGE_NAME: '{{.IMAGE_NAME | default "x509-certificate-exporter"}}'
+    cmds:
+      - goreleaser release --snapshot --skip=publish,sign --clean
+
+  image:all:
+    desc: 'Like `task image:local` but every cross-arch variant (no host-only short-circuit) — validates the full release matrix without pushing'
+    # Snapshot mode skips git tag validation, push, and signing, so
+    # this is safe to run on any branch / dirty tree. Useful to verify
+    # the .goreleaser.yaml config produces what's expected.
+    # IMAGE_NAME defaults to the project name for local snapshots; CI
+    # overrides it via the `release` Environment's `vars.IMAGE_NAME`.
+    env:
       IMAGE_NAME: '{{.IMAGE_NAME | default "x509-certificate-exporter"}}'
     cmds:
       - goreleaser release --snapshot --skip=publish,sign --clean

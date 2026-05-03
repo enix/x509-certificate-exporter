@@ -112,7 +112,7 @@ peer's machine to read the exact versions, or check `flake.lock`):
 - **[Dagger CLI](https://dagger.io)** (only needed if you want
   `dagger` on your `$PATH`; the SDK in `dagger/` runs without it)
 - **[GoReleaser](https://goreleaser.com/install/)** (for local image
-  snapshots via `task image`)
+  snapshots via `task image:local` / `task image:all`)
 - **[Task](https://taskfile.dev/installation/)** ≥ 3
 - **[Tilt](https://docs.tilt.dev/install.html)**
 - **[k3d](https://k3d.io)**
@@ -183,9 +183,9 @@ attach assets to a GitHub Release.
 
 Locally:
 
-- `task image` — full snapshot (all archs, both variants); validates
-  the release config end-to-end without pushing.
-- `task image:local` — same but only the host arch; fast iteration.
+- `task image:local` — host-arch snapshot, fast iteration.
+- `task image:all` — full snapshot (all archs, both variants);
+  validates the release config end-to-end without pushing.
 - Tilt's `custom_build` invokes `goreleaser` directly with
   `GORELEASER_TILT=1`, which gates a dedicated `dockers_v2` entry
   using `build/Dockerfile.busybox` (the alt release variant — picked
@@ -206,8 +206,9 @@ GoReleaser invocations, or direct CLI calls:
 
 ```sh
 task --list                   # show every available task with description
-task build                    # `go build` directly (host-arch only)
-task image                    # `goreleaser release --snapshot ...`
+task build                    # `goreleaser build --single-target` (host-arch only, output under dist/)
+task image:local              # `goreleaser release --snapshot ...` host-arch only
+task image:all                # same but every cross-arch variant
 task lint                     # → go run ./dagger lint:go (+helm, +renovate)
 task test                     # runs test:unit, test:fuzz, test:e2e
 ```

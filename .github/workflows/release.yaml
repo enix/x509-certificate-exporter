@@ -70,10 +70,10 @@ jobs:
   # `release` Environment, so a misbehaving gate never sees the push
   # secrets. The release jobs below `needs:` all three; a single failure
   # aborts before anything moves to a registry.
-  lint:
-    uses: ./.github/workflows/lint.yaml
-    permissions:
-      contents: read
+  #
+  # Ordering: `security` runs first; `lint` and `test` `needs:` it so a
+  # secret leak / vuln finding short-circuits the rest of the gate
+  # before consuming CI minutes on lint and tests.
   security:
     uses: ./.github/workflows/security.yaml
     permissions:
@@ -87,7 +87,15 @@ jobs:
     # this chain. `inherit` propagates the calling job's context, not
     # the entire workflow's.
     secrets: inherit
+  lint:
+    needs: security
+    uses: ./.github/workflows/lint.yaml
+    permissions:
+      contents: read
+    with:
+      skip-renovate: true
   test:
+    needs: security
     uses: ./.github/workflows/test.yaml
     permissions:
       contents: read

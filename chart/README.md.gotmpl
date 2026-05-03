@@ -32,7 +32,7 @@ cluster it observes, but equally happy as a standalone binary.
 
 ---
 
-| [🚀 Quick install](#-quick-install) | [📚 Examples](#-examples--starting-points) | [🧩 Concepts](#-configuration-concepts) | [🛡️ Hardening](#-supply-chain-verification) | [🎛️ Values](#-values-reference) |
+| [🚀 Quick install](#-quick-install) | [📚 Examples](#-examples--starting-points) | [🧩 Concepts](#-configuration-concepts) | [🛡 Hardening](#-supply-chain-verification) | [🎛 Values](#-values-reference) |
 | --- | --- | --- | --- | --- |
 
 > [!WARNING]
@@ -44,7 +44,7 @@ cluster it observes, but equally happy as a standalone binary.
 
 ---
 
-## 🔍️ What it watches
+## 🔍 What it watches
 
 - **TLS Secrets** of any type — `kubernetes.io/tls`, opaque PEM bundles,
   full chains — across all namespaces or a curated subset.
@@ -113,7 +113,7 @@ RKE2, k3s, k0s and OpenShift.
 
 [faq]: https://github.com/enix/x509-certificate-exporter/blob/main/docs/faq.md
 
-## 🛡️ Supply-chain verification
+## 🛡 Supply-chain verification
 
 Curious how the chart and images are signed, or want to enforce that only
 verified releases run in your cluster? The [hardening guide][hardening]
@@ -211,7 +211,7 @@ Tunable via `prometheusRules.warningDaysLeft` / `criticalDaysLeft`;
 disable any individually with
 `prometheusRules.alertOn{ReadErrors,CertificateError,CertificateRenewal,CertificateExpiration}`.
 
-> ⚠️ `X509ExporterReadErrors` is the early-warning canary for
+> ⚠ `X509ExporterReadErrors` is the early-warning canary for
 > misconfigurations (RBAC, missing files, malformed Secrets). Keep it
 > on, and split your `hostPathsExporter` DaemonSets along role
 > boundaries rather than disabling the alert.
@@ -230,6 +230,6 @@ exporter-toolkit is the recommended path on new installs.
 
 [web-config]: https://prometheus.io/docs/prometheus/latest/configuration/https/
 
-# 🎛️ Values reference
+# 🎛 Values reference
 
 {{ template "chart.valuesTable" . }}

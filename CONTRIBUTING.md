@@ -206,7 +206,7 @@ GoReleaser invocations, or direct CLI calls:
 
 ```sh
 task --list                   # show every available task with description
-task build                    # `goreleaser build --single-target` (host-arch only, output under dist/)
+task build                    # `goreleaser build --single-target` — host-arch binary, stable symlink at dist/x509-certificate-exporter
 task image:local              # `goreleaser release --snapshot ...` host-arch only
 task image:all                # same but every cross-arch variant
 task lint                     # → go run ./dagger lint:go (+helm, +renovate)
@@ -608,7 +608,7 @@ releases.
 
 | Task | What it does |
 | --- | --- |
-| `task build` | Build host-arch binary via GoReleaser snapshot — output under `dist/x509ce_<os>_<arch>_<v>/x509-certificate-exporter` |
+| `task build` | Build host-arch binary via GoReleaser snapshot — symlinked at `dist/x509-certificate-exporter` (real path: `dist/x509ce_<os>_<arch>_<v>/x509-certificate-exporter`) |
 | `task image:local` | Host-arch image variants via GoReleaser snapshot — fast iteration, no QEMU cross-build |
 | `task image:all` | Like `task image:local` but every cross-arch variant — validates the full release matrix without pushing |
 | `task dev:cluster:up` | Bring up dev k3d cluster + registry |

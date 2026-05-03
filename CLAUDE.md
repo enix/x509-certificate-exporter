@@ -46,7 +46,7 @@ everything.
 
 | Goal | Command | Notes |
 |---|---|---|
-| Local binary | `task build` | `goreleaser build --single-target --snapshot --clean` — host-arch binary under `dist/x509ce_<os>_<arch>_<v>/x509-certificate-exporter` (same flags / ldflags / version stamping as the release pipeline) |
+| Local binary | `task build` | `goreleaser build --single-target --snapshot --clean` — host-arch binary under `dist/x509ce_<os>_<arch>_<v>/x509-certificate-exporter`, with a stable relative symlink at `dist/x509-certificate-exporter` (same flags / ldflags / version stamping as the release pipeline) |
 | Snapshot host-arch only | `task image:local` | `goreleaser release --snapshot --skip=publish,sign` with `GORELEASER_LOCAL_PLATFORM=1` — fast iteration, no QEMU cross-build |
 | Snapshot all images | `task image:all` | Like `task image:local` but every cross-arch variant — validates the full release matrix without pushing |
 | Lint Go | `task lint:go` | `dagger call lint-go` — full golangci-lint set |

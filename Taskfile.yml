@@ -57,8 +57,17 @@ tasks:
     # `--clean` wipes dist/ before building — running `task build` and
     # `task image:local` back-to-back will clobber each other's
     # artifacts; both are local iteration shortcuts, that's acceptable.
+    #
+    # The post-build symlink gives a stable, predictable path for the
+    # binary regardless of host arch / GOAMD64 variant. We `cd dist`
+    # so the symlink target is relative to the dist/ dir itself (not
+    # to the project root), which keeps it valid even if the repo
+    # gets moved. The glob matches exactly one dir thanks to
+    # --single-target + --clean — multiple matches would make `ln`
+    # fail loudly, which is fine.
     cmds:
       - goreleaser build --single-target --snapshot --clean
+      - cd dist && ln -sf x509ce_*/x509-certificate-exporter x509-certificate-exporter
 
   image:local:
     desc: 'Build the host-arch image variants locally via GoReleaser snapshot — fast iteration, no QEMU cross-build'

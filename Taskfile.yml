@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 # Thin façade over the build tools:
 #   - Dagger module (dagger.json at repo root, source in dagger/) for
@@ -17,12 +17,12 @@ version: '3'
 
 env:
   # Silence Dagger's Cloud upload and analytics paths globally.
-  DAGGER_NO_NAG: '1'
-  DAGGER_CLOUD_TOKEN: ''
-  DO_NOT_TRACK: '1'
+  DAGGER_NO_NAG: "1"
+  DAGGER_CLOUD_TOKEN: ""
+  DO_NOT_TRACK: "1"
 
 vars:
-  KUBECONFIG_DEV: '{{.TASKFILE_DIR}}/kubeconfig.yaml'
+  KUBECONFIG_DEV: "{{.TASKFILE_DIR}}/kubeconfig.yaml"
   DEV_CLUSTER: x509ce-dev
   DEV_REGISTRY: x509ce-dev-registry
   DEV_REGISTRY_PORT: 5000
@@ -48,7 +48,7 @@ tasks:
 
   # ─── Build ───────────────────────────────────────────────────────────────
   build:
-    desc: 'Host-arch binary via GoReleaser snapshot — output under dist/'
+    desc: "Host-arch binary via GoReleaser snapshot — symlinked at dist/x509-certificate-exporter"
     # Goes through GoReleaser (same flags, ldflags, version stamping
     # as the release pipeline) instead of a direct `go build`, so the
     # local binary matches what the tag-driven release would produce.
@@ -70,7 +70,7 @@ tasks:
       - cd dist && ln -sf x509ce_*/x509-certificate-exporter x509-certificate-exporter
 
   image:local:
-    desc: 'Build the host-arch image variants locally via GoReleaser snapshot — fast iteration, no QEMU cross-build'
+    desc: "Build the host-arch image variants locally via GoReleaser snapshot — fast iteration, no QEMU cross-build"
     # GORELEASER_LOCAL_PLATFORM=1 flips two switches at once:
     #   1. builds[]: swaps the full 23-target cross-OS matrix for a
     #      Linux-only x509ce-local build (amd64).
@@ -80,13 +80,13 @@ tasks:
     # Disabled cross-arch entries are reported as "configuration is
     # disabled" — cosmetic, exit code is 0.
     env:
-      GORELEASER_LOCAL_PLATFORM: '1'
+      GORELEASER_LOCAL_PLATFORM: "1"
       IMAGE_NAME: '{{.IMAGE_NAME | default "x509-certificate-exporter"}}'
     cmds:
       - goreleaser release --snapshot --skip=publish,sign --clean
 
   image:all:
-    desc: 'Like `task image:local` but every cross-arch variant (no host-only short-circuit) — validates the full release matrix without pushing'
+    desc: "Like `task image:local` but every cross-arch variant (no host-only short-circuit) — validates the full release matrix without pushing"
     # Snapshot mode skips git tag validation, push, and signing, so
     # this is safe to run on any branch / dirty tree. Useful to verify
     # the .goreleaser.yaml config produces what's expected.
@@ -96,76 +96,6 @@ tasks:
       IMAGE_NAME: '{{.IMAGE_NAME | default "x509-certificate-exporter"}}'
     cmds:
       - goreleaser release --snapshot --skip=publish,sign --clean
-
-  # ─── Dev environment ─────────────────────────────────────────────────────
-  dev:up:
-    desc: tilt up — full dev loop (cluster, build, deploy, seed)
-    deps: [dev:cluster:up]
-    env:
-      KUBECONFIG: '{{.KUBECONFIG_DEV}}'
-    cmds:
-      - tilt up
-
-  dev:down:
-    desc: tilt down + destroy cluster, registry, kubeconfig (full teardown)
-    env:
-      KUBECONFIG: '{{.KUBECONFIG_DEV}}'
-    cmds:
-      - tilt down
-      - task: dev:cluster:down
-
-  dev:cluster:up:
-    desc: Bring up k3d cluster + local registry (idempotent)
-    env:
-      KUBECONFIG: '{{.KUBECONFIG_DEV}}'
-      _DEV_CLUSTER: '{{.DEV_CLUSTER}}'
-      _DEV_REGISTRY: '{{.DEV_REGISTRY}}'
-      _DEV_REGISTRY_PORT: '{{.DEV_REGISTRY_PORT}}'
-      _K3S_IMAGE: '{{.K3S_IMAGE}}'
-      _KUBECONFIG_DEV: '{{.KUBECONFIG_DEV}}'
-    cmds:
-      - cmd: |
-          if ! k3d registry get "$_DEV_REGISTRY" >/dev/null 2>&1; then
-            printf '[cluster] creating local registry at localhost:%s\n' "$_DEV_REGISTRY_PORT"
-            k3d registry create "$_DEV_REGISTRY" --port "$_DEV_REGISTRY_PORT" >/dev/null
-          fi
-      - cmd: |
-          if ! k3d cluster get "$_DEV_CLUSTER" >/dev/null 2>&1; then
-            printf '[cluster] creating k3d cluster %s\n' "$_DEV_CLUSTER"
-            k3d cluster create "$_DEV_CLUSTER" \
-              --image "$_K3S_IMAGE" \
-              --registry-use "k3d-${_DEV_REGISTRY}:${_DEV_REGISTRY_PORT}" \
-              --kubeconfig-update-default=false \
-              --kubeconfig-switch-context=false \
-              --k3s-arg "--disable=traefik@server:*" \
-              --k3s-arg "--disable=servicelb@server:*" \
-              --no-lb \
-              --wait
-          fi
-      - k3d kubeconfig get "$_DEV_CLUSTER" > "$_KUBECONFIG_DEV"
-      - chmod 600 "$_KUBECONFIG_DEV"
-      - printf '[cluster] ready — KUBECONFIG=%s\n' "$_KUBECONFIG_DEV"
-      - echo "[cluster] reminder — when you're done, free the resources with 'task dev:cluster:down'"
-    run: once
-
-  dev:cluster:down:
-    desc: Destroy cluster + registry
-    env:
-      KUBECONFIG: '{{.KUBECONFIG_DEV}}'
-      _DEV_CLUSTER: '{{.DEV_CLUSTER}}'
-      _DEV_REGISTRY: '{{.DEV_REGISTRY}}'
-      _KUBECONFIG_DEV: '{{.KUBECONFIG_DEV}}'
-    cmds:
-      - cmd: |
-          if k3d cluster get "$_DEV_CLUSTER" >/dev/null 2>&1; then
-            k3d cluster delete "$_DEV_CLUSTER"
-          fi
-      - cmd: |
-          if k3d registry get "$_DEV_REGISTRY" >/dev/null 2>&1; then
-            k3d registry delete "$_DEV_REGISTRY"
-          fi
-      - rm -f -- "$_KUBECONFIG_DEV"
-      - echo "[cluster] torn down"
 
   # ─── Dependencies ────────────────────────────────────────────────────────
   go:tidy:
@@ -188,7 +118,7 @@ tasks:
       - nix flake update
 
   renovate:plan:
-    desc: 'Dry-run Renovate against the working tree — lists planned bumps; does NOT modify files'
+    desc: "Dry-run Renovate against the working tree — lists planned bumps; does NOT modify files"
     # `platform=local` defaults to `dryRun=lookup`: extract + lookup
     # phases only, nothing touches the working tree. The actual update
     # plan is buried in DEBUG-level structured logs (info-level only
@@ -231,7 +161,7 @@ tasks:
           | column -t -s "$(printf '\t')"
 
   renovate:patch:
-    desc: 'Apply Renovate''s planned bumps to the working tree (best-effort, format-preserving)'
+    desc: "Apply Renovate's planned bumps to the working tree (best-effort, format-preserving)"
     # Same Renovate dry-run as renovate:plan, but pipe the JSON debug log
     # to scripts/renovate-patch.py — which finds the `packageFiles with
     # updates` event and rewrites each `replaceString` in place. Intent:
@@ -262,19 +192,19 @@ tasks:
 
   # ─── Tests ───────────────────────────────────────────────────────────────
   test:
-    desc: 'Run all tests (unit + e2e)'
+    desc: "Run all tests (unit + e2e)"
     cmds:
       - task: test:unit
       - task: test:fuzz
       - task: test:e2e
 
   test:unit:
-    desc: 'Unit tests with race detector + coverage (gotestsum)'
+    desc: "Unit tests with race detector + coverage (gotestsum)"
     cmds:
       - dagger call --progress tty test
 
   test:fuzz:
-    desc: 'Smoke-run every fuzzer (5s each) — fails on any new crash'
+    desc: "Smoke-run every fuzzer (5s each) — fails on any new crash"
     # Go fuzz only targets one Fuzz* function at a time, so we list each
     # explicitly. Long-form fuzzing is a manual local activity:
     #   go test -fuzz=<name> -fuzztime=10m ./<pkg>
@@ -284,7 +214,7 @@ tasks:
       - go test -run=^$ -fuzz=FuzzCompile -fuzztime=5s ./internal/fileglob/
 
   test:e2e:
-    desc: 'End-to-end against a fully isolated throwaway cluster — random names + free port, race-free across parallel runs'
+    desc: "End-to-end against a fully isolated throwaway cluster — random names + free port, race-free across parallel runs"
     # Each invocation gets a unique RUN_ID, embedded in the cluster
     # name, registry name, and (via socket bind(0)) registry port.
     # Multiple `task test:e2e` runs can therefore execute concurrently
@@ -295,8 +225,8 @@ tasks:
     vars:
       RUN_ID:
         sh: python3 -c "import secrets; print(secrets.token_hex(4))"
-      CLUSTER: 'x509ce-e2e-{{.RUN_ID}}'
-      REGISTRY: 'x509ce-e2e-registry-{{.RUN_ID}}'
+      CLUSTER: "x509ce-e2e-{{.RUN_ID}}"
+      REGISTRY: "x509ce-e2e-registry-{{.RUN_ID}}"
       # Ask the kernel for a free port via bind(0) → getsockname →
       # close. Tiny TOCTOU window between close and `k3d registry
       # create`, in practice negligible for local dev.
@@ -305,11 +235,11 @@ tasks:
       KUBECONFIG_E2E:
         sh: mktemp -t e2e-XXXXXX.kubeconfig.yaml
     env:
-      _CLUSTER: '{{.CLUSTER}}'
-      _REGISTRY: '{{.REGISTRY}}'
-      _REGISTRY_PORT: '{{.REGISTRY_PORT}}'
-      _KUBECONFIG_E2E: '{{.KUBECONFIG_E2E}}'
-      _K3S_IMAGE: '{{.K3S_IMAGE}}'
+      _CLUSTER: "{{.CLUSTER}}"
+      _REGISTRY: "{{.REGISTRY}}"
+      _REGISTRY_PORT: "{{.REGISTRY_PORT}}"
+      _KUBECONFIG_E2E: "{{.KUBECONFIG_E2E}}"
+      _K3S_IMAGE: "{{.K3S_IMAGE}}"
     cmds:
       - defer: rm -f -- "$_KUBECONFIG_E2E"
       - defer: k3d registry delete "$_REGISTRY"
@@ -386,12 +316,12 @@ tasks:
       - dagger call govulncheck
 
   security:vuln-deps:
-    desc: 'Trivy filesystem scan — Go deps, lockfiles, OS packages (HIGH/CRITICAL)'
+    desc: "Trivy filesystem scan — Go deps, lockfiles, OS packages (HIGH/CRITICAL)"
     cmds:
       - dagger call trivy --scan-type=fs
 
   security:chart-misconfig:
-    desc: 'Trivy IaC misconfig scan on chart/'
+    desc: "Trivy IaC misconfig scan on chart/"
     cmds:
       - dagger call trivy --scan-type=config --scan-ref=chart
 
@@ -423,3 +353,73 @@ tasks:
     deps: [build]
     cmds:
       - gsa ./dist/x509-certificate-exporter --tui
+
+  # ─── Dev environment ─────────────────────────────────────────────────────
+  dev:up:
+    desc: tilt up — full dev loop (cluster, build, deploy, seed)
+    deps: [dev:cluster:up]
+    env:
+      KUBECONFIG: "{{.KUBECONFIG_DEV}}"
+    cmds:
+      - tilt up
+
+  dev:down:
+    desc: tilt down + destroy cluster, registry, kubeconfig (full teardown)
+    env:
+      KUBECONFIG: "{{.KUBECONFIG_DEV}}"
+    cmds:
+      - tilt down
+      - task: dev:cluster:down
+
+  dev:cluster:up:
+    desc: Bring up k3d cluster + local registry (idempotent)
+    env:
+      KUBECONFIG: "{{.KUBECONFIG_DEV}}"
+      _DEV_CLUSTER: "{{.DEV_CLUSTER}}"
+      _DEV_REGISTRY: "{{.DEV_REGISTRY}}"
+      _DEV_REGISTRY_PORT: "{{.DEV_REGISTRY_PORT}}"
+      _K3S_IMAGE: "{{.K3S_IMAGE}}"
+      _KUBECONFIG_DEV: "{{.KUBECONFIG_DEV}}"
+    cmds:
+      - cmd: |
+          if ! k3d registry get "$_DEV_REGISTRY" >/dev/null 2>&1; then
+            printf '[cluster] creating local registry at localhost:%s\n' "$_DEV_REGISTRY_PORT"
+            k3d registry create "$_DEV_REGISTRY" --port "$_DEV_REGISTRY_PORT" >/dev/null
+          fi
+      - cmd: |
+          if ! k3d cluster get "$_DEV_CLUSTER" >/dev/null 2>&1; then
+            printf '[cluster] creating k3d cluster %s\n' "$_DEV_CLUSTER"
+            k3d cluster create "$_DEV_CLUSTER" \
+              --image "$_K3S_IMAGE" \
+              --registry-use "k3d-${_DEV_REGISTRY}:${_DEV_REGISTRY_PORT}" \
+              --kubeconfig-update-default=false \
+              --kubeconfig-switch-context=false \
+              --k3s-arg "--disable=traefik@server:*" \
+              --k3s-arg "--disable=servicelb@server:*" \
+              --no-lb \
+              --wait
+          fi
+      - k3d kubeconfig get "$_DEV_CLUSTER" > "$_KUBECONFIG_DEV"
+      - chmod 600 "$_KUBECONFIG_DEV"
+      - printf '[cluster] ready — KUBECONFIG=%s\n' "$_KUBECONFIG_DEV"
+      - echo "[cluster] reminder — when you're done, free the resources with 'task dev:cluster:down'"
+    run: once
+
+  dev:cluster:down:
+    desc: Destroy cluster + registry
+    env:
+      KUBECONFIG: "{{.KUBECONFIG_DEV}}"
+      _DEV_CLUSTER: "{{.DEV_CLUSTER}}"
+      _DEV_REGISTRY: "{{.DEV_REGISTRY}}"
+      _KUBECONFIG_DEV: "{{.KUBECONFIG_DEV}}"
+    cmds:
+      - cmd: |
+          if k3d cluster get "$_DEV_CLUSTER" >/dev/null 2>&1; then
+            k3d cluster delete "$_DEV_CLUSTER"
+          fi
+      - cmd: |
+          if k3d registry get "$_DEV_REGISTRY" >/dev/null 2>&1; then
+            k3d registry delete "$_DEV_REGISTRY"
+          fi
+      - rm -f -- "$_KUBECONFIG_DEV"
+      - echo "[cluster] torn down"

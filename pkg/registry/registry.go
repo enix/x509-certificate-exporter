@@ -266,10 +266,14 @@ func (r *Registry) Delete(ref cert.SourceRef) {
 	r.refreshSourceCounts()
 }
 
-// recordBundleErrors increments error counters from a bundle.
+// recordBundleErrors increments error counters from a bundle. Routes
+// through MarkSourceError so the UI cache (`/` stats endpoint) sees
+// bundle-level errors alongside out-of-bundle ones — historically
+// these went straight to the prometheus vec, which left the stats
+// page blind to parse/passphrase/etc. failures.
 func (r *Registry) recordBundleErrors(b cert.Bundle) {
 	for _, e := range b.Errors {
-		r.sourceErrors.WithLabelValues(b.Source.Kind, b.Source.SourceName, e.Reason).Inc()
+		r.MarkSourceError(b.Source.Kind, b.Source.SourceName, e.Reason)
 		if e.Reason == cert.ReasonBadPassphrase && r.pkcs12PassphraseFailures != nil {
 			r.pkcs12PassphraseFailures.WithLabelValues(b.Source.SourceName).Inc()
 		}

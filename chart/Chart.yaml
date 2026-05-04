@@ -25,7 +25,7 @@ keywords:
   - certificate
   - expiration
 home: https://github.com/enix/x509-certificate-exporter
-icon: https://github.githubassets.com/images/icons/emoji/unicode/1f50f.png
+icon: https://raw.githubusercontent.com/enix/x509-certificate-exporter/refs/heads/main/docs/assets/logo-chart.svg
 sources:
   - https://github.com/enix/x509-certificate-exporter
 maintainers:

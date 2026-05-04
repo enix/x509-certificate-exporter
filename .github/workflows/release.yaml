@@ -203,22 +203,35 @@ jobs:
       # `docker buildx build --push --platform=...` invocation. There's no
       # separate "Docker Manifest" artifact type anymore — those existed
       # only for the legacy `dockers + docker_manifests` two-step flow.
+      #
+      # Dedup by digest before attesting: on stable releases, the same
+      # multi-arch index is pushed under multiple tags (e.g. `:VERSION`
+      # and `:latest`), which resolve to the SAME digest. Without
+      # dedup we'd run syft + cosign attest twice on the same content,
+      # doubling the work and the exposure to registry flakes.
+      #
+      # GODEBUG=http2client=0 forces HTTP/1.1 in the Go HTTP client used
+      # by cosign / go-containerregistry. Mitigates Docker Hub's flaky
+      # HTTP/2 stream resets ("INTERNAL_ERROR; received from peer") that
+      # have hit this step intermittently on the attestation upload.
       - name: Generate + attest image SBOMs
         env:
           COSIGN_YES: "true"
+          GODEBUG: http2client=0
         run: |
           set -euo pipefail
-          # Re-anchor each pushed manifest by digest (the tag is mutable;
-          # the digest is forever) and attach a CycloneDX SBOM as a
-          # cosign attestation. `${ref%:*}` strips the trailing `:tag`
-          # using the shortest-match suffix removal — only `:tag`,
-          # leaving registry/namespace/repo intact.
-          jq -r '.[] | select(.type == "Docker Image") | .name' dist/artifacts.json \
-            | while read -r ref; do
-                echo "::group::SBOM for $ref"
-                digest=$(docker buildx imagetools inspect "$ref" \
-                            --format '{{ .Manifest.Digest }}')
-                ref_by_digest="${ref%:*}@${digest}"
+          # Resolve every pushed (registry, tag) to its digest, then
+          # dedup — the digest is the immutable identity, so attesting
+          # once per digest is enough. `${ref%:*}` strips the trailing
+          # `:tag` (shortest-match suffix removal).
+          while read -r ref; do
+            digest=$(docker buildx imagetools inspect "$ref" \
+                        --format '{{ .Manifest.Digest }}')
+            echo "${ref%:*}@${digest}"
+          done < <(jq -r '.[] | select(.type == "Docker Image") | .name' dist/artifacts.json) \
+            | sort -u \
+            | while read -r ref_by_digest; do
+                echo "::group::SBOM for $ref_by_digest"
                 syft "$ref_by_digest" -o cyclonedx-json=/tmp/sbom.json
                 cosign attest --predicate /tmp/sbom.json --type cyclonedx "$ref_by_digest"
                 rm -f /tmp/sbom.json

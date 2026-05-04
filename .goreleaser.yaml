@@ -18,10 +18,11 @@ version: 2
 
 project_name: x509-certificate-exporter
 
-# `go mod tidy` before the release. Catches dirty go.sum on a release tag.
+# Verify module integrity before release without modifying the working tree
+# (tidy would risk a dirty-tree abort if it produces changes).
 before:
   hooks:
-    - go mod tidy
+    - go mod verify
 
 # ─── Binaries ────────────────────────────────────────────────────────────────
 # Two entries gated by GORELEASER_LOCAL_PLATFORM=1: full cross-OS
@@ -79,7 +80,7 @@ builds:
     binary: *build-binary
     env: *build-env
     goos: [linux]
-    goarch: [amd64]
+    goarch: [amd64, arm64, riscv64]
     flags: *build-flags
     ldflags: *build-ldflags
 
@@ -182,6 +183,8 @@ dockers_v2:
     sbom: false
     labels: &scratch-labels
       org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: "Prometheus exporter for x509 certificates expiration"
+      org.opencontainers.image.url: "https://github.com/enix/x509-certificate-exporter"
       org.opencontainers.image.source: "https://github.com/enix/x509-certificate-exporter"
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.revision: "{{ .FullCommit }}"
@@ -222,6 +225,8 @@ dockers_v2:
     sbom: false
     labels: &busybox-labels
       org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: "Prometheus exporter for x509 certificates expiration (busybox variant)"
+      org.opencontainers.image.url: "https://github.com/enix/x509-certificate-exporter"
       org.opencontainers.image.source: "https://github.com/enix/x509-certificate-exporter"
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.revision: "{{ .FullCommit }}"
@@ -287,17 +292,40 @@ release:
     name: x509-certificate-exporter
   # Auto-detect prerelease from semver suffix (-alpha, -beta, -rc).
   prerelease: auto
-  # release-please creates the Release stub as a draft (per its
-  # `draft: true` config). With `mode: append`, goreleaser appends our
-  # assets to that stub without flipping the draft flag — the
-  # maintainer publishes it manually once everything is verified.
-  # We also set `draft: true` here as a defensive default: if for
-  # whatever reason the stub doesn't exist (release-please outage,
-  # manual retry, fork without the release-please workflow), goreleaser
-  # would fall back to creating a new release, and we want THAT one to
-  # be a draft too.
+  # Create and leave the release as a draft — the maintainer publishes
+  # it manually once the assets and changelog have been reviewed.
   draft: true
-  # release-please created an empty Release stub at tag-merge time.
-  # `mode: append` adds our assets to it instead of complaining that
-  # the release already exists.
-  mode: append
+
+# ─── Changelog ───────────────────────────────────────────────────────────────
+changelog:
+  use: github
+  sort: desc
+  filters:
+    exclude:
+      - "^ci[(:!]"
+      - "^chores?[(:!]"
+      - "^refactor[(:!]"
+      - "^tests?[(:!]"
+      - "^build[(:!]"
+      - "^Merge "
+  groups:
+    - title: "Security Updates"
+      regexp: "^security[(:!]"
+      order: 0
+    - title: "Features"
+      regexp: "^feat[(:!]"
+      order: 1
+    - title: "Bug Fixes"
+      regexp: "^fix[(:!]"
+      order: 2
+    - title: "Performance"
+      regexp: "^perf[(:!]"
+      order: 3
+    - title: "Dependencies"
+      regexp: "^deps[(:!]"
+      order: 4
+    - title: "Documentation"
+      regexp: "^docs?[(:!]"
+      order: 5
+    - title: "Other"
+      order: 99

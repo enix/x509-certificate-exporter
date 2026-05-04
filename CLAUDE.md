@@ -240,33 +240,23 @@ Everything else either auto-updates or auto-resolves at build time.
 
 ## Release pipeline
 
-Two workflows cooperate:
+Releases are tag-driven. A maintainer pushes a `vX.Y.Z` tag manually
+(or via automation) and the [`release.yaml`](.github/workflows/release.yaml)
+workflow fires. GoReleaser drives all the heavy lifting: changelog generation,
+binary cross-compilation, container images, chart packaging, signing, and
+creating a draft GitHub Release. The maintainer reviews the draft and
+publishes it manually.
 
-### Versioning & tagging — release-please
-
-The [`release-please` workflow](.github/workflows/release-please.yaml)
-runs on every push to `main`. It maintains a permanent "release PR"
-that aggregates Conventional Commits since the last released tag,
-computes the next SemVer bump, and updates `CHANGELOG.md` +
-`.release-please-manifest.json`. Merging that PR causes release-please
-to:
-
-- Push a `vX.Y.Z` tag on the merge commit
-- Create an empty GitHub Release stub
-
-Config in `release-please-config.json`. Section mapping is conventional
-(feat → Features, fix → Bug Fixes, deps → Dependencies, etc.); chore /
-ci / refactor / test / build are kept hidden from the public changelog
-but still inform the SemVer bump.
-
-The workflow runs under a GitHub App identity (`RELEASE_PLEASE_APP_*`
-secrets) — required because tags pushed under the default `GITHUB_TOKEN`
-do not trigger downstream workflows. The App-issued token is exempt
-from that guard, so the `release.yaml` pipeline picks up the new tag.
+Changelog sections in GoReleaser's `changelog.groups` (`.goreleaser.yaml`)
+mirror the Conventional Commit type mapping:
+Security Updates (`security:`), Features (`feat:`), Bug Fixes (`fix:`),
+Performance (`perf:`), Dependencies (`deps:`), Documentation (`doc:`).
+Types `ci:`, `chore:`, `refactor:`, `test:`, `build:` are excluded from the
+public changelog.
 
 ### Build & publish — release.yaml
 
-Triggered by the tag created above. Three jobs, all driven by
+Triggered by a `v*` tag push. Two jobs, all driven by
 [`.goreleaser.yaml`](./.goreleaser.yaml) for the heavy lifting:
 
 1. **`goreleaser`** (env `release`, gated by required reviewers) —

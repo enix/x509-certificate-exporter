@@ -560,47 +560,27 @@ helm_resource(
 
 ## Release flow
 
-Releases are PR-driven — you don't tag manually, release-please does it.
+Releases are tag-driven. A maintainer pushes a `vX.Y.Z` tag on the
+commit to be released (pre-releases use a `-alpha`/`-beta`/`-rc` suffix
+and are auto-detected by GoReleaser).
 
-Whenever a Conventional Commit lands on `main`, the
-[Release Please workflow](./.github/workflows/release-please.yaml)
-appends it to a permanent "release PR" that aggregates everything since
-the last released tag:
+Pushing a `v*` tag triggers the
+[Release workflow](./.github/workflows/release.yaml), which:
 
-- Computes the next SemVer bump from the commit types
-  (see [release-please-config.json](./release-please-config.json) for
-  the type → section mapping)
-- Updates `CHANGELOG.md`
-- Updates `chart/Chart.yaml`'s `version` and `appVersion` (matched by
-  the `# x-release-please-version` markers on those lines)
-- Updates `.release-please-manifest.json`
+1. Builds binaries (matrix of OS × arch) and packages them as archives
+2. Pushes container images to all configured registries
+3. Packages and pushes the Helm chart to its OCI registry
+4. Signs everything with cosign keyless and generates SLSA Level 3
+   provenance for the binaries
+5. Creates a **draft** GitHub Release with a changelog generated from
+   Conventional Commits since the previous tag
 
-A post-process step in the same workflow keeps three artifacthub.io
-annotations on the chart in sync (prerelease flag, recent changes
-list, security flag). Don't edit those annotations by hand on the
-release PR — release-please force-pushes the branch on subsequent
-runs and will overwrite manual edits.
-
-When the release PR is merged, three things happen automatically:
-
-1. release-please tags the merge commit `vX.Y.Z`
-2. That tag triggers the [Release workflow](./.github/workflows/release.yaml),
-   which builds binaries (matrix of OS × arch), pushes container
-   images to all configured registries, packages and pushes the Helm
-   chart to its OCI registry, signs everything with cosign keyless,
-   and generates SLSA Level 3 provenance for the binaries
-3. A GitHub Release is finalised with the binaries, `checksums.txt`,
-   the provenance file, and pointers to all signed artifacts
+The maintainer reviews the draft release and publishes it manually once
+everything looks correct. Before tagging, update `chart/Chart.yaml`'s
+`version` and `appVersion` to the new version.
 
 Verification commands for downstream consumers are documented in the
 [hardening guide](./docs/hardening.md).
-
-If you push a tag manually (e.g. to test the Release workflow without
-going through release-please), Chart.yaml's `version`/`appVersion` and
-the artifacthub annotations stay at whatever's in the source tree —
-the chart is still packaged and pushed but its metadata may not match
-the tag. Use only for verifying the workflow itself, not for actual
-releases.
 
 ## Common tasks reference
 
@@ -738,19 +718,16 @@ repo UI.
 ### Commit messages
 
 We use [Conventional Commits](https://www.conventionalcommits.org/) where
-practical. The `release-please` workflow consumes these to compute SemVer
-bumps and to populate the public `CHANGELOG.md` and the chart's
-artifacthub.io annotations, so getting the type right matters:
+practical. GoReleaser consumes these to generate the public changelog
+sections, so getting the type right matters:
 
 - `feat:` — new user-visible behavior. Triggers a minor bump.
 - `fix:` — bug fix. Triggers a patch bump.
 - `perf:` — performance improvement (visible in the changelog).
 - `security:` — fix or hardening that addresses a CVE / vulnerability.
-  **Triggers `artifacthub.io/containsSecurityUpdates: "true"` on the
-  chart**, which surfaces a special banner on artifact-hub.io and an
-  email notification to subscribers. Use this for changes a security
-  scanner or downstream operator would care about; reserve plain `fix:`
-  for functional bugs without security impact.
+  Appears in the **Security Updates** changelog section. Use this for
+  changes a security scanner or downstream operator would care about;
+  reserve plain `fix:` for functional bugs without security impact.
 - `deps:` — dependency bump (own section in the changelog).
 - `doc:` — documentation only.
 - `chore:` — maintenance, infra, internal cleanup. Hidden from changelog

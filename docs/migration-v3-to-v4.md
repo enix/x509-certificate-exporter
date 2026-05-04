@@ -197,12 +197,22 @@ ClusterIP's round-robin to distribute scrapes, you almost certainly
 had a latent bug — only one Pod was scraped per attempt. Headless
 fixes that.
 
-To restore the v3 behavior explicitly:
+To restore the v3 behaviour explicitly:
 
 ```yaml
 service:
   headless: false
 ```
+
+> [!NOTE]
+> Kubernetes refuses to mutate a Service's `clusterIP` in place. A naive
+> `helm upgrade` from v3 (with an assigned ClusterIP) to v4 (headless,
+> `clusterIP: None`) would fail with `spec.clusterIPs[0]: may not change
+> once set`. The chart ships a pre-upgrade hook that detects a v3 release
+> via the existing Service's `helm.sh/chart` label and deletes the old
+> Service before the upgrade reconciles, so helm can recreate it cleanly
+> from the new template. A few seconds of scrape disruption during the
+> upgrade window; Pods themselves stay up.
 
 ### Image schema — `digest` and split `migration.image`
 

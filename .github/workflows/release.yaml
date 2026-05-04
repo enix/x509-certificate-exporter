@@ -431,6 +431,9 @@ jobs:
             dist/index-latest.yaml:application/yaml
 
           # Trigger the publish workflow in the upstream helm-charts repo.
+          # helmchart-publish.yml prepends "quay.io/" to index_path, so
+          # strip that prefix from CHART_REGISTRY if present.
+          index_registry="${CHART_REGISTRY#quay.io/}"
           gh workflow run helmchart-publish.yml \
-            -f "index_path=${CHART_REGISTRY}/${CHART_NAME}:index-latest.yaml" \
+            -f "index_path=${index_registry}/${CHART_NAME}:index-latest.yaml" \
             --repo enix/helm-charts

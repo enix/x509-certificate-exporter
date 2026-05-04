@@ -31,10 +31,6 @@ name: Release PR
 #       RELEASE_PLEASE_APP_PRIVATE_KEY
 
 on:
-  push:
-    branches: [main]
-  # Allow re-running manually (e.g. after editing release-please-config
-  # or after manually closing/cleaning a stale release PR).
   workflow_dispatch:
 
 # Runner GITHUB_TOKEN is unused by this workflow — every action that

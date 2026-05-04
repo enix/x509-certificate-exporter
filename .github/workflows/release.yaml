@@ -426,9 +426,12 @@ jobs:
 
           # Push the index as an OCI artifact. The enix/helm-charts repo
           # will pull this artifact and serve it over HTTPS.
-          oras push "${CHART_REGISTRY}/${CHART_NAME}:index-latest.yaml" \
+          # `oras push` preserves the directory prefix in the layer path,
+          # so cd into dist/ first so the file is pushed as "index-latest.yaml"
+          # at the root, not "dist/index-latest.yaml".
+          (cd dist && oras push "${CHART_REGISTRY}/${CHART_NAME}:index-latest.yaml" \
             --artifact-type application/yaml \
-            dist/index-latest.yaml:application/yaml
+            index-latest.yaml:application/yaml)
 
           # Trigger the publish workflow in the upstream helm-charts repo.
           # helmchart-publish.yml prepends "quay.io/" to index_path, so

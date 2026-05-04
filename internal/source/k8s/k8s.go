@@ -362,16 +362,20 @@ func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
 	loc := fmt.Sprintf("%s/%s", sec.Namespace, sec.Name)
 	if deleted {
 		s.deleteAllRefs(sink, "kube-secret", loc)
+		s.log.Debug("secret deleted", "namespace", sec.Namespace, "name", sec.Name)
 		return
 	}
 	if !s.acceptName(sec.Name, s.opts.SecretFilter) {
 		s.deleteAllRefs(sink, "kube-secret", loc)
+		s.log.Debug("secret rejected", "namespace", sec.Namespace, "name", sec.Name, "reason", "name_filter")
 		return
 	}
 	if !s.namespaceAllowed(sec.Namespace) {
 		s.deleteAllRefs(sink, "kube-secret", loc)
+		s.log.Debug("secret rejected", "namespace", sec.Namespace, "name", sec.Name, "reason", "namespace_filter")
 		return
 	}
+	emitted := 0
 	for _, rule := range s.opts.SecretRules {
 		if rule.Type != "" && string(sec.Type) != rule.Type {
 			continue
@@ -389,7 +393,15 @@ func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
 			}
 			b := rule.Parser.Parse(v, ref, po)
 			s.trackUpsert(sink, b)
+			emitted++
 		}
+	}
+	if emitted == 0 {
+		s.log.Debug("secret matched no rule",
+			"namespace", sec.Namespace, "name", sec.Name, "type", string(sec.Type))
+	} else {
+		s.log.Debug("secret accepted",
+			"namespace", sec.Namespace, "name", sec.Name, "type", string(sec.Type), "bundles", emitted)
 	}
 }
 
@@ -401,16 +413,20 @@ func (s *Source) onConfigMap(sink cert.Sink, obj any, deleted bool) {
 	loc := fmt.Sprintf("%s/%s", cm.Namespace, cm.Name)
 	if deleted {
 		s.deleteAllRefs(sink, "kube-configmap", loc)
+		s.log.Debug("configmap deleted", "namespace", cm.Namespace, "name", cm.Name)
 		return
 	}
 	if !s.acceptName(cm.Name, s.opts.ConfigMapFilter) {
 		s.deleteAllRefs(sink, "kube-configmap", loc)
+		s.log.Debug("configmap rejected", "namespace", cm.Namespace, "name", cm.Name, "reason", "name_filter")
 		return
 	}
 	if !s.namespaceAllowed(cm.Namespace) {
 		s.deleteAllRefs(sink, "kube-configmap", loc)
+		s.log.Debug("configmap rejected", "namespace", cm.Namespace, "name", cm.Name, "reason", "namespace_filter")
 		return
 	}
+	emitted := 0
 	for _, rule := range s.opts.ConfigMapRules {
 		for k, v := range cm.Data {
 			if rule.KeyRe == nil || !rule.KeyRe.MatchString(k) {
@@ -419,7 +435,15 @@ func (s *Source) onConfigMap(sink cert.Sink, obj any, deleted bool) {
 			ref := s.refConfigMap(cm, k, rule.Parser.Format())
 			b := rule.Parser.Parse([]byte(v), ref, rule.ParseOpts)
 			s.trackUpsert(sink, b)
+			emitted++
 		}
+	}
+	if emitted == 0 {
+		s.log.Debug("configmap matched no rule",
+			"namespace", cm.Namespace, "name", cm.Name)
+	} else {
+		s.log.Debug("configmap accepted",
+			"namespace", cm.Namespace, "name", cm.Name, "bundles", emitted)
 	}
 }
 
@@ -612,8 +636,13 @@ func (s *Source) onNamespace(sink cert.Sink, obj any, deleted bool) {
 	// re-emit pass after WaitForCacheSync covers the initial population.
 	prefixSec := fmt.Sprintf("kube-secret:%s/", ns.Name)
 	prefixCM := fmt.Sprintf("kube-configmap:%s/", ns.Name)
+	dropped := 0
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer func() {
+		s.mu.Unlock()
+		s.log.Debug("namespace labels changed, dropped refs for re-evaluation",
+			"namespace", ns.Name, "deleted", deleted, "dropped", dropped)
+	}()
 	for k := range s.tracked {
 		if !strings.HasPrefix(k, prefixSec) && !strings.HasPrefix(k, prefixCM) {
 			continue
@@ -621,6 +650,7 @@ func (s *Source) onNamespace(sink cert.Sink, obj any, deleted bool) {
 		ref := parseTrackedKey(k, s.opts.Name)
 		sink.Delete(ref)
 		delete(s.tracked, k)
+		dropped++
 	}
 }
 

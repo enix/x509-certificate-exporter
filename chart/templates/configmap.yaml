@@ -98,7 +98,7 @@ data:
       {{- end }}
 
     log:
-      level: {{ ternary "debug" "info" (default $.Values.hostPathsExporter.debugMode $dsDef.debugMode) }}
+      level: {{ ternary "debug" "info" (dig "debugMode" $.Values.hostPathsExporter.debugMode $dsDef) }}
       format: text
 
     metrics:
@@ -115,22 +115,22 @@ data:
 
     cache:
       filePoll:
-        interval: {{ default "300s" (default $.Values.hostPathsExporter.refreshInterval $dsDef.refreshInterval) }}
+        interval: {{ default "300s" (dig "refreshInterval" $.Values.hostPathsExporter.refreshInterval $dsDef) }}
         skipUnchanged: true
 
     sources:
-      {{- if or (default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories) (default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories) (default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles) }}
+      {{- if or (dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef) (dig "watchSpecificExtensionDirectories" $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef) (dig "watchFiles" $.Values.hostPathsExporter.watchFiles $dsDef) }}
       - kind: file
         name: host-paths-{{ $dsName }}
-        followSymlinks: {{ not (default $.Values.hostPathsExporter.skipSymlinks $dsDef.skipSymlinks) }}
+        followSymlinks: {{ not (dig "skipSymlinks" $.Values.hostPathsExporter.skipSymlinks $dsDef) }}
         paths:
-          {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
+          {{- range dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
           - {{ printf "/mnt/watch/dir-%s/%s/*" (. | clean | sha1sum) (. | clean) | clean }}
           {{- end }}
-          {{- range default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories }}
+          {{- range dig "watchSpecificExtensionDirectories" $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef }}
           - {{ printf "/mnt/watch/dir-%s/%s/*.%s" (.directory | clean | sha1sum) (.directory | clean) (.extension | clean) | clean }}
           {{- end }}
-          {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
+          {{- range dig "watchFiles" $.Values.hostPathsExporter.watchFiles $dsDef }}
           - {{ printf "/mnt/watch/file-%s%s" (. | clean | sha1sum) (. | clean) | clean }}
           {{- end }}
         # Map host-namespace path prefixes (where symlink targets are
@@ -139,29 +139,29 @@ data:
         # list also confines symlink resolution to these scopes — anything
         # that escapes raises x509_source_errors_total{reason="out_of_scope_symlink"}.
         pathMappings:
-          {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
+          {{- range dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
           - from: {{ . | clean | quote }}
             to: {{ printf "/mnt/watch/dir-%s/%s" (. | clean | sha1sum) (. | clean) | clean | quote }}
           {{- end }}
-          {{- range default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories }}
+          {{- range dig "watchSpecificExtensionDirectories" $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef }}
           - from: {{ .directory | clean | quote }}
             to: {{ printf "/mnt/watch/dir-%s/%s" (.directory | clean | sha1sum) (.directory | clean) | clean | quote }}
           {{- end }}
-          {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
+          {{- range dig "watchFiles" $.Values.hostPathsExporter.watchFiles $dsDef }}
           - from: {{ . | clean | dir | quote }}
             to: {{ printf "/mnt/watch/file-%s%s" (. | clean | sha1sum) (. | clean | dir) | clean | quote }}
           {{- end }}
         formats: [pem]
       {{- end }}
-      {{- if default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+      {{- if dig "watchKubeconfFiles" $.Values.hostPathsExporter.watchKubeconfFiles $dsDef }}
       - kind: kubeconfig
         name: host-kubeconfigs-{{ $dsName }}
         paths:
-          {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+          {{- range dig "watchKubeconfFiles" $.Values.hostPathsExporter.watchKubeconfFiles $dsDef }}
           - {{ printf "/mnt/watch/kube-%s%s" (. | clean | sha1sum) (. | clean) | clean }}
           {{- end }}
         pathMappings:
-          {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+          {{- range dig "watchKubeconfFiles" $.Values.hostPathsExporter.watchKubeconfFiles $dsDef }}
           - from: {{ . | clean | dir | quote }}
             to: {{ printf "/mnt/watch/kube-%s%s" (. | clean | sha1sum) (. | clean | dir) | clean | quote }}
           {{- end }}

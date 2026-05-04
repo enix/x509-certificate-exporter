@@ -1,13 +1,13 @@
 {{- with .Values.hostPathsExporter.daemonSets }}
 {{- range $dsName, $dsDef := . }}
-{{- $extraVolumes := concat ( default $.Values.hostPathsExporter.extraVolumes $dsDef.extraVolumes ) $.Values.extraVolumes }}
-{{- $extraVolumeMounts := concat ( default $.Values.hostPathsExporter.extraVolumeMounts $dsDef.extraVolumeMounts ) $.Values.extraVolumeMounts }}
+{{- $extraVolumes := concat (dig "extraVolumes" $.Values.hostPathsExporter.extraVolumes $dsDef) $.Values.extraVolumes }}
+{{- $extraVolumeMounts := concat (dig "extraVolumeMounts" $.Values.hostPathsExporter.extraVolumeMounts $dsDef) $.Values.extraVolumeMounts }}
 {{- $extraEnvs := concat (default (list) $.Values.hostPathsExporter.env) (default (list) $dsDef.env) }}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  {{- with default $.Values.hostPathsExporter.annotations $dsDef.annotations }}
+  {{- with (dig "annotations" $.Values.hostPathsExporter.annotations $dsDef) }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -28,7 +28,7 @@ spec:
   {{- if not (kindIs "invalid" $rl) }}
   revisionHistoryLimit: {{ int $rl }}
   {{- end }}
-  {{- with default $.Values.hostPathsExporter.updateStrategy $dsDef.updateStrategy }}
+  {{- with (dig "updateStrategy" $.Values.hostPathsExporter.updateStrategy $dsDef) }}
   updateStrategy:
     {{- . | toYaml | trim | nindent 4 }}
   {{- end }}
@@ -40,12 +40,12 @@ spec:
         {{- with $.Values.podExtraLabels }}
         {{- . | toYaml | trim | nindent 8 }}
         {{- end }}
-        {{- with default $.Values.hostPathsExporter.podExtraLabels $dsDef.podExtraLabels }}
+        {{- with (dig "podExtraLabels" $.Values.hostPathsExporter.podExtraLabels $dsDef) }}
         {{- . | toYaml | trim | nindent 8 }}
         {{- end }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
-        {{- with mustMerge (default $.Values.hostPathsExporter.podAnnotations $dsDef.podAnnotations) $.Values.podAnnotations }}
+        {{- with mustMerge (dig "podAnnotations" $.Values.hostPathsExporter.podAnnotations $dsDef) $.Values.podAnnotations }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
         {{- if $.Values.webConfiguration }}
@@ -57,33 +57,33 @@ spec:
       imagePullSecrets:
         {{- . | toYaml | trim | nindent 8 }}
       {{- end }}
-      {{- with default $.Values.hostPathsExporter.affinity $dsDef.affinity }}
+      {{- with (dig "affinity" $.Values.hostPathsExporter.affinity $dsDef) }}
       affinity:
         {{- . | toYaml | trim | nindent 8 }}
       {{- end }}
-      {{- with default $.Values.hostPathsExporter.tolerations $dsDef.tolerations }}
+      {{- with (dig "tolerations" $.Values.hostPathsExporter.tolerations $dsDef) }}
       tolerations:
       {{- . | toYaml | trim | nindent 6 }}
       {{- end }}
-      {{- with default $.Values.hostPathsExporter.podSecurityContext $dsDef.podSecurityContext }}
+      {{- with (dig "podSecurityContext" $.Values.hostPathsExporter.podSecurityContext $dsDef) }}
       securityContext:
         {{- . | toYaml | trim | nindent 8 }}
       {{- end }}
-      {{- with default $.Values.hostPathsExporter.nodeSelector $dsDef.nodeSelector }}
+      {{- with (dig "nodeSelector" $.Values.hostPathsExporter.nodeSelector $dsDef) }}
       nodeSelector:
         {{- . | toYaml | trim | nindent 8 }}
       {{- end }}
-      restartPolicy: {{ default $.Values.hostPathsExporter.restartPolicy $dsDef.restartPolicy }}
-      {{- with default $.Values.priorityClassName (default $.Values.hostPathsExporter.priorityClassName $dsDef.priorityClassName) }}
+      restartPolicy: {{ dig "restartPolicy" $.Values.hostPathsExporter.restartPolicy $dsDef }}
+      {{- with default $.Values.priorityClassName (dig "priorityClassName" $.Values.hostPathsExporter.priorityClassName $dsDef) }}
       priorityClassName: {{ . | quote }}
       {{- end }}
       containers:
       - name: {{ $.Chart.Name }}
-        {{- with default $.Values.hostPathsExporter.securityContext $dsDef.securityContext }}
+        {{- with (dig "securityContext" $.Values.hostPathsExporter.securityContext $dsDef) }}
         securityContext:
           {{- . | toYaml | trim | nindent 10 }}
         {{- end }}
-        {{- with default $.Values.hostPathsExporter.resources $dsDef.resources }}
+        {{- with (dig "resources" $.Values.hostPathsExporter.resources $dsDef) }}
         resources:
           {{- . | toYaml | trim | nindent 10 }}
         {{- end }}
@@ -99,22 +99,22 @@ spec:
         - name: config
           mountPath: /etc/x509-certificate-exporter
           readOnly: true
-        {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
+        {{- range dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
         - name: dir-{{ . | clean | sha1sum }}
           mountPath: /mnt/watch/dir-{{ . | clean | sha1sum }}/{{ . | clean }}
           readOnly: true
         {{- end }}
-        {{- range default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories }}
+        {{- range dig "watchSpecificExtensionDirectories" $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef }}
         - name: dir-{{ .directory| clean | sha1sum }}
           mountPath: /mnt/watch/dir-{{ .directory | clean | sha1sum }}/{{ .directory | clean | dir }}
           readOnly: true
         {{- end }}
-        {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
+        {{- range dig "watchFiles" $.Values.hostPathsExporter.watchFiles $dsDef }}
         - name: file-{{ . | clean | sha1sum }}
           mountPath: /mnt/watch/file-{{ . | clean | sha1sum }}{{ . | clean | dir }}
           readOnly: true
         {{- end }}
-        {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+        {{- range dig "watchKubeconfFiles" $.Values.hostPathsExporter.watchKubeconfFiles $dsDef }}
         - name: kube-{{ . | clean | sha1sum }}
           mountPath: /mnt/watch/kube-{{ . | clean | sha1sum }}{{ . | clean | dir }}
           readOnly: true
@@ -200,7 +200,7 @@ spec:
       {{- if hasKey $dsDef "hostPathVolumeType" }}
         {{- $hostPathType = $dsDef.hostPathVolumeType }}
       {{- end }}
-      {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
+      {{- range dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
       - name: dir-{{ . | clean | sha1sum }}
         hostPath:
           path: {{ . | clean }}
@@ -208,7 +208,7 @@ spec:
           type: {{ $hostPathType | quote }}
           {{- end }}
       {{- end }}
-      {{- range default $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef.watchSpecificExtensionDirectories }}
+      {{- range dig "watchSpecificExtensionDirectories" $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef }}
       - name: dir-{{ .directory | clean | sha1sum }}
         hostPath:
           path: {{ .directory | clean }}
@@ -216,7 +216,7 @@ spec:
           type: {{ $hostPathType | quote }}
           {{- end }}
       {{- end }}
-      {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
+      {{- range dig "watchFiles" $.Values.hostPathsExporter.watchFiles $dsDef }}
       - name: file-{{ . | clean | sha1sum }}
         hostPath:
           path: {{ . | clean | dir }}
@@ -224,7 +224,7 @@ spec:
           type: {{ $hostPathType | quote }}
           {{- end }}
       {{- end }}
-      {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+      {{- range dig "watchKubeconfFiles" $.Values.hostPathsExporter.watchKubeconfFiles $dsDef }}
       - name: kube-{{ . | clean | sha1sum }}
         hostPath:
           path: {{ . | clean | dir }}

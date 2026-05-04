@@ -51,15 +51,15 @@ spec:
   - 'hostPath'
   - 'secret'
   allowedHostPaths:
-  {{- range default $.Values.hostPathsExporter.watchDirectories $dsDef.watchDirectories }}
+  {{- range dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
   - pathPrefix: "{{ . | clean }}"
     readOnly: true
   {{- end }}
-  {{- range default $.Values.hostPathsExporter.watchFiles $dsDef.watchFiles }}
+  {{- range dig "watchFiles" $.Values.hostPathsExporter.watchFiles $dsDef }}
   - pathPrefix: "{{ . | clean | dir }}"
     readOnly: true
   {{- end }}
-  {{- range default $.Values.hostPathsExporter.watchKubeconfFiles $dsDef.watchKubeconfFiles }}
+  {{- range dig "watchKubeconfFiles" $.Values.hostPathsExporter.watchKubeconfFiles $dsDef }}
   - pathPrefix: "{{ . | clean | dir }}"
     readOnly: true
   {{- end }}

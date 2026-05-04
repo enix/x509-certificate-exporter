@@ -139,8 +139,13 @@ signs:
 # stitching.
 #
 # Tag layout:
-#   scratch: :VERSION         + :latest    (default; floating ":latest" skipped on snapshots)
-#   busybox: :VERSION-busybox + :busybox   (alt;     floating ":busybox" skipped on snapshots)
+#   scratch: :VERSION         + :latest    (default; floating ":latest" skipped on snapshots and prereleases)
+#   busybox: :VERSION-busybox + :busybox   (alt;     floating ":busybox" skipped on snapshots and prereleases)
+#
+# Floating tags ("latest", "busybox") are skipped on prereleases too —
+# `.Prerelease` is the semver suffix (e.g. "alpha.3" for v4.0.0-alpha.3,
+# empty for stable). We don't want a `:latest` pull to ever land a user
+# on an alpha/beta/rc image.
 #
 # Built-in `sbom: false` because the release.yaml post-loop produces
 # CycloneDX SBOMs via syft + cosign attestation — that's the canonical
@@ -173,7 +178,7 @@ dockers_v2:
       - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
     tags:
       - "{{ .Version }}"
-      - "{{ if not .IsSnapshot }}latest{{ end }}"
+      - '{{ if and (not .IsSnapshot) (eq .Prerelease "") }}latest{{ end }}'
     sbom: false
     labels: &scratch-labels
       org.opencontainers.image.title: "{{ .ProjectName }}"
@@ -195,7 +200,7 @@ dockers_v2:
       - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
     tags:
       - "{{ .Version }}"
-      - "{{ if not .IsSnapshot }}latest{{ end }}"
+      - '{{ if and (not .IsSnapshot) (eq .Prerelease "") }}latest{{ end }}'
     sbom: false
     labels: *scratch-labels
 
@@ -213,7 +218,7 @@ dockers_v2:
       - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
     tags:
       - "{{ .Version }}-busybox"
-      - "{{ if not .IsSnapshot }}busybox{{ end }}"
+      - '{{ if and (not .IsSnapshot) (eq .Prerelease "") }}busybox{{ end }}'
     sbom: false
     labels: &busybox-labels
       org.opencontainers.image.title: "{{ .ProjectName }}"
@@ -235,7 +240,7 @@ dockers_v2:
       - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
     tags:
       - "{{ .Version }}-busybox"
-      - "{{ if not .IsSnapshot }}busybox{{ end }}"
+      - '{{ if and (not .IsSnapshot) (eq .Prerelease "") }}busybox{{ end }}'
     sbom: false
     labels: *busybox-labels
 

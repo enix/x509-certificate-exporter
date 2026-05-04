@@ -395,8 +395,8 @@ jobs:
 
       - name: Login to Quay for ORAS
         run: |
-          echo "${{ secrets.QUAY_TOKEN }}" \
-            | oras login --username "${{ secrets.QUAY_USERNAME }}" --password-stdin quay.io
+          echo "${{ secrets.CHART_REGISTRY_TOKEN }}" \
+            | oras login --username "${{ secrets.CHART_REGISTRY_USERNAME }}" --password-stdin quay.io
 
       - name: Build and push Helm index
         env:

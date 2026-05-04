@@ -192,8 +192,14 @@ jobs:
         # token automatically — it has to be in the env. The job's
         # `permissions.contents: write` is what gives this token the
         # write-Release scope.
+        # GODEBUG=http2client=0 forces HTTP/1.1 for all outbound requests
+        # in the GoReleaser process. Mitigates GitHub's flaky HTTP/2
+        # REFUSED_STREAM resets on uploads.github.com that cause asset
+        # uploads to fail non-retryably (Go can't retry a consumed body
+        # over H2). Same workaround applied to the SBOM attest step below.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GODEBUG: http2client=0
 
       # SLSA Build Level 3 provenance for every binary listed in
       # GoReleaser's dist/checksums.txt (sha256sum -c format). Signed

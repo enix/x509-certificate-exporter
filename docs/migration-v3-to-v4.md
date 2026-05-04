@@ -2,8 +2,8 @@
 
 This guide walks through every breaking change between the v3 and v4
 releases of the x509-certificate-exporter. The order below reflects
-operational priority: distribution channels first (because the wrong URL
-gets you `404`), then chart values shape, then metrics changes, then the rest.
+operational priority: recommended migration steps first, then chart
+values shape, then metrics changes, then the rest.
 
 ---
 
@@ -11,7 +11,7 @@ gets you `404`), then chart values shape, then metrics changes, then the rest.
 
 | Area | v3 | v4 |
 | --- | --- | --- |
-| Helm chart distribution | `https://charts.enix.io` (classic) **and** `oci://quay.io/enix/charts/...` | `oci://quay.io/enix/charts/x509-certificate-exporter` only |
+| Helm chart distribution | `https://charts.enix.io` (classic) **and** `oci://quay.io/enix/charts/...` | Both still work — OCI recommended |
 | Container image variants | `busybox` (default), `alpine`, `scratch` | `scratch` (default, minimal), `busybox` (alt, with shell) — Alpine retired |
 | Image registries | Docker Hub, Quay | Docker Hub, Quay, GHCR |
 | Exporter configuration | CLI flags | YAML config file (`--config`) |
@@ -21,38 +21,36 @@ gets you `404`), then chart values shape, then metrics changes, then the rest.
 
 ---
 
-## 1. Helm chart distribution: OCI only
+## 1. Helm chart distribution: OCI recommended
 
-In v3 the chart was double-published — to the classic Helm repository at
-`https://charts.enix.io` *and* as an OCI artifact on `quay.io`. In v4
-the classic repo is **retired**; only the OCI publication is kept. The
-chart keeps the same name (`x509-certificate-exporter`); only the
-download URL changes.
+The classic Helm repository at `https://charts.enix.io` continues to
+work and will keep receiving v4 releases — **no action required** if
+you stay on it. That said, we recommend migrating to the OCI reference
+at your own pace: OCI artifacts are the direction the Helm ecosystem is
+heading, and the OCI publication is where cosign signatures, SBOM
+attestations and provenance are attached.
 
-This requires Helm **3.8 or later** (OCI support became GA in 3.8.0).
+> [!TIP]
+> If your tooling already supports OCI (Helm 3.8+, Argo CD 2.6+,
+> Flux source-controller 1.0+), the switch is a one-line change and
+> unlocks the full supply-chain verification story documented in the
+> [hardening guide](./hardening.md).
 
-### Before (v3)
-
-```sh
-helm repo add enix https://charts.enix.io
-helm repo update
-helm install x509-certificate-exporter enix/x509-certificate-exporter \
-  --version 3.21.0
-```
-
-### After (v4)
+### Switching to OCI (recommended)
 
 ```sh
+# Remove the legacy repo entry if you had it:
+helm repo remove enix
+
 helm install x509-certificate-exporter \
   oci://quay.io/enix/charts/x509-certificate-exporter \
   --version 4.0.0
 ```
 
-If you keep the chart pinned in a wrapper (Argo CD `Application`,
-Flux `HelmRelease`, etc.), update the source:
+Argo CD and Flux snippets:
 
 ```yaml
-# Argo CD Application (v4)
+# Argo CD Application
 spec:
   source:
     repoURL: quay.io/enix/charts
@@ -64,7 +62,7 @@ spec:
 ```
 
 ```yaml
-# Flux HelmRelease (v4)
+# Flux HelmRelease
 spec:
   chart:
     spec:
@@ -83,9 +81,17 @@ spec:
   url: oci://quay.io/enix/charts
 ```
 
-The chart is cosign-signed; the verification recipes (cosign keyless,
-SLSA-3 provenance, CycloneDX SBOM attestations, image-digest pinning)
-live in the [hardening guide](./hardening.md).
+### Staying on the classic repo (still supported)
+
+```sh
+helm repo add enix https://charts.enix.io
+helm repo update
+helm upgrade x509-certificate-exporter enix/x509-certificate-exporter \
+  --version 4.0.0
+```
+
+No other change needed — the chart name and values shape are identical
+across both distribution channels.
 
 ---
 

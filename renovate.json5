@@ -142,6 +142,19 @@
       depNameTemplate: "gotest.tools/gotestsum",
       datasourceTemplate: "go",
     },
+    // GoReleaser version pinned inside the `with: version:` field of
+    // goreleaser/goreleaser-action in release.yaml. The github-actions
+    // manager SHA-pins the action ref itself but doesn't parse arbitrary
+    // `with:` values, so a separate regex manager is needed.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^\\.github/workflows/release\\.ya?ml$/"],
+      matchStrings: [
+        "version:\\s*\"(?<currentValue>v\\d[\\w.-]*)\"",
+      ],
+      depNameTemplate: "goreleaser/goreleaser",
+      datasourceTemplate: "github-releases",
+    },
   ],
 
   packageRules: [

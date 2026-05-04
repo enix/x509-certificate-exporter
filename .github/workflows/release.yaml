@@ -266,7 +266,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
         with:
-          version: "3.18.0"
+          version: "4.1.4"
       - uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4
       # Two separate logins because helm and cosign use different auth stores:
       #   - `helm registry login` writes to helm's own config (used by `helm push` below)

@@ -155,6 +155,18 @@
       depNameTemplate: "goreleaser/goreleaser",
       datasourceTemplate: "github-releases",
     },
+    // Helm version pinned inside the `with: version:` field of
+    // azure/setup-helm in release.yaml (same blind spot as goreleaser above).
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^\\.github/workflows/release\\.ya?ml$/"],
+      matchStrings: [
+        "setup-helm[^\\n]+\\n\\s+with:\\n\\s+version:\\s*\"(?<currentValue>\\d[\\w.-]*)\"",
+      ],
+      depNameTemplate: "helm/helm",
+      datasourceTemplate: "github-releases",
+      extractVersionTemplate: "^v(?<version>.*)$",
+    },
   ],
 
   packageRules: [

@@ -148,7 +148,8 @@ tasks:
           -e GITHUB_COM_TOKEN \
           ${RENOVATE_HOST_RULES:+-e RENOVATE_HOST_RULES} \
           renovate/renovate:43.142.1 2>&1 \
-          | jq -r 'select(.msg == "packageFiles with updates")
+          | jq -rR 'fromjson?
+                   | select(.msg == "packageFiles with updates")
                    | .config | to_entries[] | .value[]
                    | .packageFile as $f
                    | .deps[]? as $d | $d.updates[]?

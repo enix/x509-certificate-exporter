@@ -215,6 +215,16 @@ secretsExporter:
     # -- Burst bucket size for queries sent to the API server
     burstQueries: 10
 
+  # -- Page size used by the paginated initial LIST against the
+  # Kubernetes API. The exporter processes each page inline and
+  # releases it to the GC before fetching the next, so peak memory
+  # during sync is roughly proportional to this × average secret
+  # size. Default `50` is conservative enough to keep the pod under
+  # 100 Mi even on clusters with many large Helm release secrets;
+  # raise it for faster sync on smaller objects, lower it on
+  # memory-constrained pods. `0` keeps the built-in default.
+  listPageSize: 0
+
   # -- Additional environment variables for containers
   env: []
   # - name: GOMAXPROCS

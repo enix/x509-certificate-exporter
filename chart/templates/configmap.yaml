@@ -40,6 +40,9 @@ data:
           qps: {{ .Values.secretsExporter.kubeApiRateLimits.queriesPerSecond }}
           burst: {{ .Values.secretsExporter.kubeApiRateLimits.burstQueries }}
         {{- end }}
+        {{- with .Values.secretsExporter.listPageSize }}
+        listPageSize: {{ . }}
+        {{- end }}
         namespaces:
           include: {{ if .Values.secretsExporter.includeNamespaces }}{{ .Values.secretsExporter.includeNamespaces | toJson }}{{ else }}["*"]{{ end }}
           exclude: {{ if .Values.secretsExporter.excludeNamespaces }}{{ .Values.secretsExporter.excludeNamespaces | toJson }}{{ else }}[]{{ end }}

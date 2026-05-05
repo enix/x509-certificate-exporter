@@ -85,6 +85,16 @@ type Source struct {
 	Secrets    *SecretsCfg    `yaml:"secrets,omitempty"`
 	ConfigMaps *ConfigMapsCfg `yaml:"configMaps,omitempty"`
 	Workers    int            `yaml:"workers,omitempty"`
+
+	// ListPageSize caps the number of objects returned per LIST API call
+	// during the initial sync and on resync. The exporter pages through
+	// the API and processes each page inline before fetching the next,
+	// so peak memory during sync is roughly proportional to this value
+	// times the average object size. Defaults to 50 — raising it makes
+	// the initial sync slightly faster (fewer round-trips) at the cost
+	// of higher memory peaks; lowering it helps on memory-constrained
+	// clusters with very large Helm release secrets or ConfigMaps.
+	ListPageSize int64 `yaml:"listPageSize,omitempty"`
 }
 
 type Pkcs12 struct {

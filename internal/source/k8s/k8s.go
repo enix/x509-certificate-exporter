@@ -95,6 +95,12 @@ type Options struct {
 	Namespace   string // "" => cluster scope
 	ResyncEvery time.Duration
 
+	// ListPageSize is the per-call Limit applied to the paginated initial
+	// LIST and to resync re-LISTs. Bounded to [1, 1000]; defaults to 50
+	// when zero. Larger values reduce round-trips but raise the peak
+	// memory during sync (proportional to average object size).
+	ListPageSize int64
+
 	SecretRules         []SecretTypeRule
 	SecretSelector      Selectors
 	SecretFilter        SecretFilter
@@ -143,6 +149,12 @@ func New(opts Options, logger *slog.Logger) *Source {
 	}
 	if opts.ResyncEvery <= 0 {
 		opts.ResyncEvery = 30 * time.Minute
+	}
+	switch {
+	case opts.ListPageSize <= 0:
+		opts.ListPageSize = 50
+	case opts.ListPageSize > 1000:
+		opts.ListPageSize = 1000
 	}
 	return &Source{
 		opts:            opts,
@@ -368,7 +380,7 @@ func (s *Source) runSecretsDirect(ctx context.Context, sink cert.Sink, firstSync
 	}
 }
 
-// listSecretPages fetches all secrets page by page (Limit=50), calls
+// listSecretPages fetches all secrets page by page (Limit=ListPageSize), calls
 // onSecret for each, and releases each page to the GC before fetching the
 // next. After the full list, refs for secrets that no longer exist are
 // removed from the registry.
@@ -385,7 +397,7 @@ func (s *Source) listSecretPages(ctx context.Context, sink cert.Sink) (rv string
 		list, err = s.opts.Client.CoreV1().Secrets(s.opts.Namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: s.opts.SecretSelector.LabelSelector,
 			FieldSelector: s.opts.SecretSelector.FieldSelector,
-			Limit:         50,
+			Limit:         s.opts.ListPageSize,
 			Continue:      cont,
 		})
 		if err != nil {
@@ -556,7 +568,7 @@ func (s *Source) runConfigMapsDirect(ctx context.Context, sink cert.Sink, firstS
 	}
 }
 
-// listConfigMapPages fetches all configmaps page by page (Limit=50) and
+// listConfigMapPages fetches all configmaps page by page (Limit=ListPageSize) and
 // processes each page inline. Mirrors listSecretPages.
 func (s *Source) listConfigMapPages(ctx context.Context, sink cert.Sink) (rv string, err error) {
 	var cont string
@@ -569,7 +581,7 @@ func (s *Source) listConfigMapPages(ctx context.Context, sink cert.Sink) (rv str
 		list, err = s.opts.Client.CoreV1().ConfigMaps(s.opts.Namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: s.opts.ConfigMapSelector.LabelSelector,
 			FieldSelector: s.opts.ConfigMapSelector.FieldSelector,
-			Limit:         50,
+			Limit:         s.opts.ListPageSize,
 			Continue:      cont,
 		})
 		if err != nil {

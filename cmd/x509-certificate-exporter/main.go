@@ -479,6 +479,7 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 	return k8ssource.New(k8ssource.Options{
 		Name: s.Name, Client: cli, Namespace: ns,
 		ResyncEvery:            refreshOrDefault(s.RefreshInterval, 30*time.Minute),
+		ListPageSize:           s.ListPageSize,
 		SecretRules:            rules,
 		SecretSelector:         secretSelector,
 		SecretFilter:           secretFilter,

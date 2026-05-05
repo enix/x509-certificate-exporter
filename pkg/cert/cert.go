@@ -11,11 +11,21 @@ import (
 	"crypto/x509"
 )
 
+// Canonical values for SourceRef.Kind. These strings appear verbatim in
+// exposed Prometheus labels (`source_kind`), so they are part of the
+// public contract — do not change the literal values.
+const (
+	KindFile         = "file"          // local filesystem entry (single file or glob match)
+	KindKubeconfig   = "kubeconfig"    // certs embedded in a kubeconfig file
+	KindKubeSecret   = "kube-secret"   // Kubernetes Secret resource
+	KindKubeConfigMap = "kube-configmap" // Kubernetes ConfigMap resource
+)
+
 // SourceRef identifies where a Bundle was found. It is the unit of identity
 // for upsert/delete operations on the registry: a Bundle keyed by its
 // SourceRef replaces any previous Bundle with the same ref.
 type SourceRef struct {
-	Kind       string            // "file" | "kube-secret" | "kube-configmap" | "kubeconfig"
+	Kind       string            // one of the Kind* constants above
 	Location   string            // file path, "namespace/name" for k8s, kubeconfig path
 	Key        string            // sub-key within Location (Secret data key, JSONPath in kubeconfig); empty for plain file
 	Format     string            // "pem" | "pkcs12"

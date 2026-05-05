@@ -218,20 +218,20 @@ func newSchema(opts LabelOptions, exposedSecretLabels, exposedCfgmapLabels []str
 func (s *schema) values(b cert.Bundle, it cert.Item, opts LabelOptions) []string {
 	v := make([]string, len(s.names))
 	switch b.Source.Kind {
-	case "file":
+	case cert.KindFile:
 		v[s.idxFilename] = filepath.Base(b.Source.Location)
 		v[s.idxFilepath] = trimPath(b.Source.Location, opts.TrimPathComponents)
-	case "kubeconfig":
+	case cert.KindKubeconfig:
 		v[s.idxFilename] = filepath.Base(b.Source.Location)
 		v[s.idxFilepath] = trimPath(b.Source.Location, opts.TrimPathComponents)
 		v[s.idxEmbeddedKind] = b.Source.Attributes["embedded_kind"]
 		v[s.idxEmbeddedKey] = b.Source.Attributes["embedded_key"]
-	case "kube-secret":
+	case cert.KindKubeSecret:
 		ns, name := splitNS(b.Source.Location)
 		v[s.idxSecretNS] = ns
 		v[s.idxSecretName] = name
 		v[s.idxSecretKey] = b.Source.Key
-	case "kube-configmap":
+	case cert.KindKubeConfigMap:
 		ns, name := splitNS(b.Source.Location)
 		v[s.idxCMNS] = ns
 		v[s.idxCMName] = name
@@ -246,12 +246,12 @@ func (s *schema) values(b cert.Bundle, it cert.Item, opts LabelOptions) []string
 			v[s.idxSubjectStart+i] = dnValue(it.Cert.Subject, f)
 		}
 	}
-	if b.Source.Kind == "kube-secret" {
+	if b.Source.Kind == cert.KindKubeSecret {
 		for i, l := range s.exposedSecretLabels {
 			v[s.idxSecretLabelStart+i] = b.Source.Attributes["secret_label/"+l]
 		}
 	}
-	if b.Source.Kind == "kube-configmap" {
+	if b.Source.Kind == cert.KindKubeConfigMap {
 		for i, l := range s.exposedCfgmapLabels {
 			v[s.idxCMLabelStart+i] = b.Source.Attributes["configmap_label/"+l]
 		}

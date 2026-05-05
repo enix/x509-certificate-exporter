@@ -281,14 +281,14 @@ func exposedLabelsFromConfig(cfg config.Config) (secrets, configmaps []string) {
 
 func buildSource(ctx context.Context, s config.Source, cfg config.Config, ready func(bool), reg *registry.Registry, logger *slog.Logger) (cert.Source, error) {
 	switch s.Kind {
-	case "file":
+	case config.KindFile:
 		return buildFileSource(s, cfg, ready, logger)
-	case "kubeconfig":
+	case config.KindKubeconfig:
 		return kcsource.New(kcsource.Options{
 			Name: s.Name, Paths: s.Paths,
 			RefreshInterval: s.RefreshInterval, OnReady: ready,
 		}, logger), nil
-	case "kubernetes":
+	case config.KindKubernetes:
 		return buildKubeSource(ctx, s, ready, reg, logger)
 	}
 	return nil, fmt.Errorf("unknown kind %q", s.Kind)

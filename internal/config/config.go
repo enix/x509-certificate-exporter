@@ -20,6 +20,20 @@ import (
 	"github.com/enix/x509-certificate-exporter/v4/internal/fileglob"
 )
 
+// Canonical values for Source.Kind in the YAML config. These strings are
+// part of the user-facing schema (users write `kind: kubernetes` in their
+// YAML) — do not change the literal values without a migration story.
+//
+// Note: these are NOT the same as the cert.Kind* constants used by the
+// registry. A single config Source of kind "kubernetes" produces refs of
+// either cert.KindKubeSecret or cert.KindKubeConfigMap depending on the
+// resource it observes.
+const (
+	KindFile       = "file"
+	KindKubeconfig = "kubeconfig"
+	KindKubernetes = "kubernetes"
+)
+
 // Top-level configuration.
 type Web struct {
 	EnableStats bool `yaml:"enableStats"`
@@ -263,7 +277,7 @@ func mergeDefaults(c *Config) {
 	}
 	for i := range c.Sources {
 		s := &c.Sources[i]
-		if s.FollowSymlinks == nil && s.Kind != "kubernetes" {
+		if s.FollowSymlinks == nil && s.Kind != KindKubernetes {
 			tr := true
 			s.FollowSymlinks = &tr
 		}
@@ -272,10 +286,10 @@ func mergeDefaults(c *Config) {
 		// independently via buildKubeSource's own default (30m); applying
 		// cache.filePoll.interval there would force a full informer resync
 		// at the poll cadence — far too aggressive on large clusters.
-		if s.RefreshInterval == 0 && s.Kind != "kubernetes" {
+		if s.RefreshInterval == 0 && s.Kind != KindKubernetes {
 			s.RefreshInterval = c.Cache.FilePoll.Interval
 		}
-		if len(s.Formats) == 0 && s.Kind == "file" {
+		if len(s.Formats) == 0 && s.Kind == KindFile {
 			s.Formats = []string{"pem"}
 		}
 	}
@@ -303,7 +317,7 @@ func validateSource(i int, s Source) error {
 		return fmt.Errorf("%s.name: required", prefix)
 	}
 	switch s.Kind {
-	case "file":
+	case KindFile:
 		if len(s.Paths) == 0 {
 			return fmt.Errorf("%s.paths: required for file sources", prefix)
 		}
@@ -314,11 +328,11 @@ func validateSource(i int, s Source) error {
 				return fmt.Errorf("%s.formats: unsupported format %q (must be pem|pkcs12)", prefix, f)
 			}
 		}
-	case "kubeconfig":
+	case KindKubeconfig:
 		if len(s.Paths) == 0 {
 			return fmt.Errorf("%s.paths: required for kubeconfig sources", prefix)
 		}
-	case "kubernetes":
+	case KindKubernetes:
 		// nothing strictly required, but we should have either secrets or configmaps configured
 		if s.Secrets == nil && s.ConfigMaps == nil {
 			return fmt.Errorf("%s: kubernetes source must configure secrets or configMaps", prefix)
@@ -365,7 +379,7 @@ func ApplyCLI(base Config, ov CLIOverrides) Config {
 	}
 	if len(ov.WatchFiles) > 0 {
 		base.Sources = append(base.Sources, Source{
-			Kind:    "file",
+			Kind:    KindFile,
 			Name:    "cli-files",
 			Paths:   ov.WatchFiles,
 			Formats: []string{"pem"},
@@ -373,7 +387,7 @@ func ApplyCLI(base Config, ov CLIOverrides) Config {
 	}
 	for _, d := range ov.WatchDirs {
 		base.Sources = append(base.Sources, Source{
-			Kind:    "file",
+			Kind:    KindFile,
 			Name:    "cli-dir-" + sanitize(d),
 			Paths:   []string{strings.TrimRight(d, "/") + "/*"},
 			Formats: []string{"pem"},
@@ -381,14 +395,14 @@ func ApplyCLI(base Config, ov CLIOverrides) Config {
 	}
 	if len(ov.WatchKubeconf) > 0 {
 		base.Sources = append(base.Sources, Source{
-			Kind:  "kubeconfig",
+			Kind:  KindKubeconfig,
 			Name:  "cli-kubeconf",
 			Paths: ov.WatchKubeconf,
 		})
 	}
 	if ov.WatchKubeSecrets {
 		base.Sources = append(base.Sources, Source{
-			Kind: "kubernetes",
+			Kind: KindKubernetes,
 			Name: "cli-kube",
 			Secrets: &SecretsCfg{
 				Types: []SecretTypeCfg{

@@ -89,7 +89,7 @@ func New(opts Options, logger *slog.Logger) *Source {
 	}
 	return &Source{
 		opts:  opts,
-		log:   logger.With("source_kind", "file", "source_name", opts.Name),
+		log:   logger.With("source_kind", cert.KindFile, "source_name", opts.Name),
 		cache: map[string]cacheEntry{},
 	}
 }
@@ -150,7 +150,7 @@ func (s *Source) runOnce(ctx context.Context, sink cert.Sink, isFirst bool) {
 			// Emit a synthetic bundle so the registry can count error reasons.
 			sink.Upsert(cert.Bundle{
 				Source: cert.SourceRef{
-					Kind: "file", Format: "pem",
+					Kind: cert.KindFile, Format: "pem",
 					Location: r.Err.Path, SourceName: s.opts.Name,
 				},
 				Errors: []cert.ItemError{{Index: -1, Reason: r.Err.Reason, Err: r.Err.Err}},
@@ -176,7 +176,7 @@ func (s *Source) runOnce(ctx context.Context, sink cert.Sink, isFirst bool) {
 	s.mu.Unlock()
 	for _, p := range stale {
 		ref := cert.SourceRef{
-			Kind: "file", Location: p, SourceName: s.opts.Name, Format: "pem",
+			Kind: cert.KindFile, Location: p, SourceName: s.opts.Name, Format: "pem",
 		}
 		sink.Delete(ref)
 		s.log.Debug("file disappeared", "path", p)
@@ -236,7 +236,7 @@ func (s *Source) processEntry(ctx context.Context, sink cert.Sink, e fileglob.En
 		s.log.Warn("read error", "path", path, "error", err)
 		sink.Upsert(cert.Bundle{
 			Source: cert.SourceRef{
-				Kind: "file", Format: "pem",
+				Kind: cert.KindFile, Format: "pem",
 				Location: path, SourceName: s.opts.Name,
 			},
 			Errors: []cert.ItemError{{Index: -1, Reason: reason, Err: err}},
@@ -247,7 +247,7 @@ func (s *Source) processEntry(ctx context.Context, sink cert.Sink, e fileglob.En
 	// Try formats in order.
 	for _, p := range s.opts.Formats {
 		ref := cert.SourceRef{
-			Kind: "file", Format: p.Format(),
+			Kind: cert.KindFile, Format: p.Format(),
 			Location: path, SourceName: s.opts.Name,
 		}
 		if e.Pattern != "" {

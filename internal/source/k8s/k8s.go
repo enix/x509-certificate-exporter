@@ -431,7 +431,7 @@ func (s *Source) listSecretPages(ctx context.Context, sink cert.Sink) (rv string
 		"pages", page,
 		"total", len(seen),
 	)
-	s.deleteAbsentRefs(sink, "kube-secret", seen)
+	s.deleteAbsentRefs(sink, cert.KindKubeSecret, seen)
 	return
 }
 
@@ -607,7 +607,7 @@ func (s *Source) listConfigMapPages(ctx context.Context, sink cert.Sink) (rv str
 	}
 
 	s.log.Debug("configmap list complete", "pages", page, "total", len(seen))
-	s.deleteAbsentRefs(sink, "kube-configmap", seen)
+	s.deleteAbsentRefs(sink, cert.KindKubeConfigMap, seen)
 	return
 }
 
@@ -673,17 +673,17 @@ func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
 	}
 	loc := fmt.Sprintf("%s/%s", sec.Namespace, sec.Name)
 	if deleted {
-		s.deleteAllRefs(sink, "kube-secret", loc)
+		s.deleteAllRefs(sink, cert.KindKubeSecret, loc)
 		s.log.Debug("secret deleted", "namespace", sec.Namespace, "name", sec.Name)
 		return
 	}
 	if !s.acceptName(sec.Name, s.opts.SecretFilter) {
-		s.deleteAllRefs(sink, "kube-secret", loc)
+		s.deleteAllRefs(sink, cert.KindKubeSecret, loc)
 		s.log.Debug("secret rejected", "namespace", sec.Namespace, "name", sec.Name, "reason", "name_filter")
 		return
 	}
 	if !s.namespaceAllowed(sec.Namespace) {
-		s.deleteAllRefs(sink, "kube-secret", loc)
+		s.deleteAllRefs(sink, cert.KindKubeSecret, loc)
 		s.log.Debug("secret rejected", "namespace", sec.Namespace, "name", sec.Name, "reason", "namespace_filter")
 		return
 	}
@@ -724,17 +724,17 @@ func (s *Source) onConfigMap(sink cert.Sink, obj any, deleted bool) {
 	}
 	loc := fmt.Sprintf("%s/%s", cm.Namespace, cm.Name)
 	if deleted {
-		s.deleteAllRefs(sink, "kube-configmap", loc)
+		s.deleteAllRefs(sink, cert.KindKubeConfigMap, loc)
 		s.log.Debug("configmap deleted", "namespace", cm.Namespace, "name", cm.Name)
 		return
 	}
 	if !s.acceptName(cm.Name, s.opts.ConfigMapFilter) {
-		s.deleteAllRefs(sink, "kube-configmap", loc)
+		s.deleteAllRefs(sink, cert.KindKubeConfigMap, loc)
 		s.log.Debug("configmap rejected", "namespace", cm.Namespace, "name", cm.Name, "reason", "name_filter")
 		return
 	}
 	if !s.namespaceAllowed(cm.Namespace) {
-		s.deleteAllRefs(sink, "kube-configmap", loc)
+		s.deleteAllRefs(sink, cert.KindKubeConfigMap, loc)
 		s.log.Debug("configmap rejected", "namespace", cm.Namespace, "name", cm.Name, "reason", "namespace_filter")
 		return
 	}
@@ -767,7 +767,7 @@ func (s *Source) refSecret(sec *corev1.Secret, key, format string) cert.SourceRe
 		}
 	}
 	return cert.SourceRef{
-		Kind:     "kube-secret",
+		Kind:     cert.KindKubeSecret,
 		Location: fmt.Sprintf("%s/%s", sec.Namespace, sec.Name),
 		Key:      key, Format: format, SourceName: s.opts.Name,
 		Attributes: attrs,
@@ -782,7 +782,7 @@ func (s *Source) refConfigMap(cm *corev1.ConfigMap, key, format string) cert.Sou
 		}
 	}
 	return cert.SourceRef{
-		Kind:     "kube-configmap",
+		Kind:     cert.KindKubeConfigMap,
 		Location: fmt.Sprintf("%s/%s", cm.Namespace, cm.Name),
 		Key:      key, Format: format, SourceName: s.opts.Name,
 		Attributes: attrs,

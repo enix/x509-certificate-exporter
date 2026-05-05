@@ -112,7 +112,7 @@ peer's machine to read the exact versions, or check `flake.lock`):
 - **[Dagger CLI](https://dagger.io)** (only needed if you want
   `dagger` on your `$PATH`; the SDK in `dagger/` runs without it)
 - **[GoReleaser](https://goreleaser.com/install/)** (for local image
-  snapshots via `task image:local` / `task image:all`)
+  snapshots via `task build:image:host` / `task build:image:all`)
 - **[Task](https://taskfile.dev/installation/)** ≥ 3
 - **[Tilt](https://docs.tilt.dev/install.html)**
 - **[k3d](https://k3d.io)**
@@ -184,8 +184,8 @@ attach assets to a GitHub Release.
 
 Locally:
 
-- `task image:local` — host-arch snapshot, fast iteration.
-- `task image:all` — full snapshot (all archs, both variants);
+- `task build:image:host` — host-arch snapshot, fast iteration.
+- `task build:image:all` — full snapshot (all archs, both variants);
   validates the release config end-to-end without pushing.
 - Tilt's `custom_build` invokes `goreleaser` directly with
   `GORELEASER_TILT=1`, which gates a dedicated `dockers_v2` entry
@@ -207,9 +207,9 @@ GoReleaser invocations, or direct CLI calls:
 
 ```sh
 task --list                   # show every available task with description
-task build                    # `goreleaser build --single-target` — host-arch binary, stable symlink at dist/x509-certificate-exporter
-task image:local              # `goreleaser release --snapshot ...` host-arch only
-task image:all                # same but every cross-arch variant
+task build:binary:host        # `goreleaser build --single-target` — host-arch binary, stable symlink at dist/x509-certificate-exporter
+task build:image:host         # `goreleaser release --snapshot ...` host-arch only
+task build:image:all          # same but every cross-arch variant
 task lint                     # runs lint:go, lint:helm, lint:renovate, lint:markdown
 task test                     # runs test:unit, test:fuzz, test:helm-examples, test:helm-fixtures, test:e2e
 ```
@@ -648,9 +648,9 @@ Verification commands for downstream consumers are documented in the
 
 | Task | What it does |
 | --- | --- |
-| `task build` | Build host-arch binary via GoReleaser snapshot — symlinked at `dist/x509-certificate-exporter` (real path: `dist/x509ce_<os>_<arch>_<v>/x509-certificate-exporter`) |
-| `task image:local` | Host-arch image variants via GoReleaser snapshot — fast iteration, no QEMU cross-build |
-| `task image:all` | Like `task image:local` but every cross-arch variant — validates the full release matrix without pushing |
+| `task build:binary:host` | Build host-arch binary via GoReleaser snapshot — symlinked at `dist/x509-certificate-exporter` (real path: `dist/x509ce_<os>_<arch>_<v>/x509-certificate-exporter`) |
+| `task build:image:host` | Host-arch image variants via GoReleaser snapshot — fast iteration, no QEMU cross-build |
+| `task build:image:all` | Like `task build:image:host` but every cross-arch variant — validates the full release matrix without pushing |
 | `task dev:cluster:up` | Bring up dev k3d cluster + registry |
 | `task dev:up` | Tilt up — full dev loop |
 | `task dev:down` | Tilt down + full cluster teardown |

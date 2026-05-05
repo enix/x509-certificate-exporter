@@ -26,8 +26,8 @@ before:
 
 # ─── Binaries ────────────────────────────────────────────────────────────────
 # Two entries gated by GORELEASER_LOCAL_PLATFORM=1: full cross-OS
-# matrix (CI / `task image:all`) vs. Linux-only with the three supported
-# arches (`task image:local` — fast iteration). Cross-compiling to all
+# matrix (CI / `task build:image:all`) vs. Linux-only with the three supported
+# arches (`task build:image:host` — fast iteration). Cross-compiling to all
 # three Linux archs is essentially free in Go, but skipping the 20+
 # non-Linux targets shaves real seconds. dockers_v2's local entries
 # pick the right one via `.Runtime.Goarch`. Build flags are reused
@@ -159,8 +159,8 @@ signs:
 #
 # Each variant has TWO entries, gated by GORELEASER_LOCAL_PLATFORM=1:
 #   - default (env unset): full multi-arch (linux/amd64,arm64,riscv64).
-#     Used by CI and `task image:all`.
-#   - local (env=1):       host-arch only. Used by `task image:local`
+#     Used by CI and `task build:image:all`.
+#   - local (env=1):       host-arch only. Used by `task build:image:host`
 #     for fast iteration, skipping QEMU cross-builds.
 # Exactly one entry per variant is active per run via the `disable:`
 # template. Labels are reused across pairs via YAML anchors.

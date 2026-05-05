@@ -30,8 +30,8 @@ everything.
   scratch (default) + busybox (alt) variants, push to
   ghcr/quay/docker.io, cosign keyless on everything, GitHub Release
   (CI via `release.yaml`).
-  Local: `task image:local` (host-arch, fast iteration),
-  `task image:all` (every cross-arch variant). Dev: Tilt's
+  Local: `task build:image:host` (host-arch, fast iteration),
+  `task build:image:all` (every cross-arch variant). Dev: Tilt's
   `custom_build` calls `goreleaser` directly with
   `GORELEASER_TILT=1`, gating a dedicated dockers_v2 entry that uses
   `build/Dockerfile.busybox` (the alt release variant — chosen for
@@ -46,9 +46,9 @@ everything.
 
 | Goal | Command | Notes |
 |---|---|---|
-| Local binary | `task build` | `goreleaser build --single-target --snapshot --clean` — host-arch binary under `dist/x509ce_<os>_<arch>_<v>/x509-certificate-exporter`, with a stable relative symlink at `dist/x509-certificate-exporter` (same flags / ldflags / version stamping as the release pipeline) |
-| Snapshot host-arch only | `task image:local` | `goreleaser release --snapshot --skip=publish,sign` with `GORELEASER_LOCAL_PLATFORM=1` — fast iteration, no QEMU cross-build |
-| Snapshot all images | `task image:all` | Like `task image:local` but every cross-arch variant — validates the full release matrix without pushing |
+| Local binary | `task build:binary:host` | `goreleaser build --single-target --snapshot --clean` — host-arch binary under `dist/x509ce_<os>_<arch>_<v>/x509-certificate-exporter`, with a stable relative symlink at `dist/x509-certificate-exporter` (same flags / ldflags / version stamping as the release pipeline) |
+| Snapshot host-arch only | `task build:image:host` | `goreleaser release --snapshot --skip=publish,sign` with `GORELEASER_LOCAL_PLATFORM=1` — fast iteration, no QEMU cross-build |
+| Snapshot all images | `task build:image:all` | Like `task build:image:host` but every cross-arch variant — validates the full release matrix without pushing |
 | Lint Go | `task lint:go` | `dagger call lint-go` — full golangci-lint set |
 | gocritic only | `task lint:gocritic` | `dagger call lint-go --mode=gocritic` |
 | Go lint without gocritic | `task lint:gonocritic` | `dagger call lint-go --mode=no-critic` |

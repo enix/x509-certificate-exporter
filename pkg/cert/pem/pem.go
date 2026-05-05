@@ -31,6 +31,15 @@ func New() Parser { return Parser{} }
 func (Parser) Format() string { return cert.FormatPEM }
 
 // Parse implements cert.FormatParser.
+//
+// TODO(memory): on cert-manager-style installs (hundreds of TLS Secrets
+// referencing the same intermediate CA), every Bundle holds an
+// independently parsed copy of the shared CA — wasting ~2 MB per 500
+// secrets versus the ~5 KB theoretical floor. A SHA-256(DER) → cached
+// *x509.Certificate interner here would dedupe shared chain links. Not
+// a leak (cleared on Bundle drop), just byte-level redundancy. Deferred
+// until the steady-state heap profile says it matters — see Lot 4 of
+// the audit plan.
 func (Parser) Parse(data []byte, ref cert.SourceRef, _ cert.ParseOptions) cert.Bundle {
 	b := cert.Bundle{Source: ref}
 

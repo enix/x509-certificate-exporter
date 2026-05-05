@@ -836,6 +836,16 @@ func (s *Source) trackUpsert(sink cert.Sink, b cert.Bundle) {
 	sink.Upsert(b)
 }
 
+// deleteAllRefs scans the entire tracked set looking for entries that
+// match a given (kind, location). On large clusters with high churn of
+// namespace labels (which call deleteAllRefs on every namespace event)
+// this O(total-refs) loop becomes the dominant cost in onNamespace.
+//
+// TODO(perf): replace s.tracked with a two-level index
+// `map[kind+":"+namespace+"/"]map[string]struct{}` so deleteAllRefs only
+// walks refs that actually live in the affected namespace. Deferred
+// until we observe the bottleneck in practice — see Lot 4 of the audit
+// plan.
 func (s *Source) deleteAllRefs(sink cert.Sink, kind, loc string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

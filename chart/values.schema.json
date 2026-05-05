@@ -189,7 +189,11 @@
         },
         "revisionHistoryLimit": {
           "default": "",
-          "type": "null"
+          "required": [],
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "securityContext": {
           "additionalProperties": true,
@@ -238,7 +242,6 @@
         "debugMode",
         "skipSymlinks",
         "refreshInterval",
-        "revisionHistoryLimit",
         "tolerations",
         "priorityClassName",
         "extraVolumes",
@@ -330,7 +333,12 @@
             },
             "pullPolicy": {
               "default": "IfNotPresent",
-              "type": "string"
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": []
             },
             "registry": {
               "default": "registry.k8s.io",
@@ -349,8 +357,7 @@
             "registry",
             "repository",
             "tag",
-            "digest",
-            "pullPolicy"
+            "digest"
           ],
           "type": "object"
         },
@@ -641,12 +648,14 @@
             },
             "serviceAccountName": {
               "default": "",
-              "type": "null"
+              "required": [],
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
-          "required": [
-            "serviceAccountName"
-          ],
+          "required": [],
           "type": "object"
         },
         "secretsExporter": {
@@ -666,12 +675,14 @@
             },
             "serviceAccountName": {
               "default": "",
-              "type": "null"
+              "required": [],
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
-          "required": [
-            "serviceAccountName"
-          ],
+          "required": [],
           "type": "object"
         }
       },
@@ -698,7 +709,12 @@
             },
             "pullPolicy": {
               "default": "IfNotPresent",
-              "type": "string"
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": []
             },
             "registry": {
               "default": "quay.io",
@@ -717,8 +733,7 @@
             "registry",
             "repository",
             "tag",
-            "digest",
-            "pullPolicy"
+            "digest"
           ],
           "type": "object"
         },
@@ -932,7 +947,11 @@
         },
         "revisionHistoryLimit": {
           "default": "",
-          "type": "null"
+          "required": [],
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "secretTypes": {
           "items": {
@@ -1034,7 +1053,6 @@
       "required": [
         "enabled",
         "debugMode",
-        "revisionHistoryLimit",
         "tolerations",
         "priorityClassName",
         "extraVolumes",

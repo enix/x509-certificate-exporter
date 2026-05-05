@@ -42,6 +42,9 @@ migration:
     tag: ""
     # -- kubectl image digest. When set, takes precedence over `tag` (immutable reference)
     digest: ""
+    # @schema
+    # enum: [Always, IfNotPresent, Never]
+    # @schema
     # -- kubectl image pull policy
     pullPolicy: IfNotPresent
   # @schema
@@ -158,6 +161,9 @@ secretsExporter:
   # @schema
   # -- DeploymentStrategy for the TLS Secrets exporter
   strategy: {}
+  # @schema
+  # type: [integer, 'null']
+  # @schema
   # -- (int) Number of old ReplicaSets to retain for rollback
   revisionHistoryLimit:
   # @schema
@@ -373,6 +379,9 @@ hostPathsExporter:
   # @schema
   # -- updateStrategy for DaemonSets of hostPath exporters (default for all hostPathsExporter.daemonSets)
   updateStrategy: {}
+  # @schema
+  # type: [integer, 'null']
+  # @schema
   # -- (int) Number of old ReplicaSets to retain for rollback (default for all hostPathsExporter.daemonSets)
   revisionHistoryLimit:
   # @schema
@@ -699,6 +708,9 @@ rbac:
   create: true
 
   secretsExporter:
+    # @schema
+    # type: [string, 'null']
+    # @schema
     # -- Name of the ServiceAccount for the Secrets exporter (required if `rbac.create=false`)
     serviceAccountName:
     # @schema
@@ -718,6 +730,9 @@ rbac:
     clusterRoleBindingAnnotations: {}
 
   hostPathsExporter:
+    # @schema
+    # type: [string, 'null']
+    # @schema
     # -- Name of the ServiceAccount for hostPath exporters (required if `rbac.create=false`)
     serviceAccountName:
     # @schema
@@ -748,6 +763,9 @@ rbacProxy:
     tag: v0.22.0
     # -- kube-rbac-proxy image digest. When set, takes precedence over `tag` (immutable reference)
     digest: ""
+    # @schema
+    # enum: [Always, IfNotPresent, Never]
+    # @schema
     # -- kube-rbac-proxy image pull policy
     pullPolicy: IfNotPresent
   # @schema

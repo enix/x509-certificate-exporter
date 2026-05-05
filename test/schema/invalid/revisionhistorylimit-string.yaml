@@ -1,0 +1,3 @@
+# `revisionHistoryLimit` accepts integer or null, not string.
+secretsExporter:
+  revisionHistoryLimit: "5"

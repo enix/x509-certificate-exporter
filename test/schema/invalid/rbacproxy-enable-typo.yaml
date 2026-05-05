@@ -1,0 +1,5 @@
+# Real-world typo that would silently disable the kube-rbac-proxy.
+# The chart's actual field is `rbacProxy.enabled`. additionalProperties:false
+# on `rbacProxy` (inferred) catches this.
+rbacProxy:
+  enable: true

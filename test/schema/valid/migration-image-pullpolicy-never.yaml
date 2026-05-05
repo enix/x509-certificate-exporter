@@ -1,0 +1,5 @@
+# Locks down the [Always, IfNotPresent, Never] enum on
+# `migration.image.pullPolicy` (the kubectl image used by Helm hooks).
+migration:
+  image:
+    pullPolicy: Never

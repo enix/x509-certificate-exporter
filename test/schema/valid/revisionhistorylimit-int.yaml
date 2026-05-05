@@ -1,0 +1,6 @@
+# `revisionHistoryLimit` defaults to null in the chart but users must be
+# able to set an integer. Locks the [integer, null] type union.
+secretsExporter:
+  revisionHistoryLimit: 5
+hostPathsExporter:
+  revisionHistoryLimit: 3

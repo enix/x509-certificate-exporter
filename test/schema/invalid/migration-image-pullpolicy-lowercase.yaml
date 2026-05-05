@@ -1,0 +1,3 @@
+migration:
+  image:
+    pullPolicy: always

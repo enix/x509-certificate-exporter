@@ -134,8 +134,21 @@ func run() error {
 	readiness := &server.Readiness{}
 	agg := server.NewAggregate(readiness, len(cfg.Sources))
 
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	// Use a manual signal channel so we can log the signal name before
+	// cancelling the context. signal.NotifyContext doesn't expose which
+	// signal fired, making silent shutdowns hard to diagnose.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	go func() {
+		select {
+		case sig := <-sigCh:
+			logger.Info("received signal, shutting down", "signal", sig.String())
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
 
 	for i := range cfg.Sources {
 		s := cfg.Sources[i]
@@ -151,10 +164,13 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("source %q: %w", s.Name, err)
 		}
+		logger.Debug("starting source", "source_name", s.Name, "source_kind", s.Kind)
 		go func() {
 			defer recoverPanic(reg, "source/"+s.Name, logger)
 			if err := src.Run(ctx, reg); err != nil && !errors.Is(err, context.Canceled) {
-				logger.Error("source exited", "source_name", s.Name, "error", err)
+				logger.Error("source exited with error", "source_name", s.Name, "source_kind", s.Kind, "error", err)
+			} else {
+				logger.Debug("source stopped", "source_name", s.Name, "source_kind", s.Kind, "reason", err)
 			}
 		}()
 	}

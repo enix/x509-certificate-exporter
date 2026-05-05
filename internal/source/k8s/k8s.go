@@ -83,21 +83,18 @@ const (
 	// stay stale for minutes after the cluster is healthy again. Stays
 	// generous enough to not hammer a sustained outage.
 	MaxBackoff = 1 * time.Minute
+	// ListRequestTimeout bounds a single LIST call. The k8s client
+	// applies no per-request deadline of its own, so a hung apiserver
+	// would otherwise pin the source goroutine indefinitely. WATCH calls
+	// don't need this guard — the apiserver enforces a ~5–10 min max
+	// stream lifetime on its side.
+	ListRequestTimeout = 30 * time.Second
+	// WatchFlapThreshold classifies a WATCH that closes within this
+	// duration as a flap. Such closes trigger a separate backoff on top
+	// of the LIST retry logic so that an auth-token-expiry or transient
+	// network issue doesn't translate into a tight LIST/WATCH loop.
+	WatchFlapThreshold = 5 * time.Second
 )
-
-// TODO(robustness): two reliability gaps documented for future work:
-//
-//  1. Watch-flap protection. If the WATCH stream closes quickly and
-//     repeatedly (auth token expiry, network glitches), we tight-loop
-//     `LIST → WATCH-close → LIST → ...` because the LIST keeps
-//     succeeding and resets the backoff. Track consecutive short
-//     watches (e.g. < 5s) and apply a separate backoff on top.
-//
-//  2. LIST request timeout. We don't set context deadlines on the LIST
-//     call, so a hung API server holds the goroutine indefinitely.
-//     Wrap each LIST in a `context.WithTimeout(ctx, 30 * time.Second)`
-//     to bound the worst case. Watches already have a server-imposed
-//     ~5–10 min max lifetime, so they don't have the same issue.
 
 // SecretTypeRule says how to match Secret data keys and which parser to
 // use. KeyRe is compiled from the user-provided regex; one entry per
@@ -451,12 +448,14 @@ func (s *Source) listSecretPages(ctx context.Context, sink cert.Sink) (rv string
 
 	for {
 		var list *corev1.SecretList
-		list, err = s.opts.Client.CoreV1().Secrets(s.opts.Namespace).List(ctx, metav1.ListOptions{
+		listCtx, cancel := context.WithTimeout(ctx, ListRequestTimeout)
+		list, err = s.opts.Client.CoreV1().Secrets(s.opts.Namespace).List(listCtx, metav1.ListOptions{
 			LabelSelector: s.opts.SecretSelector.LabelSelector,
 			FieldSelector: s.opts.SecretSelector.FieldSelector,
 			Limit:         s.opts.ListPageSize,
 			Continue:      cont,
 		})
+		cancel()
 		if err != nil {
 			return
 		}
@@ -637,12 +636,14 @@ func (s *Source) listConfigMapPages(ctx context.Context, sink cert.Sink) (rv str
 
 	for {
 		var list *corev1.ConfigMapList
-		list, err = s.opts.Client.CoreV1().ConfigMaps(s.opts.Namespace).List(ctx, metav1.ListOptions{
+		listCtx, cancel := context.WithTimeout(ctx, ListRequestTimeout)
+		list, err = s.opts.Client.CoreV1().ConfigMaps(s.opts.Namespace).List(listCtx, metav1.ListOptions{
 			LabelSelector: s.opts.ConfigMapSelector.LabelSelector,
 			FieldSelector: s.opts.ConfigMapSelector.FieldSelector,
 			Limit:         s.opts.ListPageSize,
 			Continue:      cont,
 		})
+		cancel()
 		if err != nil {
 			return
 		}

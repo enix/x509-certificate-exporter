@@ -21,6 +21,10 @@ import (
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert/pem"
 )
 
+// DefaultRefreshInterval is how often the source re-reads its
+// configured kubeconfig paths when Options.RefreshInterval is zero.
+const DefaultRefreshInterval = 30 * time.Second
+
 // Options configure a kubeconfig Source.
 type Options struct {
 	Name            string
@@ -45,7 +49,7 @@ func New(opts Options, logger *slog.Logger) *Source {
 		logger = slog.Default()
 	}
 	if opts.RefreshInterval <= 0 {
-		opts.RefreshInterval = 30 * time.Second
+		opts.RefreshInterval = DefaultRefreshInterval
 	}
 	return &Source{
 		opts:   opts,

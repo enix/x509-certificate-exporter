@@ -33,6 +33,16 @@ func (osReader) Read(p string) ([]byte, error) {
 	return io.ReadAll(f)
 }
 
+// Built-in defaults applied by New() when an Option field is left unset.
+const (
+	// DefaultRefreshInterval is how often the source re-walks its
+	// configured patterns when Options.RefreshInterval is zero.
+	DefaultRefreshInterval = 30 * time.Second
+	// DefaultJitter is the fraction of RefreshInterval added as random
+	// jitter so multiple replicas don't poll in lockstep.
+	DefaultJitter = 0.25
+)
+
 // Options configure a file Source.
 type Options struct {
 	Name              string
@@ -79,10 +89,10 @@ func New(opts Options, logger *slog.Logger) *Source {
 		opts.Reader = osReader{}
 	}
 	if opts.RefreshInterval <= 0 {
-		opts.RefreshInterval = 30 * time.Second
+		opts.RefreshInterval = DefaultRefreshInterval
 	}
 	if opts.Jitter < 0 || opts.Jitter > 1 {
-		opts.Jitter = 0.25
+		opts.Jitter = DefaultJitter
 	}
 	if logger == nil {
 		logger = slog.Default()

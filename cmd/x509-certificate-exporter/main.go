@@ -124,7 +124,7 @@ func run() error {
 		EnableStats:            cfg.Web.EnableStats,
 	}, logger)
 
-	k8ssource.RegisterMetrics(reg)
+	k8ssource.RegisterMetrics(reg, logger)
 
 	pReg := prometheus.NewRegistry()
 	if err := pReg.Register(reg); err != nil {

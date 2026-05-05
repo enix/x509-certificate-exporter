@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"log/slog"
 	"net/url"
 	"strings"
 	"sync"
@@ -15,13 +16,23 @@ import (
 
 var once sync.Once
 
-// RegisterMetrics wires up client-go's global metrics providers to our Registry.
-func RegisterMetrics(reg *registry.Registry) {
+// RegisterMetrics wires up client-go's global metrics providers to our
+// Registry. The logger is used by the request-result hook to surface
+// degraded apiserver responses (429 throttling, 5xx, 401/403) at WARN
+// level — without this, client-go's internal retry loop absorbs these
+// errors and the user only sees them via x509_source_errors_total
+// metrics, never in the logs.
+func RegisterMetrics(reg *registry.Registry, logger *slog.Logger) {
 	once.Do(func() {
-		// 1. API requests latency
+		if logger == nil {
+			logger = slog.Default()
+		}
 		metrics.Register(metrics.RegisterOpts{
 			RequestLatency: &requestLatency{reg: reg},
-			RequestResult:  &requestResult{reg: reg},
+			RequestResult: &requestResult{
+				reg: reg,
+				log: logger.With("source_kind", "kubernetes"),
+			},
 		})
 
 		// 2. Informer queues
@@ -43,16 +54,34 @@ func (l *requestLatency) Observe(ctx context.Context, verb string, u url.URL, la
 
 type requestResult struct {
 	reg *registry.Registry
+	log *slog.Logger
 }
 
+// Increment is called by client-go on every HTTP response from the
+// kube-apiserver. We forward problematic codes both to the
+// x509_source_errors_total counter and to the logger at WARN — the
+// counter on its own is easy to miss when troubleshooting a "the
+// exporter is acting weird" report from a user without --debug.
+//
+// The hook fires per-response, so a sustained outage produces a steady
+// stream of identical WARN lines. That's intentional: it makes the
+// problem visible. Rate-limiting could be added if the noise becomes
+// an issue, but in practice problematic codes are rare on a healthy
+// cluster.
 func (r *requestResult) Increment(ctx context.Context, code string, method string, host string) {
-	// If it's a 429 rate limit, we might want to log or track it.
-	// But ObserveKubeRequest tracks latency, not error codes directly.
-	// However, if we need to track errors, we could use MarkSourceError.
-	if code == "429" {
+	switch {
+	case code == "429":
 		r.reg.MarkSourceError("kubernetes", "kube-api", cert.ReasonRateLimited)
-	} else if strings.HasPrefix(code, "5") || code == "401" || code == "403" {
+		r.log.Warn("kube-apiserver throttled the request",
+			"code", code, "method", method, "host", host)
+	case code == "401" || code == "403":
 		r.reg.MarkSourceError("kubernetes", "kube-api", cert.ReasonHTTPPrefix+code)
+		r.log.Warn("kube-apiserver rejected the request (auth/RBAC)",
+			"code", code, "method", method, "host", host)
+	case strings.HasPrefix(code, "5"):
+		r.reg.MarkSourceError("kubernetes", "kube-api", cert.ReasonHTTPPrefix+code)
+		r.log.Warn("kube-apiserver returned a server error",
+			"code", code, "method", method, "host", host)
 	}
 }
 

@@ -316,7 +316,7 @@ direnv.
 │   ├── log/                          Structured logging setup
 │   ├── source/                       The "source" abstraction
 │   │   ├── file/                     File / directory globbing
-│   │   └── k8s/                      Kubernetes informers
+│   │   └── k8s/                      Kubernetes Secret/ConfigMap LIST+WATCH
 │   ├── server/                       HTTP server, metrics endpoint
 │   ├── fileglob/                     Glob expansion helpers
 │   └── product/                      Build-time injected version metadata
@@ -398,8 +398,8 @@ task test:unit                # → go run ./dagger test
 
 This runs `gotestsum` (a friendlier wrapper over `go test`) with:
 
-- `-race`: data race detector enabled (we run informers + HTTP handlers
-  concurrently, so this matters)
+- `-race`: data race detector enabled (we run watch loops + HTTP
+  handlers concurrently, so this matters)
 - `-coverprofile`: coverage written to `/tmp/coverage.out` inside the
   Dagger container, retrievable as an artifact
 

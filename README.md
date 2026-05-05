@@ -75,8 +75,9 @@ cluster it observes, but equally happy as a standalone binary.
   to end in an afternoon.
 
 - **Performance-aware.** Parsed certificates are cached so repeat scrapes
-  don't re-decode the same PEM blocks. On Kubernetes, the exporter wires
-  shared **informers** + watch streams instead of polling `kube-apiserver`,
+  don't re-decode the same PEM blocks. On Kubernetes, the exporter pages
+  through Secrets and ConfigMaps with a paginated **LIST + WATCH** loop
+  (50 objects per page by default) instead of polling `kube-apiserver`,
   with watch traffic that scales with churn, not with scrape rate.
 
 - **Helm-first delivery.** A first-party [Helm chart](./chart) covers

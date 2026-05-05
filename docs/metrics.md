@@ -10,7 +10,8 @@ The exporter splits its output into four families:
 - **Per-source metrics** — one series per configured source. The right
   lens for "is this watcher healthy".
 - **Diagnostic metrics** — gated by `metrics.exposeDiagnostics` and off
-  by default. Parse / Kubernetes-API latencies and informer internals.
+  by default. Parse / Kubernetes-API latencies, source scope, namespace
+  informer queue depth (when label-based namespace rules are configured).
   Useful when troubleshooting the exporter; noise otherwise.
 - **Health and process metrics** — cardinality-1 series describing the
   exporter process itself, independent of the data it watches.
@@ -190,15 +191,16 @@ config) and a `source_kind` label.
 
 ### `x509_source_up`
 
-`1` once the source has produced its first sync (initial list complete,
-informers running, files first scanned), `0` after a fatal error.
+`1` once the source has produced its first sync (initial paginated
+LIST complete, watch streams established, files first scanned), `0`
+after a fatal error.
 
 - **Type**: gauge
 - **Labels**: `source_kind`, `source_name`
 - **Emitted from the moment the source's first readiness callback
   fires.** During the cold-start window (typically sub-second for file
-  sources, a few seconds for Kubernetes informers awaiting their
-  initial list), the series is absent rather than `0` — Prometheus
+  sources, a few seconds for Kubernetes sources paging through every
+  Secret/ConfigMap), the series is absent rather than `0` — Prometheus
   alerting on `x509_source_up == 0` should pair with a `for: 30s` (or
   similar) clause to tolerate this.
 
@@ -226,9 +228,9 @@ addressable unit — a Secret, a ConfigMap, a file path. The number of
   after subsequent deletions bring the count back to zero, the series
   remains and reads `0`.
 
-This is the right metric to size cluster-wide informer caches against
-— if it's an order of magnitude bigger than expected, your label
-selectors are too loose.
+This is the right metric to size cluster-wide watches against — if
+it's an order of magnitude bigger than expected, your label selectors
+are too loose.
 
 ### `x509_source_errors_total`
 
@@ -268,29 +270,27 @@ increase(x509_source_errors_total{source_kind="kubernetes", reason=~"rate_limite
 
 ### `x509_kube_watch_resyncs_total`
 
-Number of forced informer resyncs — typically caused by a
-`watch expired` or HTTP `410 Gone` from the API server.
+Number of forced watch resyncs — typically caused by a `watch
+expired` or HTTP `410 Gone` from the API server, or by a watch
+stream that closes prematurely.
 
 - **Type**: counter
 - **Labels**: `source_name`, `resource`
 - **Emitted only for Kubernetes sources** (`kind: kubernetes`). The
   series for a given `(source_name, resource)` pair appears the first
-  time a resync fires; healthy informers can run indefinitely without
+  time a resync fires; healthy watches can run indefinitely without
   producing a single series here.
 
-`resource` is whatever name client-go's reflector publishes for the
-watched type — typically the resource kind, but the exact string is
-controlled by client-go and can vary between versions.
+`resource` is the resource kind being watched (`secrets`,
+`configmaps`, `namespaces`).
 
 > ⚠ The `source_name` label is the constant `"kubernetes"` rather
-> than the user-defined source name — this metric is fed by client-go's
-> reflector, which has no per-source context. If you run multiple
-> Kubernetes sources, they all aggregate here.
+> than the user-defined source name. If you run multiple Kubernetes
+> sources, they all aggregate here.
 
-A steady increase is a sign of an unhappy informer — flapping API
-server, network instability, or a watch cache too small on the
-apiserver side. A few per hour is normal; dozens per minute warrants
-investigation.
+A steady increase signals network instability, a flapping API server,
+or a watch cache too small on the apiserver side. A few per hour is
+normal; dozens per minute warrants investigation.
 
 ```promql
 # Resync rate over 15 minutes — anything sustained > 1/min is
@@ -397,10 +397,10 @@ x509_cert_not_after * on(instance) group_left(version) x509_exporter_build_info
 ## Diagnostic metrics
 
 Self-introspection of the exporter — parser latencies, Kubernetes-API
-latencies, informer internals. Useful when troubleshooting the
-exporter itself; pure noise during normal operations. The whole
-family is gated by `metrics.exposeDiagnostics: true` and **off by
-default**.
+latencies, source scope, namespace-informer queue. Useful when
+troubleshooting the exporter itself; pure noise during normal
+operations. The whole family is gated by `metrics.exposeDiagnostics:
+true` and **off by default**.
 
 The chart values name is `exposeDiagnosticMetrics`. Flip it on
 temporarily, scrape, investigate, flip it off.
@@ -444,16 +444,18 @@ histogram_quantile(0.95,
 )
 
 # Request rate by resource (Secrets vs ConfigMaps vs Namespaces) —
-# useful to understand whether a chatty informer is responsible for
+# useful to understand whether a chatty watch loop is responsible for
 # the load on your apiserver
 sum by (resource) (rate(x509_kube_request_duration_seconds_count[5m]))
 ```
 
 ### `x509_kube_informer_scope`
 
-`1` for the scope mode the informer is currently running with, `0` for
+`1` for the scope mode the source is currently running with, `0` for
 every other mode. Useful when investigating whether the adaptive
 cluster-vs-namespace logic chose what you expected for a given source.
+The metric name still carries the `informer` prefix for backwards
+compatibility with existing dashboards.
 
 - **Type**: gauge
 - **Labels**: `source_name`, `scope`
@@ -464,10 +466,13 @@ cluster-vs-namespace logic chose what you expected for a given source.
 
 ### `x509_informer_queue_depth`
 
-Current depth of the informer's internal event queue. Sustained
-non-zero values mean events are arriving faster than the exporter is
-consuming them — usually a sign of an upstream burst (mass-rotation of
-Secrets) rather than an exporter problem.
+Current depth of an informer's internal event queue. Sustained
+non-zero values mean events are arriving faster than the consumer
+processes them — usually a sign of an upstream burst (mass-rotation of
+Secrets) rather than an exporter problem. Note that since v4 only
+the namespace informer is still backed by a SharedInformer (Secrets
+and ConfigMaps use a direct LIST + WATCH loop), so this metric is
+populated only when label-based namespace rules are configured.
 
 - **Type**: gauge
 - **Labels**: `source_name`, `resource`

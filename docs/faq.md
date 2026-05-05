@@ -37,7 +37,7 @@ Three complementary signals; the chart's `PrometheusRule` ships
 defaults for all of them.
 
 ```promql
-# 1. The source itself is down (informer crash, fatal config error)
+# 1. The source itself is down (watch loop crash, fatal config error)
 x509_source_up == 0
 
 # 2. The source produces errors (parse failures, API errors, missing files)
@@ -83,7 +83,7 @@ What the exporter needs to function:
 
 It never opens TLS connections to verify the certificate, never
 re-signs anything, never writes back. The complete egress surface in
-Kubernetes mode is the API server (informers + watch), and in
+Kubernetes mode is the API server (LIST + WATCH), and in
 standalone mode is the metrics listener plus the optional `pprof`
 listener if `diagnostics.pprof.enabled: true`.
 
@@ -174,14 +174,16 @@ full series.
 ## Can I run multiple replicas?
 
 Yes — the chart's `replicas` value defaults to `1` but is safe to
-raise. There is **no leader election**: every replica runs an
-independent informer set, scrapes its own bundles, and serves its own
-`/metrics`. Prometheus's `honor_labels: false` and standard `instance`
-relabeling deduplicates the resulting series naturally.
+raise. There is **no leader election**: every replica runs its own
+LIST + WATCH against `kube-apiserver`, parses its own bundles, and
+serves its own `/metrics`. Prometheus's `honor_labels: false` and
+standard `instance` relabeling deduplicates the resulting series
+naturally.
 
-The HA cost is RAM: `N` replicas means `N` informer caches.
+The HA cost is RAM and API-server load: `N` replicas means `N`
+parallel watch streams plus `N` parsed-bundle sets in memory.
 [Server-side filtering](#how-do-i-keep-label-cardinality-under-control)
-is the same lever as for sizing a single replica — informer cost is
+is the same lever as for sizing a single replica — the cost is
 per-replica, but each replica still benefits from the same selector
 narrowing.
 

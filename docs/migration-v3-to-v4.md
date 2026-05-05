@@ -364,12 +364,12 @@ These series are entirely new and worth wiring into your dashboards:
 | `x509_source_up{source_kind, source_name}` | gauge | on | Per-source liveness — `== 0` means a source has stopped reporting |
 | `x509_source_bundles{source_kind, source_name}` | gauge | on | Number of bundles (Secrets, files, etc.) currently held by each source |
 | `x509_source_errors_total{source_kind, source_name, reason}` | counter | on | Per-source, per-reason error count (replaces `x509_read_errors`) |
-| `x509_kube_watch_resyncs_total{source_name, resource}` | counter | on | API watch resyncs / 410 Gone events; sustained increase signals an unhealthy informer |
+| `x509_kube_watch_resyncs_total{source_name, resource}` | counter | on | API watch resyncs / 410 Gone events; sustained increase signals an unhealthy watch (network, apiserver) |
 | `x509_scrape_duration_seconds` | histogram | on | Total time to serve a `/metrics` request |
 | `x509_panic_total{component}` | counter | on | Recovered goroutine panics; should always be `0` in steady state |
 | `x509_kube_request_duration_seconds{verb, resource}` | histogram | gated by `metrics.exposeDiagnostics` | client-go API call latency |
-| `x509_kube_informer_scope{source_name, scope}` | gauge | gated by `metrics.exposeDiagnostics` | Whether an informer is namespace-scoped or cluster-scoped |
-| `x509_informer_queue_depth{source_name, resource}` | gauge | gated by `metrics.exposeDiagnostics` | Real-time event-queue depth per resource — useful to spot backpressure |
+| `x509_kube_informer_scope{source_name, scope}` | gauge | gated by `metrics.exposeDiagnostics` | Whether the source is namespace-scoped or cluster-scoped (legacy metric name kept for dashboard compatibility) |
+| `x509_informer_queue_depth{source_name, resource}` | gauge | gated by `metrics.exposeDiagnostics` | Real-time event-queue depth — populated by the namespace informer when label-based namespace rules are configured |
 | `x509_parse_duration_seconds{format}` | histogram | gated by `metrics.exposeDiagnostics` | Per-format (PEM / PKCS#12) parse latency |
 | `x509_pkcs12_passphrase_failures_total{source_name}` | counter | auto (only if a source declares `format: pkcs12`) | Specific to PKCS#12; a sustained increase usually means a Secret was rotated but the passphrase wasn't |
 
@@ -387,31 +387,42 @@ defaults.
 
 ## 6. Performance and caching
 
-v4 substantially reduced informer footprint and parsing redundancy. No
+v4 substantially reduced memory footprint and parsing redundancy. No
 configuration is required to benefit from the changes; we document them
 here so you understand what changed if you notice lower memory usage
 post-upgrade.
 
-- **Server-side filtering.** The old behavior was to list every Secret
-  cluster-wide, then drop in-process. v4 pushes label selectors and
-  field selectors to the Kubernetes API server via informers, so the
-  cache only ever contains what's in scope. Combined with namespace
-  include/exclude (by name *or* by namespace label), this is the lever
-  for clusters with tens of thousands of Secrets.
-- **Adaptive informer scope.** When a config restricts to a small
-  namespace set, v4 spawns per-namespace informers instead of a
-  cluster-wide one. The `x509_kube_informer_scope` metric exposes the
+- **Direct paginated LIST + WATCH.** v3 polled the API server on a
+  fixed cadence; the early v4 prototype used a SharedInformer cache,
+  which OOM'ed on clusters with many large Helm release secrets
+  because client-go's `pager.List` accumulates every page in memory
+  before yielding. v4 ships a direct paginated LIST + WATCH loop that
+  processes each page (default 50 objects, tunable via
+  `secretsExporter.listPageSize`) before fetching the next, capping
+  peak sync memory to roughly `pageSize × average object size`.
+- **Server-side filtering.** v4 pushes label and field selectors onto
+  every LIST and WATCH call. When all secret rules share a single
+  Type (e.g. `kubernetes.io/tls`), a `fieldSelector=type=...` is
+  applied automatically — the API server never returns Helm release
+  secrets, ServiceAccount tokens or docker configs. Combined with
+  namespace include/exclude (by name *or* by namespace label), this
+  is the lever for clusters with tens of thousands of Secrets.
+- **Adaptive source scope.** When a config restricts to a single
+  literal namespace, v4 scopes the LIST + WATCH to that namespace
+  rather than going cluster-wide. The `x509_kube_informer_scope`
+  metric (legacy name kept for dashboard compatibility) exposes the
   decision.
 - **Memoization by `ResourceVersion`.** v3 re-parsed every Secret on
   every change event. v4 keeps a per-object hash of the bundle keyed by
   `ResourceVersion`; a watch event for an unchanged Secret short-circuits
   through the cache.
-- **Watch bookmarks + `WatchListClient`.** Reconnections are cheaper:
-  bookmarks let the API server skip full-list resyncs after a brief
-  disconnect, and `WatchListClient` uses the streaming list endpoint
-  for the initial sync (less RAM during cold-start).
-- **Shared informer factories.** Two sources watching the same resource
-  type now share the underlying informer.
+- **Watch bookmarks.** Bookmarks let the API server advance the watch
+  resource version without sending object updates, so reconnections
+  resume from a recent point instead of triggering a full re-LIST.
+- **Namespace label change → immediate re-list.** When namespace labels
+  change, v4 short-circuits the resync timer and re-lists secrets and
+  configmaps right away so newly-allowed objects appear without waiting
+  up to 30 minutes.
 - **File-source poll cache.** The new `cache.filePoll.skipUnchanged`
   short-circuits parsing when `(mtime, size, inode)` hasn't moved since
   the last poll — meaningful when watching `/etc/letsencrypt/live/...`

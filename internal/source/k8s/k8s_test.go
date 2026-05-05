@@ -68,7 +68,7 @@ func waitFor(t *testing.T, cond func() bool, msg string) {
 	t.Fatalf("timeout waiting for: %s", msg)
 }
 
-func TestSecretsInformerEmits(t *testing.T) {
+func TestSecretsWatchEmits(t *testing.T) {
 	pemData := makeCertPEM(t)
 	sec := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "s1", Namespace: "ns", Labels: map[string]string{"app": "demo"}},
@@ -108,7 +108,7 @@ func TestSecretsInformerEmits(t *testing.T) {
 	}
 }
 
-func TestSecretsInformerHandlesDelete(t *testing.T) {
+func TestSecretsWatchHandlesDelete(t *testing.T) {
 	pemData := makeCertPEM(t)
 	sec := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "s1", Namespace: "ns"},
@@ -142,7 +142,7 @@ func TestSecretsInformerHandlesDelete(t *testing.T) {
 	}, "delete event")
 }
 
-func TestConfigMapsInformerEmits(t *testing.T) {
+func TestConfigMapsWatchEmits(t *testing.T) {
 	pemData := string(makeCertPEM(t))
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: "c1", Namespace: "ns"},

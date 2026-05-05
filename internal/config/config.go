@@ -173,9 +173,10 @@ type Metrics struct {
 	// `not_after - time()`.
 	ExposeExpired                bool     `yaml:"exposeExpired"`
 	// ExposeDiagnostics gates a group of self-introspection metrics
-	// (parse latency, kube API latency, informer scope/queue) that help
-	// debugging the exporter itself but provide no certificate-side
-	// signal. Off by default to keep `/metrics` lean.
+	// (parse latency, kube API latency, source scope, namespace
+	// informer queue depth) that help debugging the exporter itself
+	// but provide no certificate-side signal. Off by default to keep
+	// `/metrics` lean.
 	ExposeDiagnostics            bool     `yaml:"exposeDiagnostics"`
 	ExposeSubjectFields          []string `yaml:"exposeSubjectFields,omitempty"`
 	ExposeIssuerFields           []string `yaml:"exposeIssuerFields,omitempty"`
@@ -284,8 +285,9 @@ func mergeDefaults(c *Config) {
 		// RefreshInterval default applies only to poll-based sources (file,
 		// kubeconfig). For kubernetes sources the resync period is managed
 		// independently via buildKubeSource's own default (30m); applying
-		// cache.filePoll.interval there would force a full informer resync
-		// at the poll cadence — far too aggressive on large clusters.
+		// cache.filePoll.interval there would force a full re-LIST of every
+		// Secret and ConfigMap at the poll cadence — far too aggressive on
+		// large clusters.
 		if s.RefreshInterval == 0 && s.Kind != KindKubernetes {
 			s.RefreshInterval = c.Cache.FilePoll.Interval
 		}

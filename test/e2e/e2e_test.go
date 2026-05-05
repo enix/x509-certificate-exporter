@@ -137,7 +137,7 @@ func tryScrape(url string) (map[string]*dto.MetricFamily, error) {
 // hasInitialReadyState waits for every expected source to report
 // x509_source_up == 1 AND for cert series from each to materialise. The
 // chart deploys two distinct sources we scrape independently — a K8s
-// informer-based one (cluster-secrets) and a file walker (host-paths-nodes)
+// LIST+WATCH one (cluster-secrets) and a file walker (host-paths-nodes)
 // — and either can converge on an empty result faster than the other,
 // so we explicitly require both before letting the assertion phase run.
 func hasInitialReadyState(fams map[string]*dto.MetricFamily) bool {

@@ -442,10 +442,11 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 	var nsFilter k8ssource.NamespaceFilter
 	if s.Namespaces != nil {
 		nsFilter = namespaceFilterFromConfig(s.Namespaces)
-		// Scope the informer to a single namespace only when the rule
-		// can be expressed as one literal name with no other constraint.
+		// Scope the source to a single namespace only when the rule can
+		// be expressed as one literal name with no other constraint.
 		// Otherwise stay cluster-scoped and let the source apply the
-		// filter client-side via the namespace cache.
+		// filter client-side (label-based rules require the namespace
+		// informer to know labels for each namespace seen).
 		if len(s.Namespaces.Include) == 1 && !containsGlob(s.Namespaces.Include[0]) &&
 			len(s.Namespaces.Exclude) == 0 &&
 			len(s.Namespaces.IncludeLabels) == 0 &&
@@ -520,10 +521,10 @@ func nonWildcard(names []string) []string {
 }
 
 // buildLabelSelector turns IncludeLabels/ExcludeLabels (each entry being
-// either "key" or "key=value") into a Kubernetes label-selector string. The
-// result is pushed server-side via the informer factory, so no client-side
-// matching is needed for label rules on Secrets / ConfigMaps. An empty
-// result means "no constraint".
+// either "key" or "key=value") into a Kubernetes label-selector string.
+// The result is passed as the server-side LabelSelector on every LIST and
+// WATCH call, so no client-side matching is needed for label rules on
+// Secrets / ConfigMaps. An empty result means "no constraint".
 func buildLabelSelector(include, exclude []string) string {
 	parts := make([]string, 0, len(include)+len(exclude))
 	parts = append(parts, include...)

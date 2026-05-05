@@ -40,8 +40,8 @@ type Config struct {
 	// metric entirely.
 	ExposeExpired          bool
 	// ExposeDiagnostics enables the exporter's self-introspection
-	// metrics (parse / kube API latencies, informer scope and queue
-	// depth). Off by default.
+	// metrics (parse / kube API latencies, source scope, namespace
+	// informer queue depth). Off by default.
 	ExposeDiagnostics      bool
 	// Pkcs12InUse, when true, registers the
 	// `x509_pkcs12_passphrase_failures_total` counter. The flag is
@@ -155,10 +155,10 @@ func (r *Registry) initSelfMetrics() {
 			Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
 		}, []string{"format"})
 		r.informerScope = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "x509_kube_informer_scope", Help: "Scope of an informer: 1 for the active scope, 0 otherwise.",
+			Name: "x509_kube_informer_scope", Help: "Scope of a Kubernetes source: 1 for the active scope, 0 otherwise. Metric name kept for dashboard compatibility.",
 		}, []string{"source_name", "scope"})
 		r.informerQueueDepth = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "x509_informer_queue_depth", Help: "Current depth of an informer event queue.",
+			Name: "x509_informer_queue_depth", Help: "Current depth of an informer event queue. Populated only by the namespace informer (Secret and ConfigMap watches do not use SharedInformer).",
 		}, []string{"source_name", "resource"})
 		r.kubeRequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Name:    "x509_kube_request_duration_seconds",

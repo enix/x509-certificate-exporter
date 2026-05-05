@@ -8,7 +8,7 @@
 //   - the FormatParser interface implemented by package cert/pem and
 //     cert/pkcs12;
 //   - the Source interface that any provider of certificates must
-//     implement (file scanner, Kubernetes informer, custom backend);
+//     implement (file scanner, Kubernetes watcher, custom backend);
 //   - the Sink interface that the registry implements to receive bundles.
 //
 // # Embedded use case

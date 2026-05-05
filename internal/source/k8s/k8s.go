@@ -1,20 +1,38 @@
 // Package k8s implements a Source that watches Kubernetes Secrets (and
-// optionally ConfigMaps) via SharedInformerFactory.
+// optionally ConfigMaps).
 //
-// Key optimisations:
+// Architecture: Secrets and ConfigMaps are observed via a direct paginated
+// LIST + WATCH loop, not a client-go SharedInformer. The reason is that
+// client-go's pager.List accumulates every page into a single in-memory
+// list before yielding to a transform or event handler — on clusters with
+// many large objects (Helm release secrets, OPA-policy ConfigMaps) the
+// initial sync OOMs the pod before any object can be filtered or freed.
+// The direct loop processes each page inline (default 50 objects) and
+// drops it before fetching the next, bounding peak memory to roughly
+// pageSize × average object size.
 //
-//   - SetTransform strips irrelevant Data keys and ManagedFields before
-//     anything is stored in the informer cache (massive memory win).
-//   - LabelSelector and FieldSelector are pushed server-side via the
-//     factory's Tweak option.
+// Namespaces are still observed via a SharedInformer (small objects, no
+// OOM risk; we need a queryable cache of namespace labels). The namespace
+// informer is started only when the source declares label-based namespace
+// rules.
+//
+// Key features:
+//
+//   - Server-side LabelSelector / FieldSelector pushed onto every LIST and
+//     WATCH call. The Secret type is automatically translated into a
+//     fieldSelector when all secret rules share a single Type.
+//   - Initial paginated LIST then WATCH from the returned ResourceVersion;
+//     resync timer (default 30 min) re-runs the LIST cycle.
 //   - First sync gates the source's "ready" state.
-//   - Delete events propagate immediately so deleted Secrets disappear
-//     from the registry.
+//   - Delete events propagate immediately so deleted Secrets/ConfigMaps
+//     disappear from the registry.
+//   - A namespace label change short-circuits the resync timer so
+//     newly-allowed objects come back without waiting up to ResyncEvery.
 //
-// What is not covered in this initial implementation: adaptive RBAC scope
-// detection (SelfSubjectAccessReview), WatchListClient feature gate,
-// custom workqueue backpressure beyond what the informer reflector
-// already provides. Those are documented as planned extensions.
+// What is not covered: adaptive RBAC scope detection
+// (SelfSubjectAccessReview), the WatchListClient feature gate (was tested
+// during the OOM investigation; it does not avoid the accumulation since
+// the DeltaFIFO buffers events before the consumer processes them).
 package k8s
 
 import (
@@ -167,15 +185,13 @@ func New(opts Options, logger *slog.Logger) *Source {
 
 func (s *Source) Name() string { return s.opts.Name }
 
-// Run wires up the informers / direct watches and blocks until ctx is
-// cancelled.
+// Run wires up the namespace informer (when needed) and the Secret /
+// ConfigMap direct watches, then blocks until ctx is cancelled.
 //
-// Secrets use a direct paginated LIST + WATCH loop (not SharedInformer) to
-// avoid the client-go pager.List accumulation that OOMs on clusters with
-// many large non-TLS secrets (e.g. Helm release secrets). Each page of 50
-// secrets is processed and released to the GC before the next page is
-// fetched. The SharedInformer pattern is kept for Namespaces and ConfigMaps
-// whose objects are orders of magnitude smaller.
+// Secrets and ConfigMaps each run their own paginated LIST + WATCH loop
+// (see runSecretsDirect / runConfigMapsDirect). The Namespace informer
+// is the only client-go SharedInformer still in use; it is created only
+// when the source declares label-based namespace rules.
 func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 	if s.opts.Client == nil {
 		return fmt.Errorf("k8s source %q: no client", s.opts.Name)
@@ -918,9 +934,11 @@ func labelRuleMatches(rule string, labels map[string]string) bool {
 }
 
 // onNamespace tracks the namespace's labels and re-evaluates every tracked
-// secret/configmap in that namespace whenever the labels change. The
-// re-evaluation reuses the secret/configmap informer's store (its cache is
-// already authoritative) so we don't hit the API server.
+// secret/configmap in that namespace whenever the labels change. We drop
+// every ref in the affected namespace, then poke `nsLabelsChanged` so the
+// secret/configmap goroutines short-circuit their resync timer and re-list
+// immediately — newly-allowed objects come back without waiting for the
+// 30-min cycle, newly-rejected ones are simply not re-emitted.
 func (s *Source) onNamespace(sink cert.Sink, obj any, deleted bool) {
 	ns := extractNamespace(obj)
 	if ns == nil {

@@ -250,7 +250,7 @@ publishes it manually.
 Changelog sections in GoReleaser's `changelog.groups` (`.goreleaser.yaml`)
 mirror the Conventional Commit type mapping:
 Security Updates (`security:`), Features (`feat:`), Bug Fixes (`fix:`),
-Performance (`perf:`), Dependencies (`deps:`), Documentation (`doc:`).
+Performance (`perf:`), Dependencies (`deps:`), Documentation (`docs:`).
 Types `ci:`, `chore:`, `refactor:`, `test:`, `build:` are excluded from the
 public changelog.
 

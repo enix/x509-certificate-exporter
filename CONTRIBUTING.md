@@ -807,7 +807,7 @@ sections, so getting the type right matters:
   changes a security scanner or downstream operator would care about;
   reserve plain `fix:` for functional bugs without security impact.
 - `deps:` — dependency bump (own section in the changelog).
-- `doc:` — documentation only.
+- `docs:` — documentation only.
 - `chore:` — maintenance, infra, internal cleanup. Hidden from changelog
   but still informs the SemVer bump.
 - `ci:` — CI / workflow changes. Hidden.

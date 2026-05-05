@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
+	"strings"
 
 	"dagger/x-509-ce/internal/dagger"
 )
@@ -57,6 +60,69 @@ func (m *X509Ce) LintHelm(ctx context.Context) (string, error) {
 		WithDirectory("/src/chart", m.Source.Directory("chart")).
 		WithExec([]string{"helm", "lint", "chart"}).
 		Stdout(ctx)
+}
+
+// LintHelmExamples runs `helm lint` on the chart against every example
+// values file under docs/examples/.
+//
+// File enumeration uses Directory.Glob so we stay in Go: each lint runs
+// as its own WithExec on a shared base container, and a non-zero exit
+// surfaces as a *dagger.ExecError carrying both stdout and stderr.
+func (m *X509Ce) LintHelmExamples(ctx context.Context) (string, error) {
+	examples := m.Source.Directory("docs/examples")
+	files, err := examples.Glob(ctx, "**/*.values.yaml")
+	if err != nil {
+		return "", fmt.Errorf("listing example values files: %w", err)
+	}
+	if len(files) == 0 {
+		return "", errors.New("no *.values.yaml files found under docs/examples/")
+	}
+	sort.Strings(files)
+
+	base := dag.Container().
+		From(helmImage).
+		WithWorkdir("/src").
+		WithDirectory("/src/chart", m.Source.Directory("chart")).
+		WithDirectory("/src/docs/examples", examples)
+
+	var report strings.Builder
+	var failed []string
+	for _, f := range files {
+		fmt.Fprintf(&report, "\n== docs/examples/%s ==\n", f)
+		_, err := base.WithExec([]string{
+			"helm", "lint", "chart", "--values", "docs/examples/" + f,
+		}).Sync(ctx)
+		if err == nil {
+			report.WriteString("  OK\n")
+			continue
+		}
+		var execErr *dagger.ExecError
+		if !errors.As(err, &execErr) {
+			return report.String(), fmt.Errorf("dagger error linting %s: %w", f, err)
+		}
+		writeIndented(&report, execErr.Stdout, "  ")
+		writeIndented(&report, execErr.Stderr, "  ")
+		failed = append(failed, f)
+	}
+	if len(failed) > 0 {
+		return report.String(), fmt.Errorf("helm lint failed for %d example(s): %s",
+			len(failed), strings.Join(failed, ", "))
+	}
+	return report.String(), nil
+}
+
+// writeIndented appends s to w with each non-empty line prefixed by
+// indent. Trailing newlines are normalized to a single one.
+func writeIndented(w *strings.Builder, s, indent string) {
+	s = strings.TrimRight(s, "\n")
+	if s == "" {
+		return
+	}
+	for _, line := range strings.Split(s, "\n") {
+		w.WriteString(indent)
+		w.WriteString(line)
+		w.WriteByte('\n')
+	}
 }
 
 // LintRenovate validates renovate.json5 against the schema.

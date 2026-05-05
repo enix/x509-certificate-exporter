@@ -16,6 +16,7 @@
       "Bash(task lint:gocritic)",
       "Bash(task lint:gonocritic)",
       "Bash(task lint:helm)",
+      "Bash(task lint:helm-examples)",
       "Bash(task lint:markdown)",
       "Bash(task lint:renovate)",
       "Bash(task nix:update)",

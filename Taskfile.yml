@@ -286,6 +286,7 @@ tasks:
     cmds:
       - task: lint:go
       - task: lint:helm
+      - task: lint:helm-examples
       - task: lint:renovate
       - task: lint:markdown
 
@@ -308,6 +309,11 @@ tasks:
     desc: helm lint on the chart
     cmds:
       - dagger call lint-helm
+
+  lint:helm-examples:
+    desc: helm lint on every docs/examples/**/*.values.yaml against the chart
+    cmds:
+      - dagger call lint-helm-examples
 
   lint:renovate:
     desc: renovate-config-validator on renovate.json5

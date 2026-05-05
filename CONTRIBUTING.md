@@ -536,19 +536,74 @@ The chart at [`chart/`](./chart) is the primary way users deploy the
 exporter, so changes there have a wide blast radius. Useful tasks:
 
 ```sh
-task lint:helm                # syntax + best practices via helm lint
-task doc:helm                 # regenerate chart/README.md from values.yaml
+task lint:helm                # syntax + best practices via `helm lint`
+task doc:helm                 # regenerate chart/README.md AND chart/values.schema.json
+task test:helm-examples       # assert every docs/examples/**/*.values.yaml is accepted
+task test:helm-fixtures       # schema regression net (positive + negative cases)
 ```
 
-The chart's `README.md` is **auto-generated** from
-[`chart/README.md.gotmpl`](./chart/README.md.gotmpl) + the docstrings on
-each value in [`chart/values.yaml`](./chart/values.yaml). Don't edit the
-README directly — touch the `.gotmpl` or the values, then run
-`task doc:helm`.
+Two artefacts under `chart/` are **auto-generated** — never edit them
+directly:
 
-To test the chart end-to-end with your changes, the dev loop already
-deploys with `dev/values.yaml`. To exercise additional values, override
-in `Tiltfile`:
+- **[`chart/README.md`](./chart/README.md)** — rendered by helm-docs
+  from [`chart/README.md.gotmpl`](./chart/README.md.gotmpl) +
+  the `# --` docstrings on each value in
+  [`chart/values.yaml`](./chart/values.yaml).
+- **[`chart/values.schema.json`](./chart/values.schema.json)** —
+  emitted by [helm-schema](https://github.com/dadav/helm-schema) from
+  [`chart/values.yaml`](./chart/values.yaml) + the inline
+  `# @schema` annotation blocks living next to the values that need
+  constraints. Helm validates user-provided values against this on
+  every install / upgrade / lint.
+
+`task doc:helm` regenerates both. The
+[`chart-readme.yaml`](./.github/workflows/chart-readme.yaml) workflow
+fails CI if either drifts out of sync with the source files; on `main`
+it commits the regenerated artefacts back automatically.
+
+### Updating the schema
+
+Schema constraints live inline in `values.yaml` between paired
+`# @schema` markers — see
+[helm-schema's annotation reference](https://github.com/dadav/helm-schema#available-annotations)
+for the full vocabulary. Patterns already in use:
+
+- **Free-form K8s pass-through maps** (`nodeSelector`, `affinity`,
+  `resources`, `*SecurityContext`, ...): `additionalProperties: true`,
+  often paired with `properties: {}` to neutralize inference of inner
+  field types so users can pass any K8s-valid quantity / object.
+- **Enums** on chart-defined string values (`pullPolicy`, `severity`,
+  `format`, ...): `enum: [...]`.
+- **Numeric ranges** (ports, replicas, retention windows, ...):
+  `minimum` / `maximum`.
+- **Structural nesting** (e.g. `secretTypes` items with the
+  `key | keyPatterns` mutex and a nested `pkcs12` sub-object):
+  explicit `items.properties` + `oneOf`.
+
+The base philosophy is **strict on the chart's own parameters,
+permissive on Kubernetes pass-through fields** — the K8s API has its
+own admission validation, no need to duplicate it inside the chart
+schema.
+
+Whenever you tighten or loosen the schema, add a fixture under
+[`test/schema/`](./test/schema):
+
+- Positive case → `test/schema/valid/<name>.yaml`. The fixture must
+  pass `helm lint chart --values <fixture>`.
+- Negative case → `test/schema/invalid/<name>.yaml` paired with
+  `test/schema/invalid/<name>.expect.txt` listing one substring per
+  line that the helm output must contain. Anchor on the JSON path of
+  the rejection (e.g. `at '/secretsExporter/replicas'`) — it's the
+  most stable part of the error format.
+
+`task test:helm-fixtures` runs both lots; it's part of `task test` and
+gated by `chart/**` and `test/schema/**` paths in
+[`.github/workflows/test.yaml`](./.github/workflows/test.yaml).
+
+### Testing chart changes interactively
+
+The dev loop already deploys with `dev/values.yaml`. To exercise
+additional values, override in `Tiltfile`:
 
 ```python
 helm_resource(

@@ -17,7 +17,7 @@ spec:
   - port: metrics
     interval: {{ .Values.prometheusPodMonitor.scrapeInterval }}
     scrapeTimeout: {{ .Values.prometheusPodMonitor.scrapeTimeout }}
-    {{- if .Values.rbacProxy.enable }}
+    {{- if .Values.rbacProxy.enabled }}
     bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     {{- end }}
     scheme: {{ .Values.prometheusPodMonitor.scheme }}

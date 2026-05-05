@@ -38,7 +38,7 @@ rules:
   - watch
   - list
 {{- end }}
-{{- if .Values.rbacProxy.enable }}
+{{- if .Values.rbacProxy.enabled }}
 - apiGroups:
   - authentication.k8s.io
   resources:
@@ -76,7 +76,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 rules:
-{{- if .Values.rbacProxy.enable }}
+{{- if .Values.rbacProxy.enabled }}
 - apiGroups:
   - authentication.k8s.io
   resources:

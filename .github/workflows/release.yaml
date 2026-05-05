@@ -254,12 +254,17 @@ jobs:
                 echo "::endgroup::"
               done
 
-  # ─── 2. Helm chart: package, push as OCI, cosign-sign ────────────────────
+  # ─── 2. Helm chart: package, push as OCI, cosign-sign, update classic ───
+  # Single job by design: the `release` Environment requires a maintainer's
+  # approval to start, and splitting OCI push, signing, and the legacy
+  # helm-repo index update across multiple jobs would prompt for that
+  # approval each time. Co-locating them also lets the index step reuse
+  # the .tgz produced by `helm package` instead of re-building the chart.
   chart:
-    name: Chart publish & sign
+    name: Chart publish, sign, and index
     needs: goreleaser # the chart references the just-pushed images
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment: release
     permissions:
       contents: read
@@ -284,12 +289,17 @@ jobs:
         with:
           version: "4.1.4"
       - uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4
-      # Two separate logins because helm and cosign use different auth stores:
-      #   - `helm registry login` writes to helm's own config (used by `helm push` below)
-      #   - `cosign login` writes to ~/.docker/config.json (used by cosign when
-      #     it uploads the signature blob as an OCI artifact in the final step)
-      # Without the cosign login, `cosign sign` fails with UNAUTHORIZED on the
-      # signature blob upload to the chart registry.
+      - uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2
+
+      # Three logins to the same host (CHART_REGISTRY) because helm,
+      # cosign and oras each maintain their own credential stores:
+      #   - `helm registry login` writes to helm's own config
+      #     (used by `helm push` below)
+      #   - `cosign login` writes to ~/.docker/config.json (used by cosign
+      #     when it uploads the signature blob as an OCI artifact)
+      #   - `oras login` writes to its own auth file (used to push the
+      #     classic-repo index.yaml as an OCI artifact)
+      # Without all three, the matching downstream step fails UNAUTHORIZED.
       - name: Login to chart OCI registry
         env:
           CHART_REGISTRY_USERNAME: ${{ secrets.CHART_REGISTRY_USERNAME }}
@@ -299,6 +309,7 @@ jobs:
           host="${CHART_REGISTRY%%/*}"
           echo "$CHART_REGISTRY_TOKEN" | helm registry login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
           echo "$CHART_REGISTRY_TOKEN" | cosign login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
+          echo "$CHART_REGISTRY_TOKEN" | oras login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
       - name: Override chart name if needed
         run: |
           set -euo pipefail
@@ -337,73 +348,11 @@ jobs:
           COSIGN_YES: "true"
         run: cosign sign "${{ steps.push.outputs.ref }}"
 
-  # ─── 3. Helm classic index: update charts.enix.io ────────────────────────
-  # Rebuilds the classic Helm repository index and pushes it as an OCI
-  # artifact to quay.io. A separate workflow in enix/helm-charts picks it
-  # up and serves it at https://charts.enix.io, keeping the legacy
-  # `helm repo add` install path working.
-  #
-  # The index entry's download URL points at the OCI artifact pushed by
-  # the `chart` job above — helm will fetch it from quay.io when a user
-  # runs `helm install` via the classic repo.
-  helm-index:
-    name: Update classic Helm index
-    needs: chart
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: release
-    permissions:
-      contents: read
-    env:
-      CHART_NAME: ${{ vars.CHART_NAME }}
-      CHART_REGISTRY: ${{ vars.CHART_REGISTRY }}
-    steps:
-      - name: Validate environment variables
-        run: |
-          set -euo pipefail
-          missing=()
-          [ -n "${CHART_NAME:-}" ]     || missing+=("CHART_NAME")
-          [ -n "${CHART_REGISTRY:-}" ] || missing+=("CHART_REGISTRY")
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo "::error::Missing required Environment variable(s): ${missing[*]}"
-            exit 1
-          fi
-
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
-        with:
-          version: "4.1.4"
-      - name: Setup Oras
-        uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2
-
-      # Re-package the chart to produce the .tgz that `helm repo index`
-      # needs to generate a valid index entry (it reads the Chart.yaml
-      # metadata from the archive). No registry login required here — the
-      # package is built locally and never pushed in this step.
-      - name: Override chart name if needed
-        run: |
-          set -euo pipefail
-          source_name=$(awk '/^name:/ {print $2; exit}' chart/Chart.yaml)
-          if [ "$source_name" != "$CHART_NAME" ]; then
-            sed -i "s|^name:.*|name: $CHART_NAME|" chart/Chart.yaml
-          fi
-      - name: Copy LICENSE into chart
-        run: cp LICENSE chart/LICENSE
-      - name: Package chart
-        run: |
-          set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          mkdir -p dist
-          helm package chart/ \
-            --destination dist/ \
-            --version "$version" \
-            --app-version "$version"
-
-      - name: Login to Quay for ORAS
-        run: |
-          echo "${{ secrets.CHART_REGISTRY_TOKEN }}" \
-            | oras login --username "${{ secrets.CHART_REGISTRY_USERNAME }}" --password-stdin quay.io
-
+      # Classic Helm repository index — rebuilt from the .tgz produced
+      # above, pushed as an OCI artifact to the chart registry, then
+      # picked up by a workflow in enix/helm-charts that serves it at
+      # https://charts.enix.io to keep the legacy `helm repo add` path
+      # working.
       - name: Build and push Helm index
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN_PUBLISH_HELM_CHART }}
@@ -417,8 +366,8 @@ jobs:
           helm repo index dist/
 
           # Rewrite the download URL from the local path that
-          # `helm repo index` emits to the OCI artifact pushed by the
-          # `chart` job above.
+          # `helm repo index` emits to the OCI artifact pushed earlier in
+          # this same job.
           python3 - <<EOF
           import yaml, pathlib
           p = pathlib.Path("dist/index.yaml")
@@ -430,11 +379,10 @@ jobs:
 
           mv dist/index.yaml dist/index-latest.yaml
 
-          # Push the index as an OCI artifact. The enix/helm-charts repo
-          # will pull this artifact and serve it over HTTPS.
-          # `oras push` preserves the directory prefix in the layer path,
-          # so cd into dist/ first so the file is pushed as "index-latest.yaml"
-          # at the root, not "dist/index-latest.yaml".
+          # Push the index as an OCI artifact. `oras push` preserves the
+          # directory prefix in the layer path, so cd into dist/ first
+          # so the file is pushed as "index-latest.yaml" at the root,
+          # not "dist/index-latest.yaml".
           (cd dist && oras push "${CHART_REGISTRY}/${CHART_NAME}:index-latest.yaml" \
             --artifact-type application/yaml \
             index-latest.yaml:application/yaml)

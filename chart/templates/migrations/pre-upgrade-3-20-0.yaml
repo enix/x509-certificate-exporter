@@ -14,7 +14,13 @@
     {{- $chartLabel := index $existingResource.metadata.labels "helm.sh/chart" }}
     {{- if $chartLabel }}
       {{- $prevVersion := trimPrefix "x509-certificate-exporter-" $chartLabel }}
-      {{- if semverCompare "<3.20.0" $prevVersion }}
+      {{/* Only fire when both the source release is pre-3.20.0 AND the
+           target release is still in the v3 line. Upgrades that cross
+           into v4+ are handled by pre-upgrade-4-0-0, which subsumes
+           the same Deployment/DaemonSet recreation alongside its own
+           Service migration. Without this gate the two hooks would run
+           in parallel and double-delete the same resources. */}}
+      {{- if and (semverCompare "<3.20.0" $prevVersion) (semverCompare "<4.0.0" .Chart.Version) }}
         {{- $needsMigration = true }}
       {{- end }}
     {{- end }}

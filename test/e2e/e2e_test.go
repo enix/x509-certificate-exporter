@@ -271,6 +271,33 @@ func TestExporterCoversAllScenarios(t *testing.T) {
 			t.Fatalf("expected x509_source_bundles total > 0, got %v", total)
 		}
 	})
+
+	// memory_under_budget is a smoke check on the exporter's resident
+	// memory after the initial sync has completed. The dev cluster only
+	// holds a handful of TLS Secrets/ConfigMaps, so 80 MiB is generous —
+	// well above the typical ~15 MiB but well below what a regression
+	// to "cache every Secret" would push the pod to. The metric is
+	// emitted by Prometheus's process collector; if it disappears (e.g.
+	// build flag change) we just skip rather than fail.
+	t.Run("memory_under_budget", func(t *testing.T) {
+		fam := fams["process_resident_memory_bytes"]
+		if fam == nil || len(fam.GetMetric()) == 0 {
+			t.Skip("process_resident_memory_bytes not exposed")
+		}
+		const budget = 80 * 1024 * 1024 // 80 MiB
+		var maxRSS float64
+		for _, m := range fam.GetMetric() {
+			if v := m.GetGauge().GetValue(); v > maxRSS {
+				maxRSS = v
+			}
+		}
+		if maxRSS > budget {
+			t.Fatalf("exporter RSS %.0f bytes (%.0f MiB) exceeds budget of %d MiB",
+				maxRSS, maxRSS/1024/1024, budget>>20)
+		}
+		t.Logf("max exporter RSS across scraped pods: %.1f MiB (budget %d MiB)",
+			maxRSS/1024/1024, budget>>20)
+	})
 }
 
 func assertNoSeries(t *testing.T, fam *dto.MetricFamily, sc scenarios.Scenario) {

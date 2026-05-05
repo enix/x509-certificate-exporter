@@ -196,7 +196,7 @@ secretsExporter:
   includeLabels: []
   # -- Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   excludeLabels: []
-  # -- Expose selected labels from Kubernetes Secrets as Prometheus labels.
+  # -- Expose selected labels from Kubernetes Secrets as Prometheus labels. **Beware of high-cardinality labels** (e.g. `pod-template-hash`, `controller-revision-hash`, build/git SHAs, timestamps, request IDs): each unique value adds a fresh series for every certificate metric, which can quickly explode the Prometheus index. Stick to slow-changing identifiers (app, team, environment, owner).
   exposeSecretLabels: []
   # -- Additional arguments to append to the exporter command line. E.g.: `--watch-file="/extra-cert/tls.crt"`.
   extraArgs: []

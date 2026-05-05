@@ -1,12 +1,14 @@
-name: Chart README
+name: Chart docs
 
-# Keep chart/README.md in lockstep with chart/README.md.gotmpl. The gotmpl
-# is the source of truth; helm-docs renders it (with values.yaml) into
-# chart/README.md. Both jobs run only when the template has been touched.
+# Keep chart/README.md and chart/values.schema.json in lockstep with
+# chart/values.yaml. helm-docs renders chart/README.md.gotmpl + values.yaml
+# into chart/README.md; helm-schema reads values.yaml + the inline
+# `# @schema` annotations and emits chart/values.schema.json. `task
+# doc:helm` does both locally; this workflow guarantees CI does too.
 #
-# - On a PR: regenerate in CI and fail if the result drifts from what the
-#   author committed. Tells contributors to run `task doc:helm` locally.
-# - On main: regenerate and commit the result back if it differs.
+# - On a PR: regenerate both, fail if either drifts from what the author
+#   committed. Tells contributors to run `task doc:helm` locally.
+# - On main: regenerate both and commit the diff back if anything changed.
 # - Reusable: another workflow (e.g. release) can `uses:` this file to
 #   force a verify regardless of which paths changed — workflow_call does
 #   not honor `paths:` filters, which is the intended behavior at release
@@ -24,7 +26,7 @@ on:
   workflow_call:
 
 # Read-only by default. The `regenerate` job overrides with
-# contents:write because it commits chart/README.md back to main.
+# contents:write because it commits the regenerated artifacts back to main.
 permissions:
   contents: read
 
@@ -49,10 +51,21 @@ jobs:
           dagger-flags: --progress=logs
           verb: call
           args: helm-docs export --path=chart/README.md
-      - name: Fail if chart/README.md is stale
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+        with:
+          version: latest
+          dagger-flags: --progress=logs
+          verb: call
+          args: chart-schema export --path=chart/values.schema.json
+      - name: Fail if chart docs are stale
         run: |
-          if ! git diff --exit-code -- chart/README.md; then
-            echo "::error file=chart/README.md::chart/README.md is out of date relative to chart/README.md.gotmpl or chart/values.yaml. Run 'task doc:helm' locally and commit the result."
+          stale=()
+          git diff --quiet -- chart/README.md          || stale+=("chart/README.md")
+          git diff --quiet -- chart/values.schema.json || stale+=("chart/values.schema.json")
+          if [ ${#stale[@]} -gt 0 ]; then
+            for f in "${stale[@]}"; do
+              echo "::error file=$f::$f is out of date relative to chart/values.yaml. Run 'task doc:helm' locally and commit the result."
+            done
             exit 1
           fi
 
@@ -72,14 +85,20 @@ jobs:
           dagger-flags: --progress=logs
           verb: call
           args: helm-docs export --path=chart/README.md
-      - name: Commit regenerated README if changed
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+        with:
+          version: latest
+          dagger-flags: --progress=logs
+          verb: call
+          args: chart-schema export --path=chart/values.schema.json
+      - name: Commit regenerated chart docs if changed
         run: |
-          if git diff --quiet -- chart/README.md; then
-            echo "No changes to chart/README.md; nothing to commit."
+          if git diff --quiet -- chart/README.md chart/values.schema.json; then
+            echo "No changes; nothing to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add chart/README.md
-          git commit -m "docs(chart): regenerate README from values.yaml"
+          git add chart/README.md chart/values.schema.json
+          git commit -m "docs(chart): regenerate README and schema from values.yaml"
           git push

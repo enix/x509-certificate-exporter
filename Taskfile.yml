@@ -197,10 +197,12 @@ tasks:
 
   # ─── Tests ───────────────────────────────────────────────────────────────
   test:
-    desc: "Run all tests (unit + e2e)"
+    desc: "Run all tests (unit + fuzz + helm-examples + helm-fixtures + e2e)"
     cmds:
       - task: test:unit
       - task: test:fuzz
+      - task: test:helm-examples
+      - task: test:helm-fixtures
       - task: test:e2e
 
   test:unit:
@@ -217,6 +219,16 @@ tasks:
       - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/pem/
       - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/pkcs12/
       - go test -run=^$ -fuzz=FuzzCompile -fuzztime=5s ./internal/fileglob/
+
+  test:helm-examples:
+    desc: "Assert every docs/examples/**/*.values.yaml is accepted by the chart"
+    cmds:
+      - dagger call test-helm-examples
+
+  test:helm-fixtures:
+    desc: "Schema regression net — every test/schema/{valid,invalid}/*.yaml against the chart, with paired .expect.txt"
+    cmds:
+      - dagger call test-helm-fixtures
 
   test:e2e:
     desc: "End-to-end against a fully isolated throwaway cluster — random names + free port, race-free across parallel runs"
@@ -291,7 +303,6 @@ tasks:
     cmds:
       - task: lint:go
       - task: lint:helm
-      - task: lint:helm-examples
       - task: lint:renovate
       - task: lint:markdown
 
@@ -314,11 +325,6 @@ tasks:
     desc: helm lint on the chart
     cmds:
       - dagger call lint-helm
-
-  lint:helm-examples:
-    desc: helm lint on every docs/examples/**/*.values.yaml against the chart
-    cmds:
-      - dagger call lint-helm-examples
 
   lint:renovate:
     desc: renovate-config-validator on renovate.json5
@@ -360,9 +366,10 @@ tasks:
       - task: doc:helm
 
   doc:helm:
-    desc: Regenerate chart/README.md from values.yaml + .gotmpl
+    desc: Regenerate chart/README.md and chart/values.schema.json from values.yaml (+ .gotmpl, + @schema annotations)
     cmds:
       - dagger call helm-docs export --path=chart/README.md
+      - dagger call chart-schema export --path=chart/values.schema.json
 
   # ─── Analysis ────────────────────────────────────────────────────────────
   analysis:graph:

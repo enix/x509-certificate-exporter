@@ -1,0 +1,6 @@
+# Locks down the [1, 65535] range on every TCP port the chart exposes.
+podListenPort: 1
+service:
+  port: 65535
+rbacProxy:
+  upstreamListenPort: 8080

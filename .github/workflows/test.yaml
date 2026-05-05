@@ -31,6 +31,8 @@ jobs:
     outputs:
       go: ${{ steps.filter.outputs.go }}
       e2e: ${{ steps.filter.outputs.e2e }}
+      helm_examples: ${{ steps.filter.outputs.helm_examples }}
+      helm_fixtures: ${{ steps.filter.outputs.helm_fixtures }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -62,6 +64,14 @@ jobs:
               - '.goreleaser.yaml'
               - 'flake.nix'
               - 'flake.lock'
+            helm_examples:
+              - 'chart/**'
+              - 'docs/examples/**'
+              - 'dagger/**'
+            helm_fixtures:
+              - 'chart/**'
+              - 'test/schema/**'
+              - 'dagger/**'
 
   unit:
     name: Unit tests
@@ -81,6 +91,42 @@ jobs:
           dagger-flags: --progress=logs
           verb: call
           args: test
+
+  helm-examples:
+    name: Helm examples
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.helm_examples == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+        with:
+          version: latest
+          dagger-flags: --progress=logs
+          verb: call
+          args: test-helm-examples
+
+  helm-fixtures:
+    name: Helm schema fixtures
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.helm_fixtures == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+        with:
+          version: latest
+          dagger-flags: --progress=logs
+          verb: call
+          args: test-helm-fixtures
 
   e2e:
     name: E2E tests

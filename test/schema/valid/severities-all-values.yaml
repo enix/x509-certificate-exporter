@@ -1,0 +1,6 @@
+# Locks down every value of the [info, warning, critical] severity enum.
+prometheusRules:
+  readErrorsSeverity: info
+  certificateErrorsSeverity: warning
+  certificateRenewalsSeverity: warning
+  certificateExpirationsSeverity: critical

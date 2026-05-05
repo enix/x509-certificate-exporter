@@ -1,0 +1,2 @@
+hostPathsExporter:
+  hostPathVolumeType: File

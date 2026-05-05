@@ -26,6 +26,9 @@ image:
   tagSuffix: ""
   # -- Exporter image digest. When set, takes precedence over `tag` (immutable reference)
   digest: ""
+  # @schema
+  # enum: [Always, IfNotPresent, Never]
+  # @schema
   # -- Exporter image pull policy
   pullPolicy: IfNotPresent
 
@@ -41,10 +44,20 @@ migration:
     digest: ""
     # -- kubectl image pull policy
     pullPolicy: IfNotPresent
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Annotations added to Helm hook Pods
   annotations: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional labels added to Helm hook Pods
   extraLabels: {}
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- ResourceRequirements for containers of Helm hooks
   # @default -- see `values.yaml`
   resources:
@@ -54,12 +67,20 @@ migration:
     requests:
       cpu: 20m
       memory: 20Mi
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- PodSecurityContext for Pods of Helm hooks
   # @default -- see `values.yaml`
   podSecurityContext:
     runAsNonRoot: true
     seccompProfile:
       type: RuntimeDefault
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- SecurityContext for containers of Helm hooks
   # @default -- see `values.yaml`
   securityContext:
@@ -86,6 +107,10 @@ exposeExpiredMetric: true
 # -- Expose self-introspection metrics for debugging the exporter itself (`x509_parse_duration_seconds`, `x509_kube_request_duration_seconds`, `x509_kube_informer_scope`, `x509_informer_queue_depth`). Off by default ; enable when you actually need to look inside.
 exposeDiagnosticMetrics: false
 
+# @schema
+# type: [array, 'null']
+# items: {type: string}
+# @schema
 # -- (list) Restrict metric labels to this list if set. **Warning** : use with caution as reducing cardinality may yield metrics collisions and force the exporter to ignore certificates. This will also degrade the usability of the Grafana dashboard. This list should always include at least `filepath`, `secret_namespace` and `secret_name`. Also `subject_CN` is highly recommended for when a file contains multiple certificates.
 metricLabelsFilterList: null
 
@@ -96,8 +121,14 @@ grafana:
   sidecarLabel: grafana_dashboard
   # -- ConfigMap label value the Grafana sidecar is looking for
   sidecarLabelValue: "1"
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Annotations added to the Grafana dashboard ConfigMap (example in `values.yaml`)
   annotations: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
     # k8s-sidecar-target-directory: "/tmp/dashboards/Example"
   # -- Additional labels added to the Grafana dashboard ConfigMap
   extraLabels: {}
@@ -105,18 +136,34 @@ grafana:
 secretsExporter:
   # -- Should the TLS Secrets exporter be running
   enabled: true
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional Deployment annotations
   annotations: {}
   # -- Should debug messages be produced by the TLS Secrets exporter
   debugMode: false
+  # @schema
+  # minimum: 1
+  # @schema
   # -- Desired number of TLS Secrets exporter Pods
   replicas: 1
+  # @schema
+  # enum: [Always]
+  # @schema
   # -- restartPolicy for Pods of the TLS Secrets exporter
   restartPolicy: Always
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- DeploymentStrategy for the TLS Secrets exporter
   strategy: {}
   # -- (int) Number of old ReplicaSets to retain for rollback
   revisionHistoryLimit:
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- ResourceRequirements for containers of the TLS Secrets exporter
   # @default -- see `values.yaml`
   resources:
@@ -126,34 +173,62 @@ secretsExporter:
     requests:
       cpu: 20m
       memory: 20Mi
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- Readiness probe definition for the secrets exporter (.httpGet cannot be changed)
   # @default -- see `values.yaml`
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 3
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- Liveness probe definition for the secrets exporter (.httpGet cannot be changed)
   # @default -- see `values.yaml`
   livenessProbe:
     initialDelaySeconds: 5
     periodSeconds: 3
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Node selector for Pods of the TLS Secrets exporter
   nodeSelector: {}
   # -- Tolerations for Pods of the TLS Secrets exporter
   tolerations: []
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Affinity for Pods of the TLS Secrets exporter
   affinity: {}
   # -- PriorityClassName for Pods of the TLS Secrets exporter
   priorityClassName: ""
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional labels added to Pods of the TLS Secrets exporter
   podExtraLabels: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Annotations added to Pods of the TLS Secrets exporter
   podAnnotations: {}
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- PodSecurityContext for Pods of the TLS Secrets exporter
   # @default -- see `values.yaml`
   podSecurityContext:
     runAsNonRoot: true
     seccompProfile:
       type: RuntimeDefault
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- SecurityContext for containers of the TLS Secrets exporter
   # @default -- see `values.yaml`
   securityContext:
@@ -169,6 +244,38 @@ secretsExporter:
   # -- Additional volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`)
   extraVolumeMounts: []
 
+  # @schema
+  # items:
+  #   type: object
+  #   additionalProperties: false
+  #   required: [type]
+  #   properties:
+  #     type: {type: string, minLength: 1}
+  #     key: {type: string}
+  #     keyPatterns:
+  #       type: array
+  #       items: {type: string}
+  #     format: {enum: [pem, pkcs12]}
+  #     pkcs12:
+  #       type: object
+  #       additionalProperties: false
+  #       properties:
+  #         passphrase: {type: string}
+  #         passphraseKey: {type: string}
+  #         passphraseFile: {type: string}
+  #         passphraseSecretRef:
+  #           type: object
+  #           additionalProperties: false
+  #           required: [name, key]
+  #           properties:
+  #             namespace: {type: string}
+  #             name: {type: string}
+  #             key: {type: string}
+  #         tryEmptyPassphrase: {type: boolean}
+  #   oneOf:
+  #     - required: [key]
+  #     - required: [keyPatterns]
+  # @schema
   # -- Which type of Secrets should be watched. Each entry takes either `key`
   # (a single Secret data key — the matching regex `^<key>$` is built for
   # you) or `keyPatterns` (a list of regexes, full control). Optional
@@ -206,17 +313,29 @@ secretsExporter:
   cache:
     # -- Enable caching of Kubernetes objects to prevent scraping timeouts
     enabled: true
+    # @schema
+    # minimum: 1
+    # @schema
     # -- Maximum time an object can stay in cache unrefreshed (seconds) - it will be at least half of that
     maxDuration: 300
 
   kubeApiRateLimits:
     # -- Should requests to the Kubernetes API server be rate-limited
     enabled: false
+    # @schema
+    # minimum: 0
+    # @schema
     # -- Maximum rate of queries sent to the API server (per second)
     queriesPerSecond: 5
+    # @schema
+    # minimum: 1
+    # @schema
     # -- Burst bucket size for queries sent to the API server
     burstQueries: 10
 
+  # @schema
+  # minimum: 0
+  # @schema
   # -- Page size used by the paginated initial LIST against the
   # Kubernetes API. The exporter processes each page inline and
   # releases it to the GC before fetching the next, so peak memory
@@ -233,6 +352,9 @@ secretsExporter:
   #   value: "1"
 
 hostPathsExporter:
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional DaemonSet annotations
   annotations: {}
   # -- Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets)
@@ -241,12 +363,22 @@ hostPathsExporter:
   skipSymlinks: false
   # -- Polling interval at which the file source re-walks watched paths and re-parses changed files. Accepts a Go duration (e.g. `30s`, `5m`). Default is suited for slowly-rotated PKI; lower it for tests or fast-rotation flows.
   refreshInterval: "300s"
+  # @schema
+  # enum: [Always]
+  # @schema
   # -- restartPolicy for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   restartPolicy: Always
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- updateStrategy for DaemonSets of hostPath exporters (default for all hostPathsExporter.daemonSets)
   updateStrategy: {}
   # -- (int) Number of old ReplicaSets to retain for rollback (default for all hostPathsExporter.daemonSets)
   revisionHistoryLimit:
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- ResourceRequirements for containers of hostPath exporters (default for all hostPathsExporter.daemonSets)
   # @default -- see `values.yaml`
   resources:
@@ -256,33 +388,61 @@ hostPathsExporter:
     requests:
       cpu: 10m
       memory: 20Mi
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- Readiness probe definition for the host paths exporter (.httpGet cannot be changed)
   # @default -- see `values.yaml`
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 3
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- Liveness probe definition for the host paths exporter (.httpGet cannot be changed)
   # @default -- see `values.yaml`
   livenessProbe:
     initialDelaySeconds: 5
     periodSeconds: 3
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Node selector for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   nodeSelector: {}
   # -- Tolerations for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   tolerations: []
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Affinity for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   affinity: {}
   # -- PriorityClassName for Pods of hostPath exporters
   priorityClassName: ""
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional labels added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   podExtraLabels: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Annotations added to Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   podAnnotations: {}
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- PodSecurityContext for Pods of hostPath exporters (default for all hostPathsExporter.daemonSets)
   # @default -- see `values.yaml`
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- SecurityContext for containers of hostPath exporters (default for all hostPathsExporter.daemonSets)
   # @default -- see `values.yaml`
   securityContext:
@@ -299,6 +459,10 @@ hostPathsExporter:
   # -- Additional volume mounts added to Pod containers of hostPath exporters (default for all hostPathsExporter.daemonSets ; combined with global `extraVolumeMounts`)
   extraVolumeMounts: []
 
+  # @schema
+  # type: [string, 'null']
+  # enum: ['', Directory, DirectoryOrCreate, null]
+  # @schema
   # -- Type for HostPath volumes used with watched paths. Can be set to `""` or null to use Kubernetes defaults. May be required with RKE if Pods don't start.
   hostPathVolumeType: Directory
   # -- [SEE README] List of directory paths of the host to scan for PEM encoded certificate files to be watched and exported as metrics (one level deep)
@@ -315,9 +479,16 @@ hostPathsExporter:
   # - name: GOMAXPROCS
   #   value: "1"
 
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- [SEE README] Map to define one or many DaemonSets running hostPath exporters. Key is used as a name ; value is a map to override all default settings set by `hostPathsExporter.*`.
   daemonSets: {}
 
+# @schema
+# minimum: 1
+# maximum: 65535
+# @schema
 # -- TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not)
 podListenPort: 9793
 
@@ -339,13 +510,26 @@ service:
   create: true
   # -- Should the Service be headless (`clusterIP: None`).
   headless: true
+  # @schema
+  # minimum: 1
+  # maximum: 65535
+  # @schema
   # -- TCP port to expose the Service on
   port: 9793
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Annotations to add to the Service
   annotations: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional labels to add to the Service
   extraLabels: {}
 
+# @schema
+# additionalProperties: true
+# @schema
 prometheusServiceMonitor:
   # -- Should a ServiceMonitor object be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
   create: true
@@ -353,19 +537,34 @@ prometheusServiceMonitor:
   scrapeInterval: 60s
   # -- Target scrape timeout set in the ServiceMonitor
   scrapeTimeout: 30s
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional labels to add to ServiceMonitor objects
   extraLabels: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional annotations to add to ServiceMonitor objects
   extraAnnotations: {}
   # -- Metric relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
   metricRelabelings: []
   # -- Relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
   relabelings: []
+  # @schema
+  # enum: [http, https]
+  # @schema
   # -- Scheme config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
   scheme: http
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig
   tlsConfig: {}
 
+# @schema
+# additionalProperties: true
+# @schema
 prometheusPodMonitor:
   # -- Should a PodMonitor object be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users.
   create: false
@@ -373,14 +572,23 @@ prometheusPodMonitor:
   scrapeInterval: 60s
   # -- Target scrape timeout set in the PodMonitor
   scrapeTimeout: 30s
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional labels to add to PodMonitor objects
   extraLabels: {}
   # -- Metric relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
   metricRelabelings: []
   # -- Relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
   relabelings: []
+  # @schema
+  # enum: [http, https]
+  # @schema
   # -- Scheme config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
   scheme: http
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig
   tlsConfig: {}
 
@@ -389,24 +597,51 @@ prometheusRules:
   create: true
   # -- Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions.
   alertOnReadErrors: true
+  # @schema
+  # enum: [info, warning, critical]
+  # @schema
   # -- Severity for the X509ExporterReadErrors alerting rule
   readErrorsSeverity: warning
   # -- Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too.
   alertOnCertificateErrors: true
+  # @schema
+  # enum: [info, warning, critical]
+  # @schema
   # -- Severity for the CertificateError alerting rule
   certificateErrorsSeverity: warning
+  # @schema
+  # enum: [info, warning, critical]
+  # @schema
   # -- Severity for the CertificateRenewal alerting rule
   certificateRenewalsSeverity: warning
+  # @schema
+  # enum: [info, warning, critical]
+  # @schema
   # -- Severity for the CertificateExpiration alerting rule
   certificateExpirationsSeverity: critical
+  # @schema
+  # minimum: 0
+  # @schema
   # -- Raise a warning alert when this few days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)
   warningDaysLeft: 28
+  # @schema
+  # minimum: 0
+  # @schema
   # -- Raise a critical alert when this few days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)
   criticalDaysLeft: 14
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional labels to add to PrometheusRule objects
   extraLabels: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional labels to add to PrometheusRule rules
   alertExtraLabels: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
   # -- Additional annotations to add to PrometheusRule rules
   alertExtraAnnotations: {}
   # -- Additional rulePrefix to PrometheusRule rules
@@ -426,12 +661,21 @@ prometheusRules:
   #       summary: Error events exist for this x509-certificate-exporter
   #       description: This x509-certificate-exporter instance has experienced parse errors in the past.
 
+# @schema
+# additionalProperties: true
+# @schema
 # -- Additional labels added to all chart objects
 extraLabels: {}
 
+# @schema
+# additionalProperties: true
+# @schema
 # -- Additional labels added to all Pods
 podExtraLabels: {}
 
+# @schema
+# additionalProperties: true
+# @schema
 # -- Annotations added to all Pods
 podAnnotations: {}
 #  prometheus.io/port: "9793"
@@ -457,20 +701,38 @@ rbac:
   secretsExporter:
     # -- Name of the ServiceAccount for the Secrets exporter (required if `rbac.create=false`)
     serviceAccountName:
+    # @schema
+    # additionalProperties: true
+    # @schema
     # -- Annotations added to the ServiceAccount for the Secrets exporter
     serviceAccountAnnotations: {}
+    # @schema
+    # additionalProperties: true
+    # @schema
     # -- Annotations added to the ClusterRole for the Secrets exporter
     clusterRoleAnnotations: {}
+    # @schema
+    # additionalProperties: true
+    # @schema
     # -- Annotations added to the ClusterRoleBinding for the Secrets exporter
     clusterRoleBindingAnnotations: {}
 
   hostPathsExporter:
     # -- Name of the ServiceAccount for hostPath exporters (required if `rbac.create=false`)
     serviceAccountName:
+    # @schema
+    # additionalProperties: true
+    # @schema
     # -- Annotations added to the ServiceAccount for the hostPath exporters
     serviceAccountAnnotations: {}
+    # @schema
+    # additionalProperties: true
+    # @schema
     # -- Annotations added to the ClusterRole for the hostPath exporters
     clusterRoleAnnotations: {}
+    # @schema
+    # additionalProperties: true
+    # @schema
     # -- Annotations added to the ClusterRoleBinding for the hostPath exporters
     clusterRoleBindingAnnotations: {}
 
@@ -488,8 +750,16 @@ rbacProxy:
     digest: ""
     # -- kube-rbac-proxy image pull policy
     pullPolicy: IfNotPresent
+  # @schema
+  # minimum: 1
+  # maximum: 65535
+  # @schema
   # -- Listen port for the exporter running inside kube-rbac-proxy exposed Pods
   upstreamListenPort: 9091
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- ResourceRequirements for all containers of kube-rbac-proxy
   # @default -- see `values.yaml`
   resources:
@@ -499,6 +769,10 @@ rbacProxy:
     requests:
       cpu: 10m
       memory: 20Mi
+  # @schema
+  # additionalProperties: true
+  # properties: {}
+  # @schema
   # -- SecurityContext for all containers of kube-rbac-proxy
   # @default -- see `values.yaml`
   securityContext:

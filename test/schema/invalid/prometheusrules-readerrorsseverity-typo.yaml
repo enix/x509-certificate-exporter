@@ -1,0 +1,2 @@
+prometheusRules:
+  readErrorsSeverity: warn

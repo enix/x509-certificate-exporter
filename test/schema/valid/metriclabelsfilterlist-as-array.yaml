@@ -1,0 +1,6 @@
+# Locks down the `[array, null]` union on metricLabelsFilterList.
+metricLabelsFilterList:
+  - filepath
+  - secret_namespace
+  - secret_name
+  - subject_CN

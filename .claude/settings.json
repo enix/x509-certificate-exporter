@@ -16,7 +16,6 @@
       "Bash(task lint:gocritic)",
       "Bash(task lint:gonocritic)",
       "Bash(task lint:helm)",
-      "Bash(task lint:helm-examples)",
       "Bash(task lint:markdown)",
       "Bash(task lint:renovate)",
       "Bash(task nix:update)",
@@ -27,6 +26,8 @@
       "Bash(task security:vuln-deps)",
       "Bash(task test)",
       "Bash(task test:e2e)",
+      "Bash(task test:helm-examples)",
+      "Bash(task test:helm-fixtures)",
       "Bash(task test:unit)"
     ],
     "deny": ["Bash(goreleaser release --push:*)"]

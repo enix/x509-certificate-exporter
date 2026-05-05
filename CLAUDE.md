@@ -55,9 +55,11 @@ everything.
 | Lint Helm | `task lint:helm` | `dagger call lint-helm` |
 | Lint Markdown | `task lint:markdown` | `dagger call lint-markdown` |
 | Lint all | `task lint` | Go + Helm + Renovate + Markdown |
-| All tests | `task test` | runs `test:unit` + `test:fuzz` + `test:e2e` sequentially |
+| All tests | `task test` | runs `test:unit` + `test:fuzz` + `test:helm-examples` + `test:helm-fixtures` + `test:e2e` sequentially |
 | Unit tests | `task test:unit` | `dagger call test` — gotestsum + `-race` + coverage |
 | Fuzz smoke | `task test:fuzz` | each `Fuzz*` target run for 5s — catches seed-corpus regressions |
+| Helm examples | `task test:helm-examples` | `dagger call test-helm-examples` — `helm lint chart --values` on every `docs/examples/**/*.values.yaml` |
+| Helm schema fixtures | `task test:helm-fixtures` | `dagger call test-helm-fixtures` — regression net for `chart/values.schema.json` (positive + paired `.expect.txt` negatives under `test/schema/{valid,invalid}/`) |
 | End-to-end tests | `task test:e2e` | throwaway k3d cluster, Helm install, scrape `/metrics` |
 | Vuln scan | `task security:govulncheck` | `dagger call govulncheck` |
 | Vuln scan (deps) | `task security:vuln-deps` | `dagger call trivy --scan-type=fs` |

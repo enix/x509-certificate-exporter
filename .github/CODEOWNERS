@@ -1,4 +1,5 @@
-* @enix/internal-contributors
+# * @enix/internal-contributors
+* @npdgm
 
 # Most sensible files
 /.*/                @npdgm

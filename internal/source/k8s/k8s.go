@@ -21,14 +21,18 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	kruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -119,6 +123,18 @@ type Source struct {
 	// namespace name. Populated only when NamespaceFilter.needsLabels().
 	nsLabelsMu sync.RWMutex
 	nsLabels   map[string]map[string]string
+
+	// counters incremented per object processed during list/watch.
+	// Reset at the start of each list cycle so the value reflects the
+	// current cycle's progress (used by the debug memory reporter).
+	secretsSeen atomic.Int64
+	cmsSeen     atomic.Int64
+
+	// nsLabelsChanged is non-blockingly poked by onNamespace after a
+	// label transition so the secrets goroutine can short-circuit its
+	// 30-min resync timer and re-list immediately. Buffer of 1 coalesces
+	// rapid bursts.
+	nsLabelsChanged chan struct{}
 }
 
 func New(opts Options, logger *slog.Logger) *Source {
@@ -129,49 +145,49 @@ func New(opts Options, logger *slog.Logger) *Source {
 		opts.ResyncEvery = 30 * time.Minute
 	}
 	return &Source{
-		opts:     opts,
-		log:      logger.With("source_kind", "kubernetes", "source_name", opts.Name),
-		tracked:  map[string]struct{}{},
-		nsLabels: map[string]map[string]string{},
+		opts:            opts,
+		log:             logger.With("source_kind", "kubernetes", "source_name", opts.Name),
+		tracked:         map[string]struct{}{},
+		nsLabels:        map[string]map[string]string{},
+		nsLabelsChanged: make(chan struct{}, 1),
 	}
 }
 
 func (s *Source) Name() string { return s.opts.Name }
 
-// Run wires up the informers and blocks until ctx is cancelled.
+// Run wires up the informers / direct watches and blocks until ctx is
+// cancelled.
+//
+// Secrets use a direct paginated LIST + WATCH loop (not SharedInformer) to
+// avoid the client-go pager.List accumulation that OOMs on clusters with
+// many large non-TLS secrets (e.g. Helm release secrets). Each page of 50
+// secrets is processed and released to the GC before the next page is
+// fetched. The SharedInformer pattern is kept for Namespaces and ConfigMaps
+// whose objects are orders of magnitude smaller.
 func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 	if s.opts.Client == nil {
 		return fmt.Errorf("k8s source %q: no client", s.opts.Name)
 	}
-	tweak := func(o *metav1.ListOptions) {
-		o.AllowWatchBookmarks = true
-		if s.opts.SecretSelector.LabelSelector != "" {
-			o.LabelSelector = s.opts.SecretSelector.LabelSelector
-		}
-		if s.opts.SecretSelector.FieldSelector != "" {
-			o.FieldSelector = s.opts.SecretSelector.FieldSelector
-		}
+	scope := "cluster"
+	if s.opts.Namespace != "" {
+		scope = "namespace"
 	}
+	s.log.Debug("kubernetes source starting",
+		"scope", scope,
+		"namespace", s.opts.Namespace,
+		"resync_every", s.opts.ResyncEvery,
+		"secret_rules", len(s.opts.SecretRules),
+		"configmap_rules", len(s.opts.ConfigMapRules),
+	)
+
 	infName, err := cache.NewInformerName(s.opts.Name)
 	if err != nil {
 		return fmt.Errorf("create informer name %q: %w", s.opts.Name, err)
 	}
 	defer infName.Release()
 
-	factory := informers.NewSharedInformerFactoryWithOptions(
-		s.opts.Client, s.opts.ResyncEvery,
-		informers.WithNamespace(s.opts.Namespace),
-		informers.WithTweakListOptions(tweak),
-		informers.WithInformerName(infName),
-	)
-
-	informersStarted := []cache.SharedInformer{}
-	var secInf, cmInf cache.SharedIndexInformer
-
-	// Namespace informer (cluster-scoped only — there's no point watching
-	// namespaces when the source is already pinned to one). Started when
-	// label-based namespace rules are configured; name-based rules don't
-	// require it because the rule input is the namespace name.
+	// --- Namespace informer (unchanged: small objects, no OOM risk) ---
+	// Cluster-scoped only; label-based namespace rules require it.
 	if s.opts.Namespace == "" && s.opts.NamespaceFilter.needsLabels() {
 		nsFactory := informers.NewSharedInformerFactoryWithOptions(
 			s.opts.Client, s.opts.ResyncEvery,
@@ -184,82 +200,114 @@ func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 			DeleteFunc: func(obj any) { s.onNamespace(sink, obj, true) },
 		})
 		nsFactory.Start(ctx.Done())
-		informersStarted = append(informersStarted, nsInf)
+		// Namespace labels must be known before we process any secret, so
+		// we sync the namespace cache first before starting the secret list.
+		s.log.Debug("waiting for namespace informer sync")
+		if !waitForCacheSync(ctx, []cache.SharedInformer{nsInf}) {
+			s.log.Error("namespace informer sync did not complete", "cause", ctx.Err())
+			s.signalReady(false)
+			return ctx.Err()
+		}
+		s.log.Debug("namespace informer synced")
 	}
 
+	// --- Secrets and ConfigMaps: direct paginated LIST + WATCH ---
+	// Both resources use the same memory-safe approach (replaces the
+	// SharedInformer that would accumulate all objects via pager.List
+	// before our transform could fire). Each goroutine signals its
+	// initial sync via a dedicated channel.
+	secretsSynced := make(chan struct{})
+	cmsSynced := make(chan struct{})
+	var secretsDone, cmsDone chan struct{}
+
 	if len(s.opts.SecretRules) > 0 {
-		secInf = factory.Core().V1().Secrets().Informer()
-		_ = secInf.SetTransform(s.transformSecret)
-		_, _ = secInf.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj any) { s.onSecret(sink, obj, false) },
-			UpdateFunc: func(_, obj any) { s.onSecret(sink, obj, false) },
-			DeleteFunc: func(obj any) { s.onSecret(sink, obj, true) },
-		})
-		informersStarted = append(informersStarted, secInf)
+		secretsDone = make(chan struct{})
+		go func() {
+			defer close(secretsDone)
+			s.runSecretsDirect(ctx, sink, secretsSynced)
+		}()
+	} else {
+		close(secretsSynced)
 	}
 
 	if len(s.opts.ConfigMapRules) > 0 {
-		cmTweak := func(o *metav1.ListOptions) {
-			o.AllowWatchBookmarks = true
-			if s.opts.ConfigMapSelector.LabelSelector != "" {
-				o.LabelSelector = s.opts.ConfigMapSelector.LabelSelector
-			}
-			if s.opts.ConfigMapSelector.FieldSelector != "" {
-				o.FieldSelector = s.opts.ConfigMapSelector.FieldSelector
-			}
-		}
-		_ = cmTweak // applied at factory creation; we already set tweak for secrets.
-		// Use a distinct factory if ConfigMaps need different selectors.
-		if cmTweakDiffers(s.opts.SecretSelector, s.opts.ConfigMapSelector) {
-			cmFactory := informers.NewSharedInformerFactoryWithOptions(
-				s.opts.Client, s.opts.ResyncEvery,
-				informers.WithNamespace(s.opts.Namespace),
-				informers.WithTweakListOptions(cmTweak),
-				informers.WithInformerName(infName),
-			)
-			cmInf = cmFactory.Core().V1().ConfigMaps().Informer()
-			cmFactory.Start(ctx.Done())
-		} else {
-			cmInf = factory.Core().V1().ConfigMaps().Informer()
-		}
-		_ = cmInf.SetTransform(s.transformConfigMap)
-		_, _ = cmInf.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj any) { s.onConfigMap(sink, obj, false) },
-			UpdateFunc: func(_, obj any) { s.onConfigMap(sink, obj, false) },
-			DeleteFunc: func(obj any) { s.onConfigMap(sink, obj, true) },
-		})
-		informersStarted = append(informersStarted, cmInf)
+		cmsDone = make(chan struct{})
+		go func() {
+			defer close(cmsDone)
+			s.runConfigMapsDirect(ctx, sink, cmsSynced)
+		}()
+	} else {
+		close(cmsSynced)
 	}
 
-	factory.Start(ctx.Done())
-	if !waitForCacheSync(ctx, informersStarted) {
-		if s.opts.OnReady != nil {
-			s.opts.OnReady(false)
-		}
-		if s.opts.FirstSyncDone != nil {
-			close(s.opts.FirstSyncDone)
-		}
-		return ctx.Err()
+	// Memory reporter: only runs during the initial sync (debug only).
+	// Stops as soon as ready is signalled — in steady state pprof is
+	// the right tool, not 1Hz STW ReadMemStats.
+	syncCtx, syncCancel := context.WithCancel(ctx)
+	defer syncCancel()
+	if s.log.Enabled(ctx, slog.LevelDebug) {
+		go s.runMemoryReporter(syncCtx)
 	}
-	// All caches are now hot. The namespace cache and the
-	// secret/configmap caches are populated in parallel during sync, so
-	// the AddFunc handlers may have rejected an object whose namespace
-	// hadn't been seen yet. Re-emit every cached secret/configmap once
-	// the namespace cache is settled so the filter sees consistent state.
-	if s.opts.NamespaceFilter.needsLabels() {
-		if secInf != nil {
-			for _, obj := range secInf.GetStore().List() {
-				s.onSecret(sink, obj, false)
-			}
-		}
-		if cmInf != nil {
-			for _, obj := range cmInf.GetStore().List() {
-				s.onConfigMap(sink, obj, false)
-			}
+
+	s.log.Debug("waiting for initial sync",
+		"secrets", len(s.opts.SecretRules) > 0,
+		"configmaps", len(s.opts.ConfigMapRules) > 0,
+	)
+	for _, ch := range []<-chan struct{}{secretsSynced, cmsSynced} {
+		select {
+		case <-ctx.Done():
+			s.signalReady(false)
+			return ctx.Err()
+		case <-ch:
 		}
 	}
+	syncCancel()
+	s.signalReady(true)
+	s.log.Info("initial sync complete", "namespace", s.opts.Namespace)
+
+	// Block until cancelled; the secrets/configmaps goroutines run their
+	// own loops driven by ctx.
+	<-ctx.Done()
+	s.log.Debug("kubernetes source stopping", "cause", ctx.Err())
+	if secretsDone != nil {
+		<-secretsDone
+	}
+	if cmsDone != nil {
+		<-cmsDone
+	}
+	return ctx.Err()
+}
+
+// runMemoryReporter logs heap stats once a second until ctx is cancelled.
+// Used during the initial sync to correlate memory growth with the count
+// of secrets/configmaps already processed. ReadMemStats does a brief STW,
+// so we deliberately stop it as soon as the initial sync completes.
+func (s *Source) runMemoryReporter(ctx context.Context) {
+	t := time.NewTicker(1 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			var ms runtime.MemStats
+			runtime.ReadMemStats(&ms)
+			s.log.Debug("memory",
+				"secrets_seen", s.secretsSeen.Load(),
+				"cms_seen", s.cmsSeen.Load(),
+				"heap_alloc_mb", ms.HeapAlloc>>20,
+				"heap_inuse_mb", ms.HeapInuse>>20,
+				"heap_sys_mb", ms.HeapSys>>20,
+				"next_gc_mb", ms.NextGC>>20,
+				"num_gc", ms.NumGC,
+			)
+		}
+	}
+}
+
+func (s *Source) signalReady(success bool) {
 	if s.opts.OnReady != nil {
-		s.opts.OnReady(true)
+		s.opts.OnReady(success)
 	}
 	if s.opts.FirstSyncDone != nil {
 		select {
@@ -268,14 +316,193 @@ func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 			close(s.opts.FirstSyncDone)
 		}
 	}
-	s.log.Info("informers synced", "namespace", s.opts.Namespace)
-
-	<-ctx.Done()
-	return ctx.Err()
 }
 
-func cmTweakDiffers(a, b Selectors) bool {
-	return a.LabelSelector != b.LabelSelector || a.FieldSelector != b.FieldSelector
+// runSecretsDirect is the memory-safe replacement for the Secrets
+// SharedInformer. It loops:
+//
+//  1. Paginated LIST (Limit=50): processes each page inline so the GC can
+//     reclaim each batch before the next is fetched. Peak memory is bounded
+//     to ~50 secrets at a time regardless of cluster size.
+//  2. WATCH from the list's ResourceVersion: processes incremental events.
+//  3. On watch error / channel close: go back to step 1 (full resync).
+//  4. On resync timer: go back to step 1.
+//
+// The goroutine exits when ctx is cancelled.
+func (s *Source) runSecretsDirect(ctx context.Context, sink cert.Sink, firstSyncDone chan<- struct{}) {
+	backoff := 2 * time.Second
+	resync := time.NewTicker(s.opts.ResyncEvery)
+	defer resync.Stop()
+	firstSync := true
+
+	for {
+		rv, err := s.listSecretPages(ctx, sink)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			// Jittered exponential backoff (±25% on the doubled delay,
+			// capped at 5 min). Without jitter several replicas retry
+			// in lockstep when the API server flakes.
+			jittered := time.Duration(float64(backoff) * (0.75 + rand.Float64()*0.5))
+			s.log.Error("secret list failed, will retry", "err", err, "backoff", jittered)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(jittered):
+				backoff = min(backoff*2, 5*time.Minute)
+				continue
+			}
+		}
+		backoff = 2 * time.Second
+
+		if firstSync {
+			firstSync = false
+			close(firstSyncDone)
+		}
+
+		if !s.watchSecretLoop(ctx, sink, rv, resync.C) {
+			return // ctx cancelled
+		}
+		s.log.Debug("resyncing secrets (full relist)")
+	}
+}
+
+// listSecretPages fetches all secrets page by page (Limit=50), calls
+// onSecret for each, and releases each page to the GC before fetching the
+// next. After the full list, refs for secrets that no longer exist are
+// removed from the registry.
+func (s *Source) listSecretPages(ctx context.Context, sink cert.Sink) (rv string, err error) {
+	var cont string
+	seen := map[string]struct{}{}
+	page := 0
+	// Reset the counter at the start of each list cycle so the debug
+	// reporter shows progress for THIS cycle, not a cumulative total.
+	s.secretsSeen.Store(0)
+
+	for {
+		var list *corev1.SecretList
+		list, err = s.opts.Client.CoreV1().Secrets(s.opts.Namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: s.opts.SecretSelector.LabelSelector,
+			FieldSelector: s.opts.SecretSelector.FieldSelector,
+			Limit:         50,
+			Continue:      cont,
+		})
+		if err != nil {
+			return
+		}
+		page++
+		s.log.Debug("secret list page", "page", page, "count", len(list.Items), "more", list.Continue != "")
+
+		for i := range list.Items {
+			sec := &list.Items[i]
+			s.secretsSeen.Add(1)
+			seen[sec.Namespace+"/"+sec.Name] = struct{}{}
+			s.onSecret(sink, sec, false)
+		}
+
+		rv = list.ResourceVersion
+		cont = list.Continue
+
+		// Drop the only reference to this page so its objects become
+		// GC-eligible before the next API call allocates the next batch.
+		// We don't force a GC: with the heap target tracking, the GC
+		// already keeps up at this allocation rate.
+		list = nil
+
+		if cont == "" {
+			break
+		}
+	}
+
+	s.log.Debug("secret list complete",
+		"pages", page,
+		"total", len(seen),
+	)
+	s.deleteAbsentRefs(sink, "kube-secret", seen)
+	return
+}
+
+// watchSecretLoop watches secrets from rv, processing events until the watch
+// closes, an error occurs, or the resync timer fires. Returns true if the
+// caller should resync (relist), false if ctx was cancelled.
+func (s *Source) watchSecretLoop(ctx context.Context, sink cert.Sink, rv string, resyncC <-chan time.Time) bool {
+	watcher, err := s.opts.Client.CoreV1().Secrets(s.opts.Namespace).Watch(ctx, metav1.ListOptions{
+		LabelSelector:       s.opts.SecretSelector.LabelSelector,
+		FieldSelector:       s.opts.SecretSelector.FieldSelector,
+		ResourceVersion:     rv,
+		AllowWatchBookmarks: true,
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return false
+		}
+		s.log.Error("secret watch start failed, triggering resync", "err", err)
+		return true
+	}
+	defer watcher.Stop()
+	s.log.Debug("watching secrets", "resource_version", rv)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-resyncC:
+			s.log.Debug("resync timer fired")
+			return true
+		case <-s.nsLabelsChanged:
+			s.log.Debug("namespace labels changed, triggering immediate resync")
+			return true
+		case event, ok := <-watcher.ResultChan():
+			if !ok {
+				s.log.Debug("secret watch channel closed, triggering resync")
+				return true
+			}
+			switch event.Type {
+			case watch.Added, watch.Modified:
+				if sec, ok := event.Object.(*corev1.Secret); ok {
+					s.onSecret(sink, sec, false)
+				}
+			case watch.Deleted:
+				if sec, ok := event.Object.(*corev1.Secret); ok {
+					s.onSecret(sink, sec, true)
+				}
+			case watch.Bookmark:
+				if sec, ok := event.Object.(*corev1.Secret); ok {
+					rv = sec.ResourceVersion
+				}
+			case watch.Error:
+				s.log.Error("secret watch error event, triggering resync",
+					"event", fmt.Sprintf("%v", event.Object))
+				return true
+			}
+		}
+	}
+}
+
+// deleteAbsentRefs removes from the cert registry any ref of the given
+// kind ("kube-secret" or "kube-configmap") whose location ("namespace/name")
+// is not present in seen. Called after each full list to clean up objects
+// that disappeared while the watch was disconnected (or, for the very first
+// list, that disappeared between previous runs).
+func (s *Source) deleteAbsentRefs(sink cert.Sink, kind string, seen map[string]struct{}) {
+	prefix := kind + ":"
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k := range s.tracked {
+		if !strings.HasPrefix(k, prefix) {
+			continue
+		}
+		loc := k[len(prefix):]
+		if h := strings.IndexByte(loc, '#'); h >= 0 {
+			loc = loc[:h]
+		}
+		if _, ok := seen[loc]; !ok {
+			ref := parseTrackedKey(k, s.opts.Name)
+			sink.Delete(ref)
+			delete(s.tracked, k)
+		}
+	}
 }
 
 func waitForCacheSync(ctx context.Context, infs []cache.SharedInformer) bool {
@@ -287,71 +514,144 @@ func waitForCacheSync(ctx context.Context, infs []cache.SharedInformer) bool {
 	return true
 }
 
-// transformSecret strips irrelevant fields from a Secret before cache.
-// Keeps only metadata + the Data keys that any rule cares about.
-func (s *Source) transformSecret(obj any) (any, error) {
-	sec, ok := obj.(*corev1.Secret)
-	if !ok {
-		return obj, nil
-	}
-	keep := map[string]struct{}{}
-	for _, r := range s.opts.SecretRules {
-		for k := range sec.Data {
-			if r.Type != "" && string(sec.Type) != r.Type {
+// runConfigMapsDirect is the memory-safe replacement for the ConfigMap
+// SharedInformer. Same shape as runSecretsDirect: paginated LIST + WATCH
+// with each page processed inline so the GC can reclaim before the next
+// page arrives. Listed here instead of in the informer because client-go's
+// pager.List accumulates all pages before yielding, which OOMs on clusters
+// with many large ConfigMaps (Helm hooks, OPA policies, kubeadm cluster-info).
+func (s *Source) runConfigMapsDirect(ctx context.Context, sink cert.Sink, firstSyncDone chan<- struct{}) {
+	backoff := 2 * time.Second
+	resync := time.NewTicker(s.opts.ResyncEvery)
+	defer resync.Stop()
+	firstSync := true
+
+	for {
+		rv, err := s.listConfigMapPages(ctx, sink)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			jittered := time.Duration(float64(backoff) * (0.75 + rand.Float64()*0.5))
+			s.log.Error("configmap list failed, will retry", "err", err, "backoff", jittered)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(jittered):
+				backoff = min(backoff*2, 5*time.Minute)
 				continue
 			}
-			if r.KeyRe != nil && r.KeyRe.MatchString(k) {
-				keep[k] = struct{}{}
-			}
-			// also keep the passphrase key if we'll need it
-			if r.PassphraseKey != "" {
-				keep[r.PassphraseKey] = struct{}{}
-			}
 		}
-	}
-	if len(keep) == 0 {
-		// no relevant data -> drop everything
-		sec.Data = nil
-	} else {
-		filtered := make(map[string][]byte, len(keep))
-		for k := range keep {
-			if v, ok := sec.Data[k]; ok {
-				filtered[k] = v
-			}
+		backoff = 2 * time.Second
+
+		if firstSync {
+			firstSync = false
+			close(firstSyncDone)
 		}
-		sec.Data = filtered
+
+		if !s.watchConfigMapLoop(ctx, sink, rv, resync.C) {
+			return // ctx cancelled
+		}
+		s.log.Debug("resyncing configmaps (full relist)")
 	}
-	sec.ManagedFields = nil
-	sec.Annotations = nil
-	return sec, nil
 }
 
-func (s *Source) transformConfigMap(obj any) (any, error) {
-	cm, ok := obj.(*corev1.ConfigMap)
-	if !ok {
-		return obj, nil
+// listConfigMapPages fetches all configmaps page by page (Limit=50) and
+// processes each page inline. Mirrors listSecretPages.
+func (s *Source) listConfigMapPages(ctx context.Context, sink cert.Sink) (rv string, err error) {
+	var cont string
+	seen := map[string]struct{}{}
+	page := 0
+	s.cmsSeen.Store(0)
+
+	for {
+		var list *corev1.ConfigMapList
+		list, err = s.opts.Client.CoreV1().ConfigMaps(s.opts.Namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: s.opts.ConfigMapSelector.LabelSelector,
+			FieldSelector: s.opts.ConfigMapSelector.FieldSelector,
+			Limit:         50,
+			Continue:      cont,
+		})
+		if err != nil {
+			return
+		}
+		page++
+		s.log.Debug("configmap list page", "page", page, "count", len(list.Items), "more", list.Continue != "")
+
+		for i := range list.Items {
+			cm := &list.Items[i]
+			s.cmsSeen.Add(1)
+			seen[cm.Namespace+"/"+cm.Name] = struct{}{}
+			s.onConfigMap(sink, cm, false)
+		}
+
+		rv = list.ResourceVersion
+		cont = list.Continue
+		list = nil
+
+		if cont == "" {
+			break
+		}
 	}
-	keep := map[string]struct{}{}
-	for _, r := range s.opts.ConfigMapRules {
-		for k := range cm.Data {
-			if r.KeyRe != nil && r.KeyRe.MatchString(k) {
-				keep[k] = struct{}{}
+
+	s.log.Debug("configmap list complete", "pages", page, "total", len(seen))
+	s.deleteAbsentRefs(sink, "kube-configmap", seen)
+	return
+}
+
+// watchConfigMapLoop is the WATCH counterpart to watchSecretLoop.
+func (s *Source) watchConfigMapLoop(ctx context.Context, sink cert.Sink, rv string, resyncC <-chan time.Time) bool {
+	watcher, err := s.opts.Client.CoreV1().ConfigMaps(s.opts.Namespace).Watch(ctx, metav1.ListOptions{
+		LabelSelector:       s.opts.ConfigMapSelector.LabelSelector,
+		FieldSelector:       s.opts.ConfigMapSelector.FieldSelector,
+		ResourceVersion:     rv,
+		AllowWatchBookmarks: true,
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return false
+		}
+		s.log.Error("configmap watch start failed, triggering resync", "err", err)
+		return true
+	}
+	defer watcher.Stop()
+	s.log.Debug("watching configmaps", "resource_version", rv)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-resyncC:
+			s.log.Debug("resync timer fired (configmaps)")
+			return true
+		case <-s.nsLabelsChanged:
+			s.log.Debug("namespace labels changed, triggering immediate resync (configmaps)")
+			return true
+		case event, ok := <-watcher.ResultChan():
+			if !ok {
+				s.log.Debug("configmap watch channel closed, triggering resync")
+				return true
+			}
+			switch event.Type {
+			case watch.Added, watch.Modified:
+				if cm, ok := event.Object.(*corev1.ConfigMap); ok {
+					s.onConfigMap(sink, cm, false)
+				}
+			case watch.Deleted:
+				if cm, ok := event.Object.(*corev1.ConfigMap); ok {
+					s.onConfigMap(sink, cm, true)
+				}
+			case watch.Bookmark:
+				if cm, ok := event.Object.(*corev1.ConfigMap); ok {
+					rv = cm.ResourceVersion
+				}
+			case watch.Error:
+				s.log.Error("configmap watch error event, triggering resync",
+					"event", fmt.Sprintf("%v", event.Object))
+				return true
 			}
 		}
 	}
-	if len(keep) == 0 {
-		cm.Data = nil
-	} else {
-		filtered := make(map[string]string, len(keep))
-		for k := range keep {
-			if v, ok := cm.Data[k]; ok {
-				filtered[k] = v
-			}
-		}
-		cm.Data = filtered
-	}
-	cm.ManagedFields = nil
-	return cm, nil
 }
 
 func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
@@ -652,6 +952,14 @@ func (s *Source) onNamespace(sink cert.Sink, obj any, deleted bool) {
 		delete(s.tracked, k)
 		dropped++
 	}
+	// Wake up the secrets list+watch loop so newly-allowed secrets in this
+	// namespace come back without waiting for the 30-min resync timer.
+	// Non-blocking: the channel has buffer 1, so concurrent label changes
+	// coalesce into a single resync.
+	select {
+	case s.nsLabelsChanged <- struct{}{}:
+	default:
+	}
 }
 
 func labelMapsEqual(a, b map[string]string) bool {
@@ -679,7 +987,7 @@ func extractSecret(obj any) *corev1.Secret {
 			return sec
 		}
 		// May be a runtime.Object wrapping
-		if obj, ok := d.Obj.(runtime.Object); ok {
+		if obj, ok := d.Obj.(kruntime.Object); ok {
 			_ = obj
 		}
 	}

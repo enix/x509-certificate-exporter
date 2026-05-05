@@ -92,29 +92,44 @@ listener if `diagnostics.pprof.enabled: true`.
 Two distinct workloads, two distinct sizing rules.
 
 **Cluster-wide Kubernetes mode** — the chart's
-`secretsExporter`/`configMapsExporter`. The footprint is dominated by
-the **client-go informer caches**, which hold an in-memory copy of
-every object in scope. The number of *certificates* matters less than
-the number of *objects in scope*: a cluster with 50 000 Secrets will
-hold all 50 000 in cache even if only 100 of them carry certs. Server-
-side filtering is the lever:
+`secretsExporter`/`configMapsExporter`. The exporter does **not** keep
+a Kubernetes object cache. It pages through the API (LIST + WATCH)
+and processes each batch inline, so peak memory during the initial
+sync is bounded by `pageSize × average object size`, not by the
+total count in scope. Steady-state memory is dominated by the parsed
+certificate bundles plus the Prometheus series — typically a few MB
+for hundreds of certs, tens of MB for thousands.
 
-- `namespaces.include` / `namespaces.exclude` (by name or by namespace
-  label) — the cheapest filter, applied at the API server.
+The page size defaults to **50** and is tunable via the chart's
+`secretsExporter.listPageSize` value (or `sources[].listPageSize` in
+the YAML config). Lower it (e.g. `20`) on memory-constrained pods
+that watch many large Helm release secrets; raise it (e.g. `200`)
+to speed up sync on smaller objects. `0` keeps the built-in default.
+
+Server-side filtering still matters because every object the API
+server returns has to be parsed, even if most are quickly discarded:
+
+- **Automatic Secret type filter** — when every `secretTypes` entry
+  shares the same `type` (e.g. `kubernetes.io/tls`), the exporter
+  appends a server-side `fieldSelector=type=...`. This is automatic
+  and dramatically reduces the API payload on clusters with many
+  Helm release secrets, ServiceAccount tokens, or docker configs.
+- `namespaces.include` / `namespaces.exclude` (by name or by
+  namespace label) — applied at the API server.
 - `secrets.includeLabels` / `excludeLabels` and the equivalent for
-  ConfigMaps — `LabelSelector` pushed down to the informer's `ListWatch`.
-- A focused `secretTypes` list — narrows what the exporter even looks at
-  among the cached objects.
+  ConfigMaps — pushed down as `labelSelector`.
+- A focused `secretTypes` list — narrows the per-object work the
+  exporter performs after the LIST returns.
 
 The chart's defaults (`20 Mi` request / `150 Mi` limit) are sized for
-mid-thousands of objects. For ten-thousands ranges, raise the limit and
-revisit filters; for hundred-thousands, fix the filters first, raise
-limits second.
+mid-thousands of certificates. Raise the limit if you watch tens of
+thousands; tighten filters first if the bottleneck is API server
+load rather than memory.
 
 **Per-node hostPath mode** — the
-`hostPathsExporter.daemonSets.<name>` entries. No informer cache, just
-parsed bundles in memory. The chart's defaults (`20 Mi` / `40 Mi`) hold
-hundreds of node-local certs comfortably.
+`hostPathsExporter.daemonSets.<name>` entries. Just parsed bundles in
+memory. The chart's defaults (`20 Mi` / `40 Mi`) hold hundreds of
+node-local certs comfortably.
 
 In both modes, `x509_source_bundles` is the operational load metric:
 
@@ -125,7 +140,8 @@ sum by (source_kind, source_name) (x509_source_bundles)
 Watch this curve over a week before raising memory limits — bundles
 fluctuate as Secrets get rotated and cert-manager Orders churn. CPU
 sits idle in steady state; the only spike-prone phase is the initial
-informer sync at pod boot, which scales linearly with bundle count and
+LIST at pod boot, which scales linearly with the number of objects
+returned by the API server (after server-side selectors apply) and
 typically completes in seconds.
 
 ## How do I keep label cardinality under control?

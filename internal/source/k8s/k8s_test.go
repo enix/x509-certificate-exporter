@@ -209,60 +209,11 @@ func TestSecretFilterExclude(t *testing.T) {
 	}
 }
 
-func TestTransformStripsKeys(t *testing.T) {
-	src := New(Options{
-		Name: "k",
-		SecretRules: []SecretTypeRule{{
-			Type: "kubernetes.io/tls", KeyRe: regexp.MustCompile(`^tls\.crt$`),
-		}},
-	}, nopLogger())
-	sec := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "s", Namespace: "ns",
-			ManagedFields: []metav1.ManagedFieldsEntry{{Manager: "x"}}},
-		Type: corev1.SecretTypeTLS,
-		Data: map[string][]byte{"tls.crt": []byte("x"), "tls.key": []byte("y"), "garbage": []byte("z")},
-	}
-	out, err := src.transformSecret(sec)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := out.(*corev1.Secret)
-	if _, ok := got.Data["tls.crt"]; !ok {
-		t.Fatal("tls.crt should be kept")
-	}
-	if _, ok := got.Data["tls.key"]; ok {
-		t.Fatal("tls.key should be stripped")
-	}
-	if _, ok := got.Data["garbage"]; ok {
-		t.Fatal("garbage should be stripped")
-	}
-	if got.ManagedFields != nil {
-		t.Fatal("managedFields should be nil")
-	}
-}
-
-func TestTransformConfigMapStripsKeys(t *testing.T) {
-	src := New(Options{
-		Name:           "k",
-		ConfigMapRules: []SecretTypeRule{{KeyRe: regexp.MustCompile(`\.crt$`)}},
-	}, nopLogger())
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: "c", Namespace: "ns",
-			ManagedFields: []metav1.ManagedFieldsEntry{{Manager: "x"}}},
-		Data: map[string]string{"ca.crt": "x", "extra": "y"},
-	}
-	out, _ := src.transformConfigMap(cm)
-	got := out.(*corev1.ConfigMap)
-	if _, ok := got.Data["ca.crt"]; !ok {
-		t.Fail()
-	}
-	if _, ok := got.Data["extra"]; ok {
-		t.Fail()
-	}
-	if got.ManagedFields != nil {
-		t.Fail()
-	}
-}
+// Note: the previous TestTransform* tests covered transform functions that
+// pre-stripped fields before objects entered the SharedInformer's cache.
+// Both Secret and ConfigMap paths now use a direct paginated LIST + WATCH
+// (no informer cache, no transform), so those tests were removed alongside
+// the transform functions.
 
 func TestRunNoClient(t *testing.T) {
 	src := New(Options{Name: "k"}, nopLogger())

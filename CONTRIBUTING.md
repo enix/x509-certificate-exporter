@@ -144,6 +144,7 @@ Each exported method on the `X509Ce` struct is exposed as a function:
 dagger call lint-go                          # full golangci-lint set
 dagger call lint-markdown                    # markdownlint on hand-written docs
 dagger call test                             # unit tests with race + coverage
+dagger call test-helm-fixtures               # schema regression net
 dagger call govulncheck                      # reachability-based CVE scan
 dagger call helm-docs export --path=chart/README.md  # regenerate chart/README.md
 ```
@@ -326,7 +327,11 @@ direnv.
 │   ├── seed/                         Populates the dev cluster with scenarios
 │   └── values.yaml                   Helm values for dev + e2e
 ├── test/
-│   └── e2e/                          End-to-end test (Go, build-tag e2e)
+│   ├── e2e/                          End-to-end test (Go, build-tag e2e)
+│   └── schema/                       JSON schema regression fixtures
+│       ├── valid/                      Configs that must pass `helm lint`
+│       └── invalid/                    Configs that must fail; paired
+│                                       `*.expect.txt` lists expected substrings
 ├── dagger.json                       Dagger Module manifest (root level
 │                                     so `dagger call` find-up works)
 ├── dagger/                           Dagger Module source: lint/test/etc.
@@ -753,6 +758,22 @@ k3d cluster list
 k3d cluster delete x509ce-e2e-<hex>          # replace <hex>
 k3d registry delete x509ce-e2e-registry-<hex>
 ```
+
+### CI is red on `Chart docs` after I edited `chart/values.yaml`
+
+`chart/README.md` and/or `chart/values.schema.json` are out of sync
+with `chart/values.yaml`. The
+[`chart-readme.yaml`](./.github/workflows/chart-readme.yaml) workflow
+regenerates both and refuses any drift on PRs. Fix locally:
+
+```sh
+task doc:helm
+git add chart/README.md chart/values.schema.json
+git commit -m "doc(chart): regenerate README and schema"
+```
+
+If only one of the two changed, staging just that file is fine — the
+other will simply be a no-op rebuild.
 
 ### `cosign verify` fails on a tagged release I just made
 

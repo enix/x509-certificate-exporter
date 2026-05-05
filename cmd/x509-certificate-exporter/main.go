@@ -368,6 +368,16 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 		return nil, err
 	}
 
+	// Pre-flight discovery probe — surfaces RBAC and connectivity
+	// issues at startup with a clear log line. Failure is non-fatal:
+	// the source's own LIST will retry with backoff and report the
+	// same error, just less ergonomically.
+	if ver, err := cli.Discovery().ServerVersion(); err != nil {
+		logger.Warn("kube-apiserver version probe failed", "err", err)
+	} else {
+		logger.Info("kube-apiserver reachable", "version", ver.GitVersion)
+	}
+
 	rules := []k8ssource.SecretTypeRule{}
 	if s.Secrets != nil {
 		for _, t := range s.Secrets.Types {

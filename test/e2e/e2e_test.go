@@ -329,6 +329,31 @@ func assertCertSeries(t *testing.T, notAfter, expired, notBefore *dto.MetricFami
 	if exMetric == nil {
 		t.Fatalf("no x509_cert_expired series with %v", want)
 	}
+	// Exposed object labels: each entry in ExposedLabels maps a bare
+	// label name (as configured under exposeSecretLabels /
+	// exposeConfigMapLabels) to the value the e2e expects to read on
+	// the resulting Prometheus series. The label name on the metric is
+	// `secret_label_<bare>` for Kind=="Secret",
+	// `configmap_label_<bare>` for Kind=="ConfigMap".
+	if len(e.ExposedLabels) > 0 {
+		var prefix string
+		switch sc.Kind {
+		case "Secret":
+			prefix = "secret_label_"
+		case "ConfigMap":
+			prefix = "configmap_label_"
+		default:
+			t.Fatalf("ExposedLabels asserted on unsupported Kind %q", sc.Kind)
+		}
+		for k, v := range e.ExposedLabels {
+			labelName := prefix + k
+			got := labelValue(naMetric, labelName)
+			if got != v {
+				t.Fatalf("%s/%s key=%s: %s = %q, want %q",
+					sc.Namespace, sc.Name, e.Key, labelName, got, v)
+			}
+		}
+	}
 	got := exMetric.GetGauge().GetValue()
 	switch e.Lifecycle {
 	case scenarios.LifecycleExpired:
@@ -440,6 +465,19 @@ func labelEq(m *dto.Metric, name, value string) bool {
 		}
 	}
 	return false
+}
+
+// labelValue returns the Prometheus label value attached to m for the
+// given label name, or "" if the label is absent (Prometheus models
+// missing labels as empty strings, so the absent / present-as-empty
+// distinction doesn't matter for assertion purposes here).
+func labelValue(m *dto.Metric, name string) string {
+	for _, l := range m.GetLabel() {
+		if l.GetName() == name {
+			return l.GetValue()
+		}
+	}
+	return ""
 }
 
 // Sanity: surface a printable line per failure to ease debugging.

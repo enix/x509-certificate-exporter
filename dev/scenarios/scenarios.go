@@ -61,6 +61,15 @@ type ExpectCert struct {
 	// (no x509_cert_not_after series to assert; instead we expect the
 	// exporter's x509_source_errors_total{reason=ParseError} to grow).
 	ParseError ParseError
+
+	// ExposedLabels are the user-configured object labels expected to
+	// appear on the emitted series as Prometheus labels named
+	// `secret_label_<key>` (or `configmap_label_<key>`). The map's keys
+	// are the bare label names (matching what was configured via
+	// `exposeSecretLabels` / `exposeConfigMapLabels` — no prefix); the
+	// map's values are the expected values. Empty / nil means
+	// "don't assert".
+	ExposedLabels map[string]string
 }
 
 // Scenario is one Kubernetes object the seed will materialise.
@@ -169,6 +178,17 @@ func build() {
 		Expect: []ExpectCert{{
 			Key: "tls.crt", SubjectCN: "rich-dn.example.test", Lifecycle: LifecycleValid,
 			NotBefore: in(-time.Hour), NotAfter: in(180 * day),
+			// `environment` and `team` are listed in dev/values.yaml's
+			// exposeSecretLabels and applied to this Secret above. The
+			// e2e suite asserts the resulting `secret_label_environment`
+			// and `secret_label_team` Prometheus labels carry these
+			// exact values — guards against drift between the writer
+			// (Kubernetes source) and reader (registry label builder)
+			// sides of the prefix contract.
+			ExposedLabels: map[string]string{
+				"environment": "production",
+				"team":        "platform",
+			},
 		}},
 	})
 
@@ -346,6 +366,21 @@ func build() {
 		Data: map[string][]byte{
 			"tls.crt": EncodeCertsPEM(hiddenByName),
 			"tls.key": []byte("dummy"),
+		},
+		Watched: false,
+	})
+
+	// ─── Negative — secret of a watched type but no matching key ───────
+	// Opaque type IS in `secretTypes` (with several known keys). This
+	// fixture's keys deliberately match NONE of them. The exporter
+	// should silently ignore it: no x509_cert_* series, no
+	// x509_source_errors_total — it's not an error, just not relevant.
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-fresh", Name: "no-matching-key",
+		Kind: "Secret", SecretType: "Opaque",
+		Data: map[string][]byte{
+			"some-random-data": []byte("not a cert, not even base64"),
+			"another-key":      []byte("still not a cert"),
 		},
 		Watched: false,
 	})

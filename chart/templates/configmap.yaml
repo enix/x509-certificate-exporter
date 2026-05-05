@@ -22,8 +22,8 @@ data:
       format: text
 
     metrics:
-      exposeRelative: {{ .Values.exposeRelativeMetrics | default true }}
-      exposePerCertError: {{ .Values.exposePerCertificateErrorMetrics | default true }}
+      exposeRelative: {{ .Values.exposeRelativeMetrics | default false }}
+      exposePerCertError: {{ .Values.exposePerCertificateErrorMetrics | default false }}
       exposeNotBefore: {{ .Values.exposeNotBeforeMetric }}
       exposeExpired: {{ .Values.exposeExpiredMetric }}
       exposeDiagnostics: {{ .Values.exposeDiagnosticMetrics }}
@@ -103,8 +103,8 @@ data:
       format: text
 
     metrics:
-      exposeRelative: {{ $.Values.exposeRelativeMetrics | default true }}
-      exposePerCertError: {{ $.Values.exposePerCertificateErrorMetrics | default true }}
+      exposeRelative: {{ $.Values.exposeRelativeMetrics | default false }}
+      exposePerCertError: {{ $.Values.exposePerCertificateErrorMetrics | default false }}
       exposeNotBefore: {{ $.Values.exposeNotBeforeMetric }}
       exposeExpired: {{ $.Values.exposeExpiredMetric }}
       exposeDiagnostics: {{ $.Values.exposeDiagnosticMetrics }}

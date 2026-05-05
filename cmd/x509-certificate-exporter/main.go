@@ -466,6 +466,14 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 		secretSelector.LabelSelector = buildLabelSelector(s.Secrets.IncludeLabels, s.Secrets.ExcludeLabels)
 		secretFilter.IncludeNames = nonWildcard(s.Secrets.Include)
 		secretFilter.ExcludeNames = s.Secrets.Exclude
+		// When all rules target the same Secret type (e.g. kubernetes.io/tls),
+		// push a server-side field selector so the API only returns matching
+		// secrets. This avoids listing Helm release secrets, SA tokens, etc.
+		// which can be large and numerous on production clusters.
+		// The Secret.type field selector is supported server-side since k8s 1.7.
+		if ft := commonSecretType(rules); ft != "" {
+			secretSelector.FieldSelector = "type=" + ft
+		}
 	}
 	var cmSelector k8ssource.Selectors
 	var cmFilter k8ssource.SecretFilter
@@ -543,6 +551,26 @@ func containsGlob(s string) bool {
 		}
 	}
 	return false
+}
+
+// commonSecretType returns the Secret.type shared by all rules, or "" if the
+// rules are empty, any rule has no type, or the rules have different types.
+// Used to derive a server-side FieldSelector that avoids listing irrelevant
+// secrets (Helm releases, SA tokens, docker configs, etc.).
+func commonSecretType(rules []k8ssource.SecretTypeRule) string {
+	if len(rules) == 0 {
+		return ""
+	}
+	t := rules[0].Type
+	if t == "" {
+		return ""
+	}
+	for _, r := range rules[1:] {
+		if r.Type != t {
+			return ""
+		}
+	}
+	return t
 }
 
 func buildKubeClientConfig(kubeconfig string) (*rest.Config, error) {

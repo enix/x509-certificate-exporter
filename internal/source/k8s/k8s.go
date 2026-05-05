@@ -396,7 +396,8 @@ func (s *Source) signalReady(success bool) {
 //
 // The goroutine exits when ctx is cancelled.
 func (s *Source) runSecretsDirect(ctx context.Context, sink cert.Sink, firstSyncDone chan<- struct{}) {
-	backoff := InitialBackoff
+	listBackoff := InitialBackoff
+	watchBackoff := InitialBackoff
 	resync := time.NewTicker(s.opts.ResyncEvery)
 	defer resync.Stop()
 	firstSync := true
@@ -407,28 +408,46 @@ func (s *Source) runSecretsDirect(ctx context.Context, sink cert.Sink, firstSync
 			if ctx.Err() != nil {
 				return
 			}
-			// Jittered exponential backoff (±25% on the doubled delay,
-			// capped at 5 min). Without jitter several replicas retry
-			// in lockstep when the API server flakes.
-			jittered := time.Duration(float64(backoff) * (0.75 + rand.Float64()*0.5))
+			// Jittered exponential backoff (±25%, capped at MaxBackoff).
+			// Without jitter several replicas retry in lockstep when the
+			// API server flakes.
+			jittered := time.Duration(float64(listBackoff) * (0.75 + rand.Float64()*0.5))
 			s.log.Error("secret list failed, will retry", "err", err, "backoff", jittered)
 			select {
 			case <-ctx.Done():
 				return
 			case <-time.After(jittered):
-				backoff = min(backoff*2, MaxBackoff)
+				listBackoff = min(listBackoff*2, MaxBackoff)
 				continue
 			}
 		}
-		backoff = InitialBackoff
+		listBackoff = InitialBackoff
 
 		if firstSync {
 			firstSync = false
 			close(firstSyncDone)
 		}
 
-		if !s.watchSecretLoop(ctx, sink, rv, resync.C) {
+		needResync, flap := s.watchSecretLoop(ctx, sink, rv, resync.C)
+		if !needResync {
 			return // ctx cancelled
+		}
+		if flap {
+			// Watch closed (or failed to start) within WatchFlapThreshold:
+			// avoid the tight LIST→WATCH-close→LIST loop by sleeping for
+			// an exponentially-increasing, jittered backoff before the
+			// next iteration. Tracked separately from listBackoff because
+			// LIST and WATCH have independent failure modes.
+			jittered := time.Duration(float64(watchBackoff) * (0.75 + rand.Float64()*0.5))
+			s.log.Warn("secret watch flapped, backing off before re-list", "wait", jittered)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(jittered):
+				watchBackoff = min(watchBackoff*2, MaxBackoff)
+			}
+		} else {
+			watchBackoff = InitialBackoff
 		}
 		s.log.Debug("resyncing secrets (full relist)")
 	}
@@ -492,9 +511,17 @@ func (s *Source) listSecretPages(ctx context.Context, sink cert.Sink) (rv string
 }
 
 // watchSecretLoop watches secrets from rv, processing events until the watch
-// closes, an error occurs, or the resync timer fires. Returns true if the
-// caller should resync (relist), false if ctx was cancelled.
-func (s *Source) watchSecretLoop(ctx context.Context, sink cert.Sink, rv string, resyncC <-chan time.Time) bool {
+// closes, an error occurs, or the resync timer fires.
+//
+// Returns:
+//
+//   - needResync: true if the caller should re-list, false if ctx was cancelled.
+//   - flap: true when the watch closed because of an error/EOF within
+//     WatchFlapThreshold of starting. The caller uses this to apply an
+//     extra backoff on top of any LIST retry, so an auth-token-expiry or
+//     network blip that re-establishes a watch only to immediately drop
+//     it doesn't translate into a tight LIST/WATCH loop.
+func (s *Source) watchSecretLoop(ctx context.Context, sink cert.Sink, rv string, resyncC <-chan time.Time) (needResync, flap bool) {
 	watcher, err := s.opts.Client.CoreV1().Secrets(s.opts.Namespace).Watch(ctx, metav1.ListOptions{
 		LabelSelector:       s.opts.SecretSelector.LabelSelector,
 		FieldSelector:       s.opts.SecretSelector.FieldSelector,
@@ -503,28 +530,30 @@ func (s *Source) watchSecretLoop(ctx context.Context, sink cert.Sink, rv string,
 	})
 	if err != nil {
 		if ctx.Err() != nil {
-			return false
+			return false, false
 		}
 		s.log.Error("secret watch start failed, triggering resync", "err", err)
-		return true
+		return true, true // failed to even open the stream — treat like a flap
 	}
 	defer watcher.Stop()
+	started := time.Now()
 	s.log.Debug("watching secrets", "resource_version", rv)
 
 	for {
 		select {
 		case <-ctx.Done():
-			return false
+			return false, false
 		case <-resyncC:
 			s.log.Debug("resync timer fired")
-			return true
+			return true, false
 		case <-s.nsLabelsChanged:
 			s.log.Debug("namespace labels changed, triggering immediate resync")
-			return true
+			return true, false
 		case event, ok := <-watcher.ResultChan():
 			if !ok {
-				s.log.Debug("secret watch channel closed, triggering resync")
-				return true
+				flap := time.Since(started) < WatchFlapThreshold
+				s.log.Debug("secret watch channel closed, triggering resync", "flap", flap)
+				return true, flap
 			}
 			switch event.Type {
 			case watch.Added, watch.Modified:
@@ -542,9 +571,10 @@ func (s *Source) watchSecretLoop(ctx context.Context, sink cert.Sink, rv string,
 				// obtains a fresh RV, so locally bookkeeping bookmark
 				// RVs would be pure dead state.
 			case watch.Error:
+				flap := time.Since(started) < WatchFlapThreshold
 				s.log.Error("secret watch error event, triggering resync",
-					"event", fmt.Sprintf("%v", event.Object))
-				return true
+					"event", fmt.Sprintf("%v", event.Object), "flap", flap)
+				return true, flap
 			}
 		}
 	}
@@ -591,7 +621,8 @@ func waitForCacheSync(ctx context.Context, infs []cache.SharedInformer) bool {
 // pager.List accumulates all pages before yielding, which OOMs on clusters
 // with many large ConfigMaps (Helm hooks, OPA policies, kubeadm cluster-info).
 func (s *Source) runConfigMapsDirect(ctx context.Context, sink cert.Sink, firstSyncDone chan<- struct{}) {
-	backoff := InitialBackoff
+	listBackoff := InitialBackoff
+	watchBackoff := InitialBackoff
 	resync := time.NewTicker(s.opts.ResyncEvery)
 	defer resync.Stop()
 	firstSync := true
@@ -602,25 +633,38 @@ func (s *Source) runConfigMapsDirect(ctx context.Context, sink cert.Sink, firstS
 			if ctx.Err() != nil {
 				return
 			}
-			jittered := time.Duration(float64(backoff) * (0.75 + rand.Float64()*0.5))
+			jittered := time.Duration(float64(listBackoff) * (0.75 + rand.Float64()*0.5))
 			s.log.Error("configmap list failed, will retry", "err", err, "backoff", jittered)
 			select {
 			case <-ctx.Done():
 				return
 			case <-time.After(jittered):
-				backoff = min(backoff*2, MaxBackoff)
+				listBackoff = min(listBackoff*2, MaxBackoff)
 				continue
 			}
 		}
-		backoff = InitialBackoff
+		listBackoff = InitialBackoff
 
 		if firstSync {
 			firstSync = false
 			close(firstSyncDone)
 		}
 
-		if !s.watchConfigMapLoop(ctx, sink, rv, resync.C) {
+		needResync, flap := s.watchConfigMapLoop(ctx, sink, rv, resync.C)
+		if !needResync {
 			return // ctx cancelled
+		}
+		if flap {
+			jittered := time.Duration(float64(watchBackoff) * (0.75 + rand.Float64()*0.5))
+			s.log.Warn("configmap watch flapped, backing off before re-list", "wait", jittered)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(jittered):
+				watchBackoff = min(watchBackoff*2, MaxBackoff)
+			}
+		} else {
+			watchBackoff = InitialBackoff
 		}
 		s.log.Debug("resyncing configmaps (full relist)")
 	}
@@ -671,8 +715,9 @@ func (s *Source) listConfigMapPages(ctx context.Context, sink cert.Sink) (rv str
 	return
 }
 
-// watchConfigMapLoop is the WATCH counterpart to watchSecretLoop.
-func (s *Source) watchConfigMapLoop(ctx context.Context, sink cert.Sink, rv string, resyncC <-chan time.Time) bool {
+// watchConfigMapLoop is the WATCH counterpart to watchSecretLoop. See
+// that function's doc-comment for the meaning of needResync and flap.
+func (s *Source) watchConfigMapLoop(ctx context.Context, sink cert.Sink, rv string, resyncC <-chan time.Time) (needResync, flap bool) {
 	watcher, err := s.opts.Client.CoreV1().ConfigMaps(s.opts.Namespace).Watch(ctx, metav1.ListOptions{
 		LabelSelector:       s.opts.ConfigMapSelector.LabelSelector,
 		FieldSelector:       s.opts.ConfigMapSelector.FieldSelector,
@@ -681,28 +726,30 @@ func (s *Source) watchConfigMapLoop(ctx context.Context, sink cert.Sink, rv stri
 	})
 	if err != nil {
 		if ctx.Err() != nil {
-			return false
+			return false, false
 		}
 		s.log.Error("configmap watch start failed, triggering resync", "err", err)
-		return true
+		return true, true
 	}
 	defer watcher.Stop()
+	started := time.Now()
 	s.log.Debug("watching configmaps", "resource_version", rv)
 
 	for {
 		select {
 		case <-ctx.Done():
-			return false
+			return false, false
 		case <-resyncC:
 			s.log.Debug("resync timer fired (configmaps)")
-			return true
+			return true, false
 		case <-s.nsLabelsChanged:
 			s.log.Debug("namespace labels changed, triggering immediate resync (configmaps)")
-			return true
+			return true, false
 		case event, ok := <-watcher.ResultChan():
 			if !ok {
-				s.log.Debug("configmap watch channel closed, triggering resync")
-				return true
+				flap := time.Since(started) < WatchFlapThreshold
+				s.log.Debug("configmap watch channel closed, triggering resync", "flap", flap)
+				return true, flap
 			}
 			switch event.Type {
 			case watch.Added, watch.Modified:
@@ -717,9 +764,10 @@ func (s *Source) watchConfigMapLoop(ctx context.Context, sink cert.Sink, rv stri
 				// See watchSecretLoop's matching case for why bookmark
 				// RVs are intentionally ignored.
 			case watch.Error:
+				flap := time.Since(started) < WatchFlapThreshold
 				s.log.Error("configmap watch error event, triggering resync",
-					"event", fmt.Sprintf("%v", event.Object))
-				return true
+					"event", fmt.Sprintf("%v", event.Object), "flap", flap)
+				return true, flap
 			}
 		}
 	}

@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/enix/x509-certificate-exporter/v4/internal/fileglob"
+	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
 )
 
 // Canonical values for Source.Kind in the YAML config. These strings are
@@ -292,7 +293,7 @@ func mergeDefaults(c *Config) {
 			s.RefreshInterval = c.Cache.FilePoll.Interval
 		}
 		if len(s.Formats) == 0 && s.Kind == KindFile {
-			s.Formats = []string{"pem"}
+			s.Formats = []string{cert.FormatPEM}
 		}
 	}
 }
@@ -325,7 +326,7 @@ func validateSource(i int, s Source) error {
 		}
 		for _, f := range s.Formats {
 			switch f {
-			case "pem", "pkcs12":
+			case cert.FormatPEM, cert.FormatPKCS12:
 			default:
 				return fmt.Errorf("%s.formats: unsupported format %q (must be pem|pkcs12)", prefix, f)
 			}
@@ -384,7 +385,7 @@ func ApplyCLI(base Config, ov CLIOverrides) Config {
 			Kind:    KindFile,
 			Name:    "cli-files",
 			Paths:   ov.WatchFiles,
-			Formats: []string{"pem"},
+			Formats: []string{cert.FormatPEM},
 		})
 	}
 	for _, d := range ov.WatchDirs {
@@ -392,7 +393,7 @@ func ApplyCLI(base Config, ov CLIOverrides) Config {
 			Kind:    KindFile,
 			Name:    "cli-dir-" + sanitize(d),
 			Paths:   []string{strings.TrimRight(d, "/") + "/*"},
-			Formats: []string{"pem"},
+			Formats: []string{cert.FormatPEM},
 		})
 	}
 	if len(ov.WatchKubeconf) > 0 {
@@ -408,7 +409,7 @@ func ApplyCLI(base Config, ov CLIOverrides) Config {
 			Name: "cli-kube",
 			Secrets: &SecretsCfg{
 				Types: []SecretTypeCfg{
-					{Type: "kubernetes.io/tls", KeyPatterns: []string{`^tls\.crt$`}, Format: "pem"},
+					{Type: "kubernetes.io/tls", KeyPatterns: []string{`^tls\.crt$`}, Format: cert.FormatPEM},
 				},
 			},
 		})

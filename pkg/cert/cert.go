@@ -31,6 +31,14 @@ const (
 	AttrConfigMapLabelPrefix = "configmap_label/"
 )
 
+// Canonical values for SourceRef.Format and FormatParser.Format(). Used
+// as a discriminator at YAML-config validation, parser dispatch, and
+// the Prometheus `format` label on diagnostic histograms.
+const (
+	FormatPEM    = "pem"
+	FormatPKCS12 = "pkcs12"
+)
+
 // SourceRef identifies where a Bundle was found. It is the unit of identity
 // for upsert/delete operations on the registry: a Bundle keyed by its
 // SourceRef replaces any previous Bundle with the same ref.

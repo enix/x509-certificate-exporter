@@ -236,18 +236,18 @@ func recoverPanic(r *registry.Registry, component string, logger *slog.Logger) {
 func pkcs12InUse(cfg config.Config) bool {
 	for _, s := range cfg.Sources {
 		for _, f := range s.Formats {
-			if f == "pkcs12" {
+			if f == cert.FormatPKCS12 {
 				return true
 			}
 		}
 		if s.Secrets != nil {
 			for _, t := range s.Secrets.Types {
-				if t.Format == "pkcs12" {
+				if t.Format == cert.FormatPKCS12 {
 					return true
 				}
 			}
 		}
-		if s.ConfigMaps != nil && s.ConfigMaps.Format == "pkcs12" {
+		if s.ConfigMaps != nil && s.ConfigMaps.Format == cert.FormatPKCS12 {
 			return true
 		}
 	}
@@ -332,9 +332,9 @@ func buildFileSource(s config.Source, cfg config.Config, ready func(bool), logge
 	}
 	for _, f := range s.Formats {
 		switch f {
-		case "pem":
+		case cert.FormatPEM:
 			parsers = append(parsers, pemparser.New())
-		case "pkcs12":
+		case cert.FormatPKCS12:
 			parsers = append(parsers, pkcs12parser.New())
 		}
 	}
@@ -373,13 +373,13 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 		for _, t := range s.Secrets.Types {
 			format := t.Format
 			if format == "" {
-				format = "pem"
+				format = cert.FormatPEM
 			}
 			var parser cert.FormatParser
 			switch format {
-			case "pem":
+			case cert.FormatPEM:
 				parser = pemparser.New()
-			case "pkcs12":
+			case cert.FormatPKCS12:
 				parser = pkcs12parser.New()
 			default:
 				return nil, fmt.Errorf("secret type %q: unsupported format %q", t.Type, format)
@@ -410,13 +410,13 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 	if s.ConfigMaps != nil {
 		format := s.ConfigMaps.Format
 		if format == "" {
-			format = "pem"
+			format = cert.FormatPEM
 		}
 		var parser cert.FormatParser
 		switch format {
-		case "pem":
+		case cert.FormatPEM:
 			parser = pemparser.New()
-		case "pkcs12":
+		case cert.FormatPKCS12:
 			parser = pkcs12parser.New()
 		default:
 			return nil, fmt.Errorf("configMaps format %q unsupported", format)

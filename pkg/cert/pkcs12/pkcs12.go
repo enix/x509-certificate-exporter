@@ -29,7 +29,7 @@ type Parser struct{}
 func New() Parser { return Parser{} }
 
 // Format implements cert.FormatParser.
-func (Parser) Format() string { return "pkcs12" }
+func (Parser) Format() string { return cert.FormatPKCS12 }
 
 // Parse implements cert.FormatParser. The passphrase is taken from
 // opts.Pkcs12Passphrase; if it fails and opts.Pkcs12TryEmpty is true, a

@@ -28,7 +28,7 @@ type Parser struct{}
 func New() Parser { return Parser{} }
 
 // Format implements cert.FormatParser.
-func (Parser) Format() string { return "pem" }
+func (Parser) Format() string { return cert.FormatPEM }
 
 // Parse implements cert.FormatParser.
 func (Parser) Parse(data []byte, ref cert.SourceRef, _ cert.ParseOptions) cert.Bundle {

@@ -355,10 +355,11 @@ func buildFileSource(s config.Source, cfg config.Config, ready func(bool), logge
 }
 
 func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg *registry.Registry, logger *slog.Logger) (cert.Source, error) {
-	cfg, err := buildKubeClientConfig(s.Kubeconfig)
+	cfg, err := buildKubeClientConfig(s.Kubeconfig, logger)
 	if err != nil {
 		return nil, err
 	}
+	logger.Info("kubeconfig loaded", "apiserver_host", cfg.Host)
 	if s.RateLimit != nil {
 		cfg.QPS = float32(s.RateLimit.QPS)
 		cfg.Burst = s.RateLimit.Burst
@@ -584,19 +585,35 @@ func commonSecretType(rules []k8ssource.SecretTypeRule) string {
 	return t
 }
 
-func buildKubeClientConfig(kubeconfig string) (*rest.Config, error) {
+// buildKubeClientConfig resolves a kubeconfig from the first source
+// available, in priority order:
+//
+//  1. Explicit YAML field `sources[].kubeconfig`.
+//  2. Environment variable `KUBECONFIG`.
+//  3. In-cluster ServiceAccount (when running inside a Pod).
+//  4. `$HOME/.kube/config`.
+//
+// Each attempted source is logged so the resolution path is visible
+// when troubleshooting auth or unexpected cluster targeting.
+func buildKubeClientConfig(kubeconfig string, logger *slog.Logger) (*rest.Config, error) {
 	if kubeconfig != "" {
+		logger.Info("loading kubeconfig", "from", "explicit", "path", kubeconfig)
 		return clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
 	if env := os.Getenv("KUBECONFIG"); env != "" {
+		logger.Info("loading kubeconfig", "from", "KUBECONFIG", "path", env)
 		return clientcmd.BuildConfigFromFlags("", env)
 	}
+	logger.Info("loading kubeconfig", "from", "in-cluster")
 	if cfg, err := rest.InClusterConfig(); err == nil {
 		return cfg, nil
+	} else if !errors.Is(err, rest.ErrNotInCluster) {
+		logger.Debug("in-cluster lookup failed, falling through", "err", err)
 	}
 	if home, _ := os.UserHomeDir(); home != "" {
 		path := home + "/.kube/config"
 		if _, err := os.Stat(path); err == nil {
+			logger.Info("loading kubeconfig", "from", "home", "path", path)
 			return clientcmd.BuildConfigFromFlags("", path)
 		}
 	}

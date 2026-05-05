@@ -65,6 +65,13 @@ secretsExporter:
     - environment
     - team
 
+  # Surface the same labels from labelled ConfigMaps. The CM fixture in
+  # dev/scenarios/scenarios.go applies these too — exercising the
+  # writer (k8s source) → reader (registry) prefix contract end-to-end.
+  exposeConfigMapLabels:
+    - environment
+    - team
+
 # Enable the gated metric families so dev sees everything and the e2e
 # suite can assert on them. `exposeNotBeforeMetric` is needed in
 # particular for the `not-yet-valid` scenario, which is precisely about

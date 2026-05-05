@@ -76,6 +76,7 @@ data:
             - "^{{ . | replace "." "\\\\." }}$"
             {{- end }}
           format: pem
+          exposeLabels: {{ if .Values.secretsExporter.exposeConfigMapLabels }}{{ .Values.secretsExporter.exposeConfigMapLabels | toJson }}{{ else }}[]{{ end }}
         {{- end }}
 {{- end }}
 {{- range $dsName, $dsDef := .Values.hostPathsExporter.daemonSets }}

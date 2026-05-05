@@ -295,13 +295,15 @@ exporter-toolkit is the recommended path on new installs.
 | secretsExporter.excludeNamespaceLabels | list | `[]` | Exclude namespaces having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.includeLabels | list | `[]` | Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
 | secretsExporter.excludeLabels | list | `[]` | Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`. |
-| secretsExporter.exposeSecretLabels | list | `[]` | Expose selected labels from Kubernetes Secrets as Prometheus labels. |
+| secretsExporter.exposeSecretLabels | list | `[]` | Expose selected labels from Kubernetes Secrets as Prometheus labels. **Beware of high-cardinality labels** (e.g. `pod-template-hash`, `controller-revision-hash`, build/git SHAs, timestamps, request IDs): each unique value adds a fresh series for every certificate metric, which can quickly explode the Prometheus index. Stick to slow-changing identifiers (app, team, environment, owner). |
+| secretsExporter.exposeConfigMapLabels | list | `[]` | Expose selected labels from Kubernetes ConfigMaps as Prometheus labels. Same caveat as `exposeSecretLabels` — keep the list to slow-changing identifiers and avoid high-cardinality values. |
 | secretsExporter.extraArgs | list | `[]` | Additional arguments to append to the exporter command line. E.g.: `--watch-file="/extra-cert/tls.crt"`. |
 | secretsExporter.cache.enabled | bool | `true` | Enable caching of Kubernetes objects to prevent scraping timeouts |
 | secretsExporter.cache.maxDuration | int | `300` | Maximum time an object can stay in cache unrefreshed (seconds) - it will be at least half of that |
 | secretsExporter.kubeApiRateLimits.enabled | bool | `false` | Should requests to the Kubernetes API server be rate-limited |
 | secretsExporter.kubeApiRateLimits.queriesPerSecond | int | `5` | Maximum rate of queries sent to the API server (per second) |
 | secretsExporter.kubeApiRateLimits.burstQueries | int | `10` | Burst bucket size for queries sent to the API server |
+| secretsExporter.listPageSize | int | `0` | Page size used by the paginated initial LIST against the Kubernetes API. The exporter processes each page inline and releases it to the GC before fetching the next, so peak memory during sync is roughly proportional to this × average secret size. Default `50` is conservative enough to keep the pod under 100 Mi even on clusters with many large Helm release secrets; raise it for faster sync on smaller objects, lower it on memory-constrained pods. `0` keeps the built-in default. |
 | secretsExporter.env | list | `[]` | Additional environment variables for containers |
 | hostPathsExporter.annotations | object | `{}` | Additional DaemonSet annotations |
 | hostPathsExporter.debugMode | bool | `false` | Should debug messages be produced by hostPath exporters (default for all hostPathsExporter.daemonSets) |

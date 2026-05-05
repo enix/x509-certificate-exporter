@@ -288,9 +288,24 @@ func build() {
 		Data: map[string][]byte{
 			"tls.crt": EncodeCertsPEM(cmCert),
 		},
+		Labels: map[string]string{
+			"app.kubernetes.io/name": "tls-bundle-app",
+			"environment":            "production",
+			"team":                   "platform",
+		},
 		Watched: true,
 		Expect: []ExpectCert{
-			{Key: "tls.crt", SubjectCN: "configmap.example.test", Lifecycle: LifecycleValid},
+			{
+				Key: "tls.crt", SubjectCN: "configmap.example.test", Lifecycle: LifecycleValid,
+				// `environment` and `team` are listed in dev/values.yaml's
+				// exposeConfigMapLabels and applied to this ConfigMap above.
+				// Asserts the chart's configMaps.exposeLabels feature
+				// reaches the registry's `configmap_label_*` series.
+				ExposedLabels: map[string]string{
+					"environment": "production",
+					"team":        "platform",
+				},
+			},
 		},
 	})
 

@@ -198,6 +198,8 @@ secretsExporter:
   excludeLabels: []
   # -- Expose selected labels from Kubernetes Secrets as Prometheus labels. **Beware of high-cardinality labels** (e.g. `pod-template-hash`, `controller-revision-hash`, build/git SHAs, timestamps, request IDs): each unique value adds a fresh series for every certificate metric, which can quickly explode the Prometheus index. Stick to slow-changing identifiers (app, team, environment, owner).
   exposeSecretLabels: []
+  # -- Expose selected labels from Kubernetes ConfigMaps as Prometheus labels. Same caveat as `exposeSecretLabels` — keep the list to slow-changing identifiers and avoid high-cardinality values.
+  exposeConfigMapLabels: []
   # -- Additional arguments to append to the exporter command line. E.g.: `--watch-file="/extra-cert/tls.crt"`.
   extraArgs: []
 

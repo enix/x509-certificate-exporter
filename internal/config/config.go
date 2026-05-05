@@ -253,11 +253,16 @@ func mergeDefaults(c *Config) {
 	}
 	for i := range c.Sources {
 		s := &c.Sources[i]
-		if s.FollowSymlinks == nil {
+		if s.FollowSymlinks == nil && s.Kind != "kubernetes" {
 			tr := true
 			s.FollowSymlinks = &tr
 		}
-		if s.RefreshInterval == 0 {
+		// RefreshInterval default applies only to poll-based sources (file,
+		// kubeconfig). For kubernetes sources the resync period is managed
+		// independently via buildKubeSource's own default (30m); applying
+		// cache.filePoll.interval there would force a full informer resync
+		// at the poll cadence — far too aggressive on large clusters.
+		if s.RefreshInterval == 0 && s.Kind != "kubernetes" {
 			s.RefreshInterval = c.Cache.FilePoll.Interval
 		}
 		if len(s.Formats) == 0 && s.Kind == "file" {

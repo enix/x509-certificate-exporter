@@ -265,11 +265,13 @@ func TestSecretsListPagesDoesNotCacheData(t *testing.T) {
 	const (
 		nSecrets    = 200
 		garbageSize = 50 * 1024 // 50 KiB per secret => 10 MiB total of garbage
-		// Budget catches the "source caches every Secret" failure mode. A
-		// healthy run holds parsed certs (~5 KiB each) + Prometheus series,
-		// totalling under 4 MiB for 200 entries; a fully-cached regression
-		// would push this past 10 MiB.
-		budgetBytes = 6 * 1024 * 1024
+		// Budget catches the "source caches every Secret" failure mode.
+		// A healthy run leaves ~1.85 MiB on the heap (parsed certs +
+		// Prometheus series + small Go runtime overhead); the budget
+		// adds ~33% headroom for legitimate growth (Go version bumps,
+		// extra metric labels) while staying well below the ~12 MiB a
+		// fully-cached regression would land at.
+		budgetBytes = 2560 * 1024
 	)
 	pemData := makeCertPEM(t)
 	objs := make([]kruntimeObj, 0, nSecrets)

@@ -77,9 +77,27 @@ const (
 	// after a failed LIST. Doubles up to MaxBackoff and is jittered
 	// (±25%) to avoid replicas synchronising their retries.
 	InitialBackoff = 2 * time.Second
-	// MaxBackoff caps the exponential retry delay.
-	MaxBackoff = 5 * time.Minute
+	// MaxBackoff caps the exponential retry delay. Tuned to align with
+	// typical etcd-quorum-loss recovery (~30s–1min): a longer cap means
+	// the source misses the API server's recovery window and metrics
+	// stay stale for minutes after the cluster is healthy again. Stays
+	// generous enough to not hammer a sustained outage.
+	MaxBackoff = 1 * time.Minute
 )
+
+// TODO(robustness): two reliability gaps documented for future work:
+//
+//  1. Watch-flap protection. If the WATCH stream closes quickly and
+//     repeatedly (auth token expiry, network glitches), we tight-loop
+//     `LIST → WATCH-close → LIST → ...` because the LIST keeps
+//     succeeding and resets the backoff. Track consecutive short
+//     watches (e.g. < 5s) and apply a separate backoff on top.
+//
+//  2. LIST request timeout. We don't set context deadlines on the LIST
+//     call, so a hung API server holds the goroutine indefinitely.
+//     Wrap each LIST in a `context.WithTimeout(ctx, 30 * time.Second)`
+//     to bound the worst case. Watches already have a server-imposed
+//     ~5–10 min max lifetime, so they don't have the same issue.
 
 // SecretTypeRule says how to match Secret data keys and which parser to
 // use. KeyRe is compiled from the user-provided regex; one entry per

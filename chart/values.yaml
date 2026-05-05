@@ -287,7 +287,8 @@ hostPathsExporter:
     runAsUser: 0
     runAsGroup: 0
     readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
+    allowPrivilegeEscalation: true
+    privileged: true
     capabilities:
       drop:
         - ALL

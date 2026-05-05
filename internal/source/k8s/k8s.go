@@ -238,6 +238,7 @@ func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 	if s.opts.Namespace != "" {
 		scope = "namespace"
 	}
+	runStart := time.Now()
 	s.log.Debug("kubernetes source starting",
 		"scope", scope,
 		"namespace", s.opts.Namespace,
@@ -268,13 +269,15 @@ func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 		nsFactory.Start(ctx.Done())
 		// Namespace labels must be known before we process any secret, so
 		// we sync the namespace cache first before starting the secret list.
+		nsSyncStart := time.Now()
 		s.log.Debug("waiting for namespace informer sync")
 		if !waitForCacheSync(ctx, []cache.SharedInformer{nsInf}) {
-			s.log.Error("namespace informer sync did not complete", "cause", ctx.Err())
+			s.log.Error("namespace informer sync did not complete",
+				"cause", ctx.Err(), "elapsed", time.Since(nsSyncStart))
 			s.signalReady(false)
 			return ctx.Err()
 		}
-		s.log.Debug("namespace informer synced")
+		s.log.Debug("namespace informer synced", "elapsed", time.Since(nsSyncStart))
 	}
 
 	// --- Secrets and ConfigMaps: direct paginated LIST + WATCH ---
@@ -329,7 +332,8 @@ func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 	}
 	syncCancel()
 	s.signalReady(true)
-	s.log.Info("initial sync complete", "namespace", s.opts.Namespace)
+	s.log.Info("initial sync complete",
+		"namespace", s.opts.Namespace, "elapsed", time.Since(runStart))
 
 	// Block until cancelled; the secrets/configmaps goroutines run their
 	// own loops driven by ctx.
@@ -461,6 +465,7 @@ func (s *Source) listSecretPages(ctx context.Context, sink cert.Sink) (rv string
 	var cont string
 	seen := map[string]struct{}{}
 	page := 0
+	listStart := time.Now()
 	// Reset the counter at the start of each list cycle so the debug
 	// reporter shows progress for THIS cycle, not a cumulative total.
 	s.secretsSeen.Store(0)
@@ -505,6 +510,7 @@ func (s *Source) listSecretPages(ctx context.Context, sink cert.Sink) (rv string
 	s.log.Debug("secret list complete",
 		"pages", page,
 		"total", len(seen),
+		"elapsed", time.Since(listStart),
 	)
 	s.deleteAbsentRefs(sink, cert.KindKubeSecret, seen)
 	return
@@ -676,6 +682,7 @@ func (s *Source) listConfigMapPages(ctx context.Context, sink cert.Sink) (rv str
 	var cont string
 	seen := map[string]struct{}{}
 	page := 0
+	listStart := time.Now()
 	s.cmsSeen.Store(0)
 
 	for {
@@ -710,7 +717,11 @@ func (s *Source) listConfigMapPages(ctx context.Context, sink cert.Sink) (rv str
 		}
 	}
 
-	s.log.Debug("configmap list complete", "pages", page, "total", len(seen))
+	s.log.Debug("configmap list complete",
+		"pages", page,
+		"total", len(seen),
+		"elapsed", time.Since(listStart),
+	)
 	s.deleteAbsentRefs(sink, cert.KindKubeConfigMap, seen)
 	return
 }

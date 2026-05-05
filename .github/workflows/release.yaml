@@ -318,6 +318,21 @@ jobs:
             sed -i "s|^name:.*|name: $CHART_NAME|" chart/Chart.yaml
             echo "Renamed chart from '$source_name' to '$CHART_NAME'"
           fi
+      # Mark the chart as a prerelease on ArtifactHub when the triggering
+      # tag carries a SemVer prerelease identifier (anything after a `-`,
+      # e.g. v1.2.3-rc1, v1.2.3-beta.2). Matches goreleaser's
+      # `prerelease: auto` rule for the GitHub Release. Patched in-flight
+      # — never committed back to chart/Chart.yaml.
+      - name: Set artifacthub.io/prerelease annotation
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            prerelease=true
+          else
+            prerelease=false
+          fi
+          sed -i "s|^  artifacthub.io/prerelease:.*|  artifacthub.io/prerelease: \"${prerelease}\"|" chart/Chart.yaml
+          echo "artifacthub.io/prerelease=${prerelease} (from tag ${GITHUB_REF_NAME})"
       - name: Copy LICENSE into chart
         run: cp LICENSE chart/LICENSE
       - name: Helm package

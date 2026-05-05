@@ -190,7 +190,7 @@ func run() error {
 	if cfg.Diagnostics.Pprof.Enabled {
 		listen := cfg.Diagnostics.Pprof.Listen
 		if listen == "" {
-			listen = ":6060"
+			listen = config.DefaultPprofAddress
 		}
 		pprofSrv := server.BuildPprof(server.PprofOptions{
 			Listen:       listen,

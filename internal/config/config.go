@@ -35,6 +35,22 @@ const (
 	KindKubernetes = "kubernetes"
 )
 
+// Built-in defaults applied by Default() and re-applied by mergeDefaults()
+// when a partial YAML omits a field. Centralised so the two functions
+// can never disagree and so other packages (e.g. main.go's pprof
+// fallback) reference the same values.
+const (
+	DefaultListenAddress    = ":9793"
+	DefaultPprofAddress     = ":6060"
+	DefaultLogLevel         = "info"
+	DefaultLogFormat        = "text"
+	DefaultReadTimeout      = 10 * time.Second
+	DefaultWriteTimeout     = 30 * time.Second
+	DefaultFilePollInterval = 30 * time.Second
+	DefaultCollisionMode    = "auto" // auto|always|never; see registry.CollisionPolicy
+	DefaultCollisionLength  = 8
+)
+
 // Top-level configuration.
 type Web struct {
 	EnableStats bool `yaml:"enableStats"`
@@ -202,18 +218,18 @@ func Default() Config {
 			EnableStats: true,
 		},
 		Server: Server{
-			Listen:       ":9793",
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 30 * time.Second,
+			Listen:       DefaultListenAddress,
+			ReadTimeout:  DefaultReadTimeout,
+			WriteTimeout: DefaultWriteTimeout,
 		},
-		Log:         Log{Level: "info", Format: "text", Timing: true},
-		Diagnostics: Diagnostics{Pprof: Pprof{Listen: ":6060"}},
+		Log:         Log{Level: DefaultLogLevel, Format: DefaultLogFormat, Timing: true},
+		Diagnostics: Diagnostics{Pprof: Pprof{Listen: DefaultPprofAddress}},
 		Metrics: Metrics{
 			ExposeExpired:                true,
-			CollisionDiscriminator:       "auto",
-			CollisionDiscriminatorLength: 8,
+			CollisionDiscriminator:       DefaultCollisionMode,
+			CollisionDiscriminatorLength: DefaultCollisionLength,
 		},
-		Cache: Cache{FilePoll: FilePoll{Interval: 30 * time.Second, SkipUnchanged: true}},
+		Cache: Cache{FilePoll: FilePoll{Interval: DefaultFilePollInterval, SkipUnchanged: true}},
 	}
 }
 
@@ -260,22 +276,22 @@ func FindAndLoad(path string) (Config, string, error) {
 
 func mergeDefaults(c *Config) {
 	if c.Metrics.CollisionDiscriminator == "" {
-		c.Metrics.CollisionDiscriminator = "auto"
+		c.Metrics.CollisionDiscriminator = DefaultCollisionMode
 	}
 	if c.Metrics.CollisionDiscriminatorLength == 0 {
-		c.Metrics.CollisionDiscriminatorLength = 8
+		c.Metrics.CollisionDiscriminatorLength = DefaultCollisionLength
 	}
 	if c.Server.Listen == "" {
-		c.Server.Listen = ":9793"
+		c.Server.Listen = DefaultListenAddress
 	}
 	if c.Cache.FilePoll.Interval == 0 {
-		c.Cache.FilePoll.Interval = 30 * time.Second
+		c.Cache.FilePoll.Interval = DefaultFilePollInterval
 	}
 	if c.Log.Level == "" {
-		c.Log.Level = "info"
+		c.Log.Level = DefaultLogLevel
 	}
 	if c.Log.Format == "" {
-		c.Log.Format = "text"
+		c.Log.Format = DefaultLogFormat
 	}
 	for i := range c.Sources {
 		s := &c.Sources[i]

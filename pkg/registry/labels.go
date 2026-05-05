@@ -248,12 +248,12 @@ func (s *schema) values(b cert.Bundle, it cert.Item, opts LabelOptions) []string
 	}
 	if b.Source.Kind == cert.KindKubeSecret {
 		for i, l := range s.exposedSecretLabels {
-			v[s.idxSecretLabelStart+i] = b.Source.Attributes["secret_label/"+l]
+			v[s.idxSecretLabelStart+i] = b.Source.Attributes[cert.AttrSecretLabelPrefix+l]
 		}
 	}
 	if b.Source.Kind == cert.KindKubeConfigMap {
 		for i, l := range s.exposedCfgmapLabels {
-			v[s.idxCMLabelStart+i] = b.Source.Attributes["configmap_label/"+l]
+			v[s.idxCMLabelStart+i] = b.Source.Attributes[cert.AttrConfigMapLabelPrefix+l]
 		}
 	}
 	return v

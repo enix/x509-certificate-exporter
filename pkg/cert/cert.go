@@ -21,6 +21,16 @@ const (
 	KindKubeConfigMap = "kube-configmap" // Kubernetes ConfigMap resource
 )
 
+// Canonical attribute key prefixes used in SourceRef.Attributes for
+// per-object Kubernetes labels exposed as Prometheus labels. Both the
+// writer (the Kubernetes source) and the reader (the metric registry)
+// must use the same prefix; centralising them here prevents silent
+// drift that would cause exposeLabels series to disappear.
+const (
+	AttrSecretLabelPrefix    = "secret_label/"
+	AttrConfigMapLabelPrefix = "configmap_label/"
+)
+
 // SourceRef identifies where a Bundle was found. It is the unit of identity
 // for upsert/delete operations on the registry: a Bundle keyed by its
 // SourceRef replaces any previous Bundle with the same ref.

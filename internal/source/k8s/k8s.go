@@ -780,7 +780,7 @@ func (s *Source) refSecret(sec *corev1.Secret, key, format string) cert.SourceRe
 	attrs := map[string]string{}
 	for _, l := range s.opts.ExposedSecretLabels {
 		if v, ok := sec.Labels[l]; ok {
-			attrs["secret_label/"+l] = v
+			attrs[cert.AttrSecretLabelPrefix+l] = v
 		}
 	}
 	return cert.SourceRef{
@@ -795,7 +795,7 @@ func (s *Source) refConfigMap(cm *corev1.ConfigMap, key, format string) cert.Sou
 	attrs := map[string]string{}
 	for _, l := range s.opts.ExposedConfigMapLabels {
 		if v, ok := cm.Labels[l]; ok {
-			attrs["configmap_label/"+l] = v
+			attrs[cert.AttrConfigMapLabelPrefix+l] = v
 		}
 	}
 	return cert.SourceRef{

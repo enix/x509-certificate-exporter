@@ -58,6 +58,29 @@ import (
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
 )
 
+// Built-in defaults applied by New() and the LIST/WATCH loops. Centralised
+// so a tweak in one place doesn't drift the others.
+const (
+	// DefaultResyncEvery is how often the source re-LISTs from scratch
+	// even when the WATCH stream is healthy. Defends against missed
+	// events and namespace label changes the source can't otherwise
+	// detect.
+	DefaultResyncEvery = 30 * time.Minute
+	// DefaultListPageSize is the per-page Limit used when the user
+	// hasn't set Options.ListPageSize. See Options.ListPageSize for the
+	// memory/throughput trade-off.
+	DefaultListPageSize = 50
+	// MaxListPageSize clamps Options.ListPageSize to a value the
+	// kube-apiserver will actually serve in one round-trip.
+	MaxListPageSize = 1000
+	// InitialBackoff is the wait between the first and second retry
+	// after a failed LIST. Doubles up to MaxBackoff and is jittered
+	// (±25%) to avoid replicas synchronising their retries.
+	InitialBackoff = 2 * time.Second
+	// MaxBackoff caps the exponential retry delay.
+	MaxBackoff = 5 * time.Minute
+)
+
 // SecretTypeRule says how to match Secret data keys and which parser to
 // use. KeyRe is compiled from the user-provided regex; one entry per
 // regex.
@@ -166,13 +189,13 @@ func New(opts Options, logger *slog.Logger) *Source {
 		logger = slog.Default()
 	}
 	if opts.ResyncEvery <= 0 {
-		opts.ResyncEvery = 30 * time.Minute
+		opts.ResyncEvery = DefaultResyncEvery
 	}
 	switch {
 	case opts.ListPageSize <= 0:
-		opts.ListPageSize = 50
-	case opts.ListPageSize > 1000:
-		opts.ListPageSize = 1000
+		opts.ListPageSize = DefaultListPageSize
+	case opts.ListPageSize > MaxListPageSize:
+		opts.ListPageSize = MaxListPageSize
 	}
 	return &Source{
 		opts:            opts,
@@ -358,7 +381,7 @@ func (s *Source) signalReady(success bool) {
 //
 // The goroutine exits when ctx is cancelled.
 func (s *Source) runSecretsDirect(ctx context.Context, sink cert.Sink, firstSyncDone chan<- struct{}) {
-	backoff := 2 * time.Second
+	backoff := InitialBackoff
 	resync := time.NewTicker(s.opts.ResyncEvery)
 	defer resync.Stop()
 	firstSync := true
@@ -378,11 +401,11 @@ func (s *Source) runSecretsDirect(ctx context.Context, sink cert.Sink, firstSync
 			case <-ctx.Done():
 				return
 			case <-time.After(jittered):
-				backoff = min(backoff*2, 5*time.Minute)
+				backoff = min(backoff*2, MaxBackoff)
 				continue
 			}
 		}
-		backoff = 2 * time.Second
+		backoff = InitialBackoff
 
 		if firstSync {
 			firstSync = false
@@ -551,7 +574,7 @@ func waitForCacheSync(ctx context.Context, infs []cache.SharedInformer) bool {
 // pager.List accumulates all pages before yielding, which OOMs on clusters
 // with many large ConfigMaps (Helm hooks, OPA policies, kubeadm cluster-info).
 func (s *Source) runConfigMapsDirect(ctx context.Context, sink cert.Sink, firstSyncDone chan<- struct{}) {
-	backoff := 2 * time.Second
+	backoff := InitialBackoff
 	resync := time.NewTicker(s.opts.ResyncEvery)
 	defer resync.Stop()
 	firstSync := true
@@ -568,11 +591,11 @@ func (s *Source) runConfigMapsDirect(ctx context.Context, sink cert.Sink, firstS
 			case <-ctx.Done():
 				return
 			case <-time.After(jittered):
-				backoff = min(backoff*2, 5*time.Minute)
+				backoff = min(backoff*2, MaxBackoff)
 				continue
 			}
 		}
-		backoff = 2 * time.Second
+		backoff = InitialBackoff
 
 		if firstSync {
 			firstSync = false

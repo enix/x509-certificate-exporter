@@ -31,6 +31,10 @@ vars:
   # exercise what dev does. Renovate-tracked (custom regex manager
   # in renovate.json5).
   K3S_IMAGE: rancher/k3s:v1.35.4-k3s1
+  # Shared by `renovate:plan` and `renovate:patch`. Renovate-tracked
+  # (custom regex manager in renovate.json5) and kept in lockstep with
+  # `renovateImage` in dagger/base.go.
+  RENOVATE_IMAGE: renovate/renovate:43.162.0
 
 tasks:
   default:
@@ -147,7 +151,7 @@ tasks:
           -e LOG_FORMAT=json \
           -e GITHUB_COM_TOKEN \
           ${RENOVATE_HOST_RULES:+-e RENOVATE_HOST_RULES} \
-          renovate/renovate:43.142.1 2>&1 \
+          {{.RENOVATE_IMAGE}} 2>&1 \
           | jq -rR 'fromjson?
                    | select(.msg == "packageFiles with updates")
                    | .config | to_entries[] | .value[]
@@ -188,7 +192,7 @@ tasks:
           -e LOG_FORMAT=json \
           -e GITHUB_COM_TOKEN \
           ${RENOVATE_HOST_RULES:+-e RENOVATE_HOST_RULES} \
-          renovate/renovate:43.142.1 2>&1 \
+          {{.RENOVATE_IMAGE}} 2>&1 \
           | python3 scripts/renovate-patch.py
 
   # ─── Tests ───────────────────────────────────────────────────────────────

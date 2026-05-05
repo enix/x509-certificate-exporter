@@ -359,11 +359,10 @@ diagnostic on stderr. The intent is to leave the working tree in a
 state Renovate's own delta logic can pick up cleanly on its next
 scheduled run.
 
-The Renovate image tag in that task must stay in sync with the
-`renovateImage` constant in `dagger/base.go` (Renovate's dockerfile
-manager doesn't scan inside `docker run` invocations or Go const
-declarations directly — both rely on regex managers configured in
-`renovate.json5`).
+Both `renovate:plan` and `renovate:patch` template the same image from
+the Taskfile var `RENOVATE_IMAGE`. A regex manager in `renovate.json5`
+tracks that one declaration, so the Taskfile auto-bumps in lockstep
+with `renovateImage` in `dagger/base.go` — no manual sync required.
 
 Config validated via `task lint:renovate` (runs `renovate-config-validator`
 inside the official Renovate image, sandboxed by Dagger). Highlights:

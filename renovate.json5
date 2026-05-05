@@ -76,6 +76,21 @@
       datasourceTemplate: "docker",
       versioningTemplate: "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-k3s(?<build>\\d+)$",
     },
+    // Renovate image used by the renovate:plan / renovate:patch tasks
+    // (Taskfile var RENOVATE_IMAGE — single source of truth, both task
+    // bodies template it in). Must stay aligned with `renovateImage` in
+    // dagger/base.go (the Dagger module image regex below tracks the
+    // latter); this manager closes the loop so the Taskfile copy
+    // doesn't drift.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^Taskfile\\.ya?ml$/"],
+      matchStrings: [
+        "RENOVATE_IMAGE:\\s*['\"]?renovate/renovate:(?<currentValue>\\d[\\w.-]*)",
+      ],
+      depNameTemplate: "renovate/renovate",
+      datasourceTemplate: "docker",
+    },
     // kube-prometheus-stack chart pinned in the dev Tiltfile
     // (KUBE_PROMETHEUS_VERSION). Pulled from prometheus-community's
     // OCI registry on ghcr.io.

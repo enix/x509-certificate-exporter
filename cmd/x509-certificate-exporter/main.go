@@ -19,8 +19,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/KimMachineGun/automemlimit/memlimit"
 	"github.com/alecthomas/kong"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/enix/x509-certificate-exporter/v4/internal/config"
 	"github.com/enix/x509-certificate-exporter/v4/internal/fileglob"
@@ -98,6 +100,30 @@ func run() error {
 	}
 	logger := xlog.New(os.Stderr, level, xlog.ParseFormat(cfg.Log.Format))
 	logger.Info("starting", "version", product.BuildInfo().Version, "level", cfg.Log.Level)
+
+	// Adjust GOMAXPROCS to the cgroup CPU quota — without this, Go on
+	// Kubernetes sees the host's full core count and oversubscribes
+	// pthread parallelism. automaxprocs is a no-op when no cgroup limit
+	// is set (bare-metal / dev shell).
+	if _, err := maxprocs.Set(maxprocs.Logger(func(format string, args ...any) {
+		logger.Info(fmt.Sprintf(format, args...))
+	})); err != nil {
+		logger.Warn("failed to apply automaxprocs", "err", err)
+	}
+
+	// Adjust GOMEMLIMIT to a fraction of the cgroup memory limit, giving
+	// the GC a soft target to settle below before the kernel's OOM
+	// killer fires. WithRatio(0.9) leaves 10% headroom for non-Go
+	// allocations (CGO buffers, stack growth, runtime overhead).
+	if _, err := memlimit.SetGoMemLimitWithOpts(
+		memlimit.WithRatio(0.9),
+		memlimit.WithProvider(memlimit.FromCgroup),
+		memlimit.WithLogger(logger),
+	); err != nil {
+		// Not running under a memory cgroup — fine, log at debug level
+		// only so dev/standalone runs aren't noisy.
+		logger.Debug("automemlimit skipped", "err", err)
+	}
 
 	collisionPolicy := registry.CollisionAuto
 	switch cfg.Metrics.CollisionDiscriminator {

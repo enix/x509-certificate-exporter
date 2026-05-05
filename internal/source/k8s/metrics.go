@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/registry"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/metrics"
@@ -49,9 +50,9 @@ func (r *requestResult) Increment(ctx context.Context, code string, method strin
 	// But ObserveKubeRequest tracks latency, not error codes directly.
 	// However, if we need to track errors, we could use MarkSourceError.
 	if code == "429" {
-		r.reg.MarkSourceError("kubernetes", "kube-api", "rate_limited")
+		r.reg.MarkSourceError("kubernetes", "kube-api", cert.ReasonRateLimited)
 	} else if strings.HasPrefix(code, "5") || code == "401" || code == "403" {
-		r.reg.MarkSourceError("kubernetes", "kube-api", "http_"+code)
+		r.reg.MarkSourceError("kubernetes", "kube-api", cert.ReasonHTTPPrefix+code)
 	}
 }
 

@@ -696,12 +696,12 @@ func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
 	}
 	if !s.acceptName(sec.Name, s.opts.SecretFilter) {
 		s.deleteAllRefs(sink, cert.KindKubeSecret, loc)
-		s.log.Debug("secret rejected", "namespace", sec.Namespace, "name", sec.Name, "reason", "name_filter")
+		s.log.Debug("secret rejected", "namespace", sec.Namespace, "name", sec.Name, "reason", cert.ReasonNameFilter)
 		return
 	}
 	if !s.namespaceAllowed(sec.Namespace) {
 		s.deleteAllRefs(sink, cert.KindKubeSecret, loc)
-		s.log.Debug("secret rejected", "namespace", sec.Namespace, "name", sec.Name, "reason", "namespace_filter")
+		s.log.Debug("secret rejected", "namespace", sec.Namespace, "name", sec.Name, "reason", cert.ReasonNamespaceFilter)
 		return
 	}
 	emitted := 0
@@ -747,12 +747,12 @@ func (s *Source) onConfigMap(sink cert.Sink, obj any, deleted bool) {
 	}
 	if !s.acceptName(cm.Name, s.opts.ConfigMapFilter) {
 		s.deleteAllRefs(sink, cert.KindKubeConfigMap, loc)
-		s.log.Debug("configmap rejected", "namespace", cm.Namespace, "name", cm.Name, "reason", "name_filter")
+		s.log.Debug("configmap rejected", "namespace", cm.Namespace, "name", cm.Name, "reason", cert.ReasonNameFilter)
 		return
 	}
 	if !s.namespaceAllowed(cm.Namespace) {
 		s.deleteAllRefs(sink, cert.KindKubeConfigMap, loc)
-		s.log.Debug("configmap rejected", "namespace", cm.Namespace, "name", cm.Name, "reason", "namespace_filter")
+		s.log.Debug("configmap rejected", "namespace", cm.Namespace, "name", cm.Name, "reason", cert.ReasonNamespaceFilter)
 		return
 	}
 	emitted := 0

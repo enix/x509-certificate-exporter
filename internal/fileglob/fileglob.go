@@ -26,6 +26,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
 )
 
 // Pattern is a compiled glob pattern.
@@ -600,7 +602,7 @@ func (w *walker) handleSymlink(ctx context.Context, full string, info fs.FileInf
 	if !w.inAllowedScope(resolved) {
 		w.emit(Result{Err: &Error{
 			Path:   full,
-			Reason: "out_of_scope_symlink",
+			Reason: cert.ReasonOutOfScopeSymlink,
 			Err:    fmt.Errorf("resolved target %q is outside any configured scope", resolved),
 		}})
 		return

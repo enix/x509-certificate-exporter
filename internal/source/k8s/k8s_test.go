@@ -314,15 +314,17 @@ func TestSecretsListPagesDoesNotCacheData(t *testing.T) {
 	<-done
 
 	// Drop every reference the test still owns to the seeded data, the
-	// client, and the source. After GC, what's left in the heap is
-	// whatever was retained by the sink (parsed bundles + a tiny tracked
-	// map) and Go runtime overhead — definitely no per-Secret garbage.
+	// client, and the source. Each variable is in scope until the end
+	// of the function, so the GC will trace from them unless we
+	// explicitly nil them out before runtime.GC() runs. ineffassign
+	// flags these as dead writes (no read after) — the writes are the
+	// whole point of the test, not dead code.
 	for i := range objs {
 		objs[i] = nil
 	}
-	objs = nil
-	client = nil
-	src = nil
+	objs = nil   //nolint:ineffassign,wastedassign // intentional: drop slice header for GC
+	client = nil //nolint:ineffassign,wastedassign // intentional: drop fake client for GC
+	src = nil    //nolint:ineffassign,wastedassign // intentional: drop source (holds client) for GC
 	runtime.GC()
 	runtime.GC() // second pass to clear finalizers triggered by the first
 

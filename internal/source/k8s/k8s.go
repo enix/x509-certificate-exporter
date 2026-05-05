@@ -496,9 +496,11 @@ func (s *Source) watchSecretLoop(ctx context.Context, sink cert.Sink, rv string,
 					s.onSecret(sink, sec, true)
 				}
 			case watch.Bookmark:
-				if sec, ok := event.Object.(*corev1.Secret); ok {
-					rv = sec.ResourceVersion
-				}
+				// Bookmarks advance the API server's notion of the watch
+				// resourceVersion. We deliberately don't track them: any
+				// disconnect or resync triggers a full re-LIST that
+				// obtains a fresh RV, so locally bookkeeping bookmark
+				// RVs would be pure dead state.
 			case watch.Error:
 				s.log.Error("secret watch error event, triggering resync",
 					"event", fmt.Sprintf("%v", event.Object))
@@ -670,9 +672,8 @@ func (s *Source) watchConfigMapLoop(ctx context.Context, sink cert.Sink, rv stri
 					s.onConfigMap(sink, cm, true)
 				}
 			case watch.Bookmark:
-				if cm, ok := event.Object.(*corev1.ConfigMap); ok {
-					rv = cm.ResourceVersion
-				}
+				// See watchSecretLoop's matching case for why bookmark
+				// RVs are intentionally ignored.
 			case watch.Error:
 				s.log.Error("configmap watch error event, triggering resync",
 					"event", fmt.Sprintf("%v", event.Object))

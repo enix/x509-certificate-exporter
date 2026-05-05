@@ -209,8 +209,8 @@ task --list                   # show every available task with description
 task build                    # `goreleaser build --single-target` — host-arch binary, stable symlink at dist/x509-certificate-exporter
 task image:local              # `goreleaser release --snapshot ...` host-arch only
 task image:all                # same but every cross-arch variant
-task lint                     # → go run ./dagger lint:go (+helm, +renovate)
-task test                     # runs test:unit, test:fuzz, test:e2e
+task lint                     # runs lint:go, lint:helm, lint:renovate, lint:markdown
+task test                     # runs test:unit, test:fuzz, test:helm-examples, test:helm-fixtures, test:e2e
 ```
 
 Whenever you're not sure what command to run, `task --list` is the answer.
@@ -221,8 +221,8 @@ A few things Task adds beyond aliasing:
   teardown even on Ctrl-C or SIGKILL.
 - **Variable interpolation**: dev cluster name, registry port, Kubeconfig
   path — all defined once at the top of `Taskfile.yml`.
-- **Task chaining**: `task lint` runs `lint:go`, `lint:helm`, and
-  `lint:renovate` in order, fail-fast.
+- **Task chaining**: `task lint` runs `lint:go`, `lint:helm`,
+  `lint:renovate`, and `lint:markdown` in order, fail-fast.
 
 ### Nix — the dev shell
 
@@ -595,12 +595,14 @@ Verification commands for downstream consumers are documented in the
 | `task dev:up` | Tilt up — full dev loop |
 | `task dev:down` | Tilt down + full cluster teardown |
 | `task dev:cluster:down` | Destroy dev cluster + registry |
-| `task test` | Run unit + fuzz smoke + e2e tests sequentially |
+| `task test` | Run unit + fuzz smoke + helm-examples + helm-fixtures + e2e tests sequentially |
 | `task test:unit` | Unit tests with race detector + coverage (Dagger) |
 | `task test:fuzz` | Smoke-run every `Fuzz*` target (5s each) |
+| `task test:helm-examples` | Assert every `docs/examples/**/*.values.yaml` is accepted by the chart (Dagger) |
+| `task test:helm-fixtures` | Schema regression net — every `test/schema/{valid,invalid}/*.yaml` against the chart, with paired `.expect.txt` (Dagger) |
 | `task test:e2e` | Full e2e against fresh throwaway cluster |
-| `task lint` | All linters (Go + Helm + Renovate) |
-| `task lint:{go,gocritic,gonocritic,helm,renovate}` | Single linter (Dagger) |
+| `task lint` | All linters (Go + Helm + Renovate + Markdown) |
+| `task lint:{go,gocritic,gonocritic,helm,renovate,markdown}` | Single linter (Dagger) |
 | `task security` | All security checks |
 | `task security:govulncheck` | govulncheck only (Dagger) |
 | `task go:tidy` | `go mod tidy` on main module + `dagger/` (direct, no sandbox) |
@@ -609,7 +611,7 @@ Verification commands for downstream consumers are documented in the
 | `task renovate:plan` | Dry-run Renovate locally; no PRs, just logs the bumps it would propose |
 | `task renovate:patch` | Apply Renovate's planned bumps to the working tree (best-effort, format-preserving) |
 | `task doc` | Regenerate all documentation |
-| `task doc:helm` | Regenerate chart/README.md only (Dagger) |
+| `task doc:helm` | Regenerate `chart/README.md` AND `chart/values.schema.json` from `chart/values.yaml` (Dagger) |
 | `task analysis:graph` | Render & open the full package dependency graph (goda + graphviz) |
 | `task analysis:size` | Build the host-arch binary then explore its size with `gsa --tui` |
 

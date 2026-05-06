@@ -24,10 +24,11 @@ values shape, then metrics changes, then the rest.
 ## 1. Helm chart distribution: go full OCI
 
 **No breaking change here** — chart releases have been published as OCI
-artifacts since v3. The classic index at `https://charts.enix.io` was
-always a thin hybrid: an HTTP `index.yaml` whose `urls:` entries point
-straight at `oci://quay.io/enix/charts/...`. It keeps working in v4 and
-will keep receiving releases, so **no action is required**.
+artifacts for some time already. The classic index at
+`https://charts.enix.io` is a thin hybrid: an HTTP `index.yaml` whose
+`urls:` entries point straight at `oci://quay.io/enix/charts/...`. It
+keeps working in v4 and will keep receiving releases, so **no action is
+required**.
 
 We do recommend pointing your tooling directly at the OCI reference at
 your own pace. The hybrid index adds an extra hop with no upside, and

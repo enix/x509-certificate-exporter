@@ -256,11 +256,13 @@ the kubectl image in `values.yaml`, update both keys.
 ### PSA-restricted hardening on by default
 
 Every component (`secretsExporter`, `hostPathsExporter`, `migration`,
-`rbacProxy`) now ships with the two extra fields the Pod Security
-Admission `restricted` profile requires:
+`rbacProxy`) now ships with the extra fields the Pod Security Admission
+`restricted` profile requires:
 
 - `podSecurityContext.seccompProfile.type: RuntimeDefault`
-- `securityContext.allowPrivilegeEscalation: false`
+- `securityContext.allowPrivilegeEscalation: false` — except on
+  `hostPathsExporter`, which keeps `true` because it runs privileged
+  as root to read host PKI files (kubelet, etcd, kube-apiserver).
 
 The chart was already running as `runAsNonRoot: true` with `drop: [ALL]`
 capabilities and `readOnlyRootFilesystem: true`; the two new fields

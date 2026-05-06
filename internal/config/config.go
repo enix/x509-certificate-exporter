@@ -17,8 +17,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/enix/x509-certificate-exporter/v4/internal/fileglob"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
+	"github.com/enix/x509-certificate-exporter/v4/pkg/fileglob"
 )
 
 // Canonical values for Source.Kind in the YAML config. These strings are

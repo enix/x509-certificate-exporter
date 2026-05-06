@@ -1,6 +1,9 @@
 // Package fileglob implements a small, dedicated glob/walk engine for
 // certificate discovery. It is NOT a general-purpose glob library.
 //
+// EXPERIMENTAL: this package was promoted from internal/ to enable external
+// reuse but its API surface may still change without notice in v5.
+//
 // Supported pattern tokens:
 //
 //   - match within a single segment, never across "/"
@@ -515,11 +518,11 @@ func (w *walker) descend(ctx context.Context, dir string, depth int, seenInodes 
 	entries, err := w.fsys.ReadDir(dir)
 	if err != nil {
 		// Report the dir-level error and stop descending here.
-		reason := "walk_error"
+		reason := cert.ReasonWalkError
 		if os.IsPermission(err) {
-			reason = "permission_denied"
+			reason = cert.ReasonPermissionDenied
 		} else if os.IsNotExist(err) {
-			reason = "not_found"
+			reason = cert.ReasonNotFound
 		}
 		w.emit(Result{Err: &Error{Path: dir, Reason: reason, Err: err}})
 		return
@@ -542,7 +545,7 @@ func (w *walker) descend(ctx context.Context, dir string, depth int, seenInodes 
 		}
 		info, err := w.fsys.Lstat(full)
 		if err != nil {
-			w.emit(Result{Err: &Error{Path: full, Reason: "walk_error", Err: err}})
+			w.emit(Result{Err: &Error{Path: full, Reason: cert.ReasonWalkError, Err: err}})
 			continue
 		}
 		// Determine whether this entry can match any include (file or dir).
@@ -585,7 +588,7 @@ func (w *walker) descend(ctx context.Context, dir string, depth int, seenInodes 
 func (w *walker) handleSymlink(ctx context.Context, full string, info fs.FileInfo, fileMatched *Pattern, canDescend bool, depth int, seen map[uint64]struct{}) {
 	target, err := w.fsys.Readlink(full)
 	if err != nil {
-		w.emit(Result{Err: &Error{Path: full, Reason: "broken_symlink", Err: err}})
+		w.emit(Result{Err: &Error{Path: full, Reason: cert.ReasonBrokenSymlink, Err: err}})
 		return
 	}
 	resolved := target
@@ -610,7 +613,7 @@ func (w *walker) handleSymlink(ctx context.Context, full string, info fs.FileInf
 
 	tinfo, err := w.fsys.Stat(resolved)
 	if err != nil {
-		w.emit(Result{Err: &Error{Path: full, Reason: "broken_symlink", Err: err}})
+		w.emit(Result{Err: &Error{Path: full, Reason: cert.ReasonBrokenSymlink, Err: err}})
 		return
 	}
 	if tinfo.IsDir() {

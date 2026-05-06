@@ -1,6 +1,9 @@
 // Package k8s implements a Source that watches Kubernetes Secrets (and
 // optionally ConfigMaps).
 //
+// EXPERIMENTAL: this package was promoted from internal/ to enable external
+// reuse but its API surface may still change without notice in v5.
+//
 // Architecture: Secrets and ConfigMaps are observed via a direct paginated
 // LIST + WATCH loop, not a client-go SharedInformer. The reason is that
 // client-go's pager.List accumulates every page into a single in-memory

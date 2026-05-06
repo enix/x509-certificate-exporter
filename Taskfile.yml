@@ -218,7 +218,7 @@ tasks:
     cmds:
       - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/pem/
       - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/pkcs12/
-      - go test -run=^$ -fuzz=FuzzCompile -fuzztime=5s ./internal/fileglob/
+      - go test -run=^$ -fuzz=FuzzCompile -fuzztime=5s ./pkg/fileglob/
 
   test:helm-examples:
     desc: "Assert every docs/examples/**/*.values.yaml is accepted by the chart"

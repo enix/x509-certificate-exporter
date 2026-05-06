@@ -13,7 +13,7 @@ filesystem operation** — `open`, `Stat`, `Lstat`, `ReadDir`, `Readlink`.
 Today (post-symlink-mapping change) the chart writes **in-pod** paths
 into the configmap (`/mnt/watch/file-<sha1>/var/lib/kubelet/pki/...`),
 and `PathMapping` is consulted only when an absolute symlink target is
-read back — i.e. only inside `internal/fileglob.handleSymlink`. The
+read back — i.e. only inside `pkg/fileglob.handleSymlink`. The
 proposal is to flip the polarity: have the chart write raw host paths,
 and let the runtime translate transparently for every FS op.
 
@@ -27,7 +27,7 @@ and let the runtime translate transparently for every FS op.
    the runtime knows the host path natively.
 
 2. **One translation point, not two.** Right now
-   `internal/fileglob.handleSymlink` has bespoke translation +
+   `pkg/fileglob.handleSymlink` has bespoke translation +
    containment logic. With a universal translator, the same logic
    covers every code path that touches the FS, so any new FS-using
    feature is covered for free.
@@ -39,7 +39,7 @@ and let the runtime translate transparently for every FS op.
 ### Why this is *not* done as part of the symlink-mapping change
 
 - **Blast radius.** It touches every FS op in `fileglob`, not just
-  symlink resolution. The cache key in `internal/source/file/file.go`
+  symlink resolution. The cache key in `pkg/source/file/file.go`
   becomes the host path (today it's the walker's `Path` = in-pod),
   affecting cache invariants and the `SkipUnchanged` machinery.
 
@@ -70,12 +70,12 @@ and let the runtime translate transparently for every FS op.
 
 ### Sketch of the change
 
-- `internal/fileglob/walkfs.go` (new): a small `WalkFS` decorator that
+- `pkg/fileglob/walkfs.go` (new): a small `WalkFS` decorator that
   takes `[]PathMapping` and a base `WalkFS`, applies the
   longest-prefix `From → To` rewrite to every method's `name`
   argument, and forwards. The walker becomes oblivious to the
   translation — it sees host paths everywhere.
-- `internal/source/file/file.go`: drop the special-case
+- `pkg/source/file/file.go`: drop the special-case
   `if e.LinkTo != "" { readPath = e.LinkTo }` (no longer needed —
   `Reader` would also be wrapped to apply the translation).
 - `chart/templates/configmap.yaml`: write host paths in

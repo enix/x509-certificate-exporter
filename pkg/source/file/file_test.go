@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/enix/x509-certificate-exporter/v4/internal/fileglob"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert/pem"
+	"github.com/enix/x509-certificate-exporter/v4/pkg/fileglob"
 )
 
 func nopLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }

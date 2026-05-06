@@ -2,6 +2,9 @@
 // embedded in kubeconfig files (or referenced via certificate-authority/
 // client-certificate file paths). Mirrors the existing exporter's
 // behaviour: only the four canonical JSONPath-like locations are read.
+//
+// EXPERIMENTAL: this package was promoted from internal/ to enable external
+// reuse but its API surface may still change without notice in v5.
 package kubeconfig
 
 import (
@@ -147,7 +150,7 @@ func (s *Source) scan(path string, sink cert.Sink, seen map[string]struct{}, all
 	if err != nil {
 		*allOK = false
 		s.log.Warn("read kubeconfig", "path", path, "error", err)
-		ref := cert.SourceRef{Kind: cert.KindKubeconfig, Location: path, SourceName: s.opts.Name, Format: "pem"}
+		ref := cert.SourceRef{Kind: cert.KindKubeconfig, Location: path, SourceName: s.opts.Name, Format: cert.FormatPEM}
 		sink.Upsert(cert.Bundle{
 			Source: ref,
 			Errors: []cert.ItemError{{Index: -1, Reason: cert.ReasonReadFailed, Err: err}},
@@ -159,7 +162,7 @@ func (s *Source) scan(path string, sink cert.Sink, seen map[string]struct{}, all
 	var doc kubeconfigDoc
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		*allOK = false
-		ref := cert.SourceRef{Kind: cert.KindKubeconfig, Location: path, SourceName: s.opts.Name, Format: "pem"}
+		ref := cert.SourceRef{Kind: cert.KindKubeconfig, Location: path, SourceName: s.opts.Name, Format: cert.FormatPEM}
 		sink.Upsert(cert.Bundle{
 			Source: ref,
 			Errors: []cert.ItemError{{Index: -1, Reason: cert.ReasonDecodeFailed, Err: err}},
@@ -186,7 +189,7 @@ func (s *Source) emit(path, kind, key, b64Data, refPath string, sink cert.Sink, 
 				Source: cert.SourceRef{
 					Kind: cert.KindKubeconfig, Location: path,
 					Key:    fmt.Sprintf("%s/%s", kind, key),
-					Format: "pem", SourceName: s.opts.Name,
+					Format: cert.FormatPEM, SourceName: s.opts.Name,
 					Attributes: map[string]string{"embedded_kind": kind, "embedded_key": key},
 				},
 				Errors: []cert.ItemError{{Index: -1, Reason: cert.ReasonDecodeFailed, Err: err}},
@@ -208,7 +211,7 @@ func (s *Source) emit(path, kind, key, b64Data, refPath string, sink cert.Sink, 
 				Source: cert.SourceRef{
 					Kind: cert.KindKubeconfig, Location: path,
 					Key:    fmt.Sprintf("%s/%s", kind, key),
-					Format: "pem", SourceName: s.opts.Name,
+					Format: cert.FormatPEM, SourceName: s.opts.Name,
 					Attributes: map[string]string{"embedded_kind": kind, "embedded_key": key},
 				},
 				Errors: []cert.ItemError{{Index: -1, Reason: cert.ReasonReadFailed, Err: err}},
@@ -225,7 +228,7 @@ func (s *Source) emit(path, kind, key, b64Data, refPath string, sink cert.Sink, 
 	parsed := s.parser.Parse(data, cert.SourceRef{
 		Kind: cert.KindKubeconfig, Location: path,
 		Key:    fmt.Sprintf("%s/%s", kind, key),
-		Format: "pem", SourceName: s.opts.Name,
+		Format: cert.FormatPEM, SourceName: s.opts.Name,
 		Attributes: map[string]string{"embedded_kind": kind, "embedded_key": key},
 	}, cert.ParseOptions{})
 	sink.Upsert(parsed)
@@ -264,7 +267,7 @@ func decodeKey(k, sourceName string) cert.SourceRef {
 	_ = i
 	r := cert.SourceRef{
 		Kind: cert.KindKubeconfig, Location: path,
-		Format: "pem", SourceName: sourceName,
+		Format: cert.FormatPEM, SourceName: sourceName,
 	}
 	if kind != "" || key != "" {
 		r.Key = fmt.Sprintf("%s/%s", kind, key)

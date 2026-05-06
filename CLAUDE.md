@@ -5,7 +5,9 @@
 - `cmd/x509-certificate-exporter/` — binary entrypoint
 - `pkg/cert/` — public API for certificate parsing (`pem`, `pkcs12` subpackages)
 - `pkg/registry/` — public Prometheus collector + label registry
-- `internal/` — everything else (config, log, source/{file,k8s}, server, fileglob, product)
+- `pkg/fileglob/` — public glob/walk engine (EXPERIMENTAL — promoted in v4 RC)
+- `pkg/source/{file,k8s,kubeconfig}/` — public Source implementations (EXPERIMENTAL)
+- `internal/` — wiring & process-lifecycle: config, log, server, product
 - `chart/` — Helm chart
 
 The v3 code was deleted; v4 is at the repo root. The Go module path uses `/v4`

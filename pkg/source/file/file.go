@@ -1,5 +1,8 @@
 // Package file implements a Source that scans local files using the
 // custom fileglob engine and caches parse results between walks.
+//
+// EXPERIMENTAL: this package was promoted from internal/ to enable external
+// reuse but its API surface may still change without notice in v5.
 package file
 
 import (
@@ -12,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/enix/x509-certificate-exporter/v4/internal/fileglob"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
+	"github.com/enix/x509-certificate-exporter/v4/pkg/fileglob"
 )
 
 // Reader fetches the bytes of one path. The default implementation reads
@@ -160,7 +163,7 @@ func (s *Source) runOnce(ctx context.Context, sink cert.Sink, isFirst bool) {
 			// Emit a synthetic bundle so the registry can count error reasons.
 			sink.Upsert(cert.Bundle{
 				Source: cert.SourceRef{
-					Kind: cert.KindFile, Format: "pem",
+					Kind: cert.KindFile, Format: cert.FormatPEM,
 					Location: r.Err.Path, SourceName: s.opts.Name,
 				},
 				Errors: []cert.ItemError{{Index: -1, Reason: r.Err.Reason, Err: r.Err.Err}},
@@ -186,7 +189,7 @@ func (s *Source) runOnce(ctx context.Context, sink cert.Sink, isFirst bool) {
 	s.mu.Unlock()
 	for _, p := range stale {
 		ref := cert.SourceRef{
-			Kind: cert.KindFile, Location: p, SourceName: s.opts.Name, Format: "pem",
+			Kind: cert.KindFile, Location: p, SourceName: s.opts.Name, Format: cert.FormatPEM,
 		}
 		sink.Delete(ref)
 		s.log.Debug("file disappeared", "path", p)
@@ -246,7 +249,7 @@ func (s *Source) processEntry(ctx context.Context, sink cert.Sink, e fileglob.En
 		s.log.Warn("read error", "path", path, "error", err)
 		sink.Upsert(cert.Bundle{
 			Source: cert.SourceRef{
-				Kind: cert.KindFile, Format: "pem",
+				Kind: cert.KindFile, Format: cert.FormatPEM,
 				Location: path, SourceName: s.opts.Name,
 			},
 			Errors: []cert.ItemError{{Index: -1, Reason: reason, Err: err}},

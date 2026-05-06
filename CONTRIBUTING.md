@@ -311,15 +311,16 @@ direnv.
 ├── cmd/x509-certificate-exporter/    Binary entrypoint (main.go and CLI flags)
 ├── pkg/                              Public Go API
 │   ├── cert/                         Certificate parsing (PEM, PKCS#12)
-│   └── registry/                     Prometheus collector + label registry
-├── internal/                         Implementation details
+│   ├── registry/                     Prometheus collector + label registry
+│   ├── fileglob/                     Glob expansion helpers (EXPERIMENTAL)
+│   └── source/                       Source implementations (EXPERIMENTAL)
+│       ├── file/                     File / directory globbing
+│       ├── k8s/                      Kubernetes Secret/ConfigMap LIST+WATCH
+│       └── kubeconfig/               kubeconfig embedded-cert extraction
+├── internal/                         Wiring & process lifecycle
 │   ├── config/                       YAML config loader
 │   ├── log/                          Structured logging setup
-│   ├── source/                       The "source" abstraction
-│   │   ├── file/                     File / directory globbing
-│   │   └── k8s/                      Kubernetes Secret/ConfigMap LIST+WATCH
 │   ├── server/                       HTTP server, metrics endpoint
-│   ├── fileglob/                     Glob expansion helpers
 │   └── product/                      Build-time injected version metadata
 ├── chart/                            Helm chart (THE primary deploy method)
 ├── dev/
@@ -829,7 +830,9 @@ into implementation.
 ### Code style
 
 - **Public API in `pkg/`, internals in `internal/`.** Don't promote
-  without a real consumer.
+  without a real consumer. Packages flagged EXPERIMENTAL in their
+  godoc were promoted ahead of a settled API contract — pin a
+  specific version if you depend on them.
 - **Tests colocated with code** as `*_test.go`.
 - **Table-driven tests** for parsers, registries, anything with many
   similar cases.

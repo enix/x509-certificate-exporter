@@ -30,6 +30,7 @@ sensitive:
           - "go.*"
           - "CLAUDE.md"
           - ".coderabbit.yaml"
+          - ".zed/**"
 
 chart:
   - changed-files:

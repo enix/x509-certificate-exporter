@@ -50,8 +50,6 @@ everything.
 | Snapshot host-arch only | `task build:image:host` | `goreleaser release --snapshot --skip=publish,sign` with `GORELEASER_LOCAL_PLATFORM=1` — fast iteration, no QEMU cross-build |
 | Snapshot all images | `task build:image:all` | Like `task build:image:host` but every cross-arch variant — validates the full release matrix without pushing |
 | Lint Go | `task lint:go` | `dagger call lint-go` — full golangci-lint set |
-| gocritic only | `task lint:gocritic` | `dagger call lint-go --mode=gocritic` |
-| Go lint without gocritic | `task lint:gonocritic` | `dagger call lint-go --mode=no-critic` |
 | Lint Helm | `task lint:helm` | `dagger call lint-helm` |
 | Lint Markdown | `task lint:markdown` | `dagger call lint-markdown` |
 | Lint all | `task lint` | Go + Helm + Renovate + Markdown |
@@ -92,8 +90,7 @@ Layout:
   prepares a Go container with go.mod/sum prefetched and cache
   volumes mounted. Helpers are package-private (lowercase) so they're
   not exposed as Dagger functions.
-- `dagger/lint.go` — `LintGo` (with `--mode=` flag for full /
-  `gocritic` / `no-critic` subsets), `LintHelm`, `LintRenovate`,
+- `dagger/lint.go` — `LintGo`, `LintHelm`, `LintRenovate`,
   `LintMarkdown`. golangci-lint is compiled from source against the
   project's Go toolchain (`GOTOOLCHAIN=auto`) — official prebuilt
   images embed go/parser+go/types of whatever Go they were built with.
@@ -221,6 +218,51 @@ the pod's state or making HTTP requests to it right after modifying source files
   `internal/product`. Don't read it from env or from disk at runtime.
 - The `formatVersion` short form is `MAJOR.MINOR.PATCH+gSHORTSHA` and gets a
   `.dirty` suffix when the working tree is dirty.
+
+## Chart conventions
+
+**Whenever you touch `chart/values.yaml`, `chart/templates/**`, or
+anything else that influences the chart's rendered output**, walk
+through this checklist before considering the work done — the test
+infrastructure exists to catch the cases you forget, but the
+discipline minimises that load. Think hard about each item; the
+generated artefacts and the schema fixtures are intentionally a
+ratchet that cannot be loosened without explicit human review.
+
+1. **Regenerate the doc artefacts**: `task doc:helm` rebuilds both
+   `chart/README.md` (helm-docs from `chart/README.md.gotmpl` +
+   `# --` docstrings) and `chart/values.schema.json` (helm-schema
+   from `# @schema` annotations). Commit both alongside your change.
+   The `chart-readme.yaml` CI workflow enforces lockstep.
+2. **Audit the schema annotations on `chart/values.yaml`**. Every
+   new value field deserves a `# @schema` block. Convention:
+   - Strict on chart-defined params: enums (`pullPolicy`, `severity`,
+     `format`, …), `minimum`/`maximum` ranges (ports, replicas,
+     retention windows), `oneOf` mutex (e.g. `secretTypes` items),
+     `additionalProperties: false` on closed structures.
+   - Permissive (`additionalProperties: true; properties: {}`) on K8s
+     pass-through fields where the user must be free to set anything
+     the K8s API admits — `resources`, probes, `securityContext`,
+     `nodeSelector`, `affinity`, `tolerations[].items`, etc.
+3. **Add fixtures** under `test/schema/{valid,invalid}/`:
+   - `valid/<name>.yaml` for any new constraint that should accept a
+     class of legitimate user input (lock down "this works").
+   - `invalid/<name>.yaml` paired with `<name>.expect.txt` listing
+     JSON-path-anchored substrings (e.g. `at '/foo/bar'`) that helm
+     lint must surface in the rejection. Anchor on the path, not the
+     wording — helm's exact error string is less stable than the path.
+   - Run `task test:helm-fixtures` to validate.
+4. **Verify `task test:helm-examples`** still passes — every file
+   under `docs/examples/**` must continue to validate against the
+   updated schema. If it doesn't, you either broke a documented
+   path (regression — fix the schema or the chart) or the example
+   was wrong all along (legitimate find — fix the example, mention
+   it in the commit message).
+
+Treat the schema + fixtures as a regression net. A future intentional
+loosening of a constraint surfaces as a fixture failure that the
+reviewer must explicitly acknowledge by deleting / weakening the
+fixture. That's the right level of friction.
 
 ## Go version: single source of truth
 

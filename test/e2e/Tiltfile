@@ -121,14 +121,62 @@ helm_resource(
     # `kubectl port-forward` to each workload deterministically.
 )
 
-# 4a. Seed K8s-resource scenarios (Secrets, ConfigMaps). Same package the
-# dev loop and tests both consume — single source of truth for fixtures.
-# Run from the repo root so `go run ./dev/seed` resolves naturally.
+# 4a. Seed K8s-resource scenarios (Secrets, ConfigMaps) for the main
+# release, AND auxiliary fixtures for the secauth/rbacproxy releases —
+# seed creates their namespaces + Secrets/SAs/ClusterRole(Binding) so
+# the helm installs below don't race the materials they reference.
+# Same package the dev loop and tests both consume — single source of
+# truth for fixtures. Run from the repo root so `go run ./dev/seed`
+# resolves naturally.
 local_resource(
     "seed",
     cmd="cd %s && go run ./dev/seed" % ROOT,
     deps=[ROOT + "/dev/seed", ROOT + "/dev/scenarios"],
     resource_deps=["x509-certificate-exporter"],
+)
+
+# 3b. Auxiliary release — chart with webConfiguration enforcing TLS +
+# mTLS + basic_auth simultaneously. Lives in its own namespace so the
+# auth-gating assertions stay isolated from the cert-metric assertions
+# on the main release. Server-side PKI + the Secret it lives in are
+# pre-applied by `dev/seed/auxiliary.go`; the chart references that
+# Secret via `webConfigurationExistingSecret`. resource_deps on `seed`
+# guarantees the Secret exists before helm tries to mount it.
+helm_resource(
+    name="x509ce-secauth",
+    chart=ROOT + "/chart",
+    namespace="x509ce-secauth",
+    flags=[
+        "--create-namespace",
+        "--values",
+        ROOT + "/dev/values.yaml",
+        "--values",
+        "./values-secauth.yaml",
+    ],
+    image_deps=[IMAGE],
+    image_keys=[("image.registry", "image.repository", "image.tag")],
+    resource_deps=["seed"],
+)
+
+# 3c. Auxiliary release — chart fronts /metrics with kube-rbac-proxy.
+# The proxy validates Bearer tokens via TokenReview + SubjectAccessReview;
+# the seed pre-creates two ServiceAccounts + a ClusterRole/Binding so
+# the test can issue tokens at runtime and assert 200/401/403 across the
+# three privilege levels.
+helm_resource(
+    name="x509ce-rbacproxy",
+    chart=ROOT + "/chart",
+    namespace="x509ce-rbacproxy",
+    flags=[
+        "--create-namespace",
+        "--values",
+        ROOT + "/dev/values.yaml",
+        "--values",
+        "./values-rbacproxy.yaml",
+    ],
+    image_deps=[IMAGE],
+    image_keys=[("image.registry", "image.repository", "image.tag")],
+    resource_deps=["seed"],
 )
 
 # 4b. Seed hostPath scenarios (PEM files + symlinks on the node). Runs
@@ -185,6 +233,37 @@ local_resource(
     ),
 )
 
+# 4e. Port-forward to the secauth release's Deployment. Wrapped in a
+# `while` loop so the serve process itself never exits — kubectl
+# port-forward dies on TLS-handshake aborts (the NoClientCert sub-test
+# deliberately triggers one) and Tilt's CI mode would otherwise read
+# the kubectl exit code as a resource failure. Readiness is a plain
+# TCP open: HTTP would fail the TLS handshake and HTTPS would fail
+# mTLS without our client cert.
+local_resource(
+    "secauth-port-forward",
+    serve_cmd="while true; do kubectl --namespace=x509ce-secauth port-forward deployment/x509ce-secauth-x509-certificate-exporter 19895:9793 || true; sleep 0.2; done",
+    resource_deps=["x509ce-secauth"],
+    readiness_probe=probe(
+        period_secs=2,
+        tcp_socket=tcp_socket_action(port=19895),
+    ),
+)
+
+# 4f. Same loop wrapper for rbacproxy. The proxy serves HTTPS with an
+# auto-generated cert + Bearer auth, and 401/403 responses on negative
+# sub-tests are abrupt enough that kubectl port-forward sometimes
+# exits.
+local_resource(
+    "rbacproxy-port-forward",
+    serve_cmd="while true; do kubectl --namespace=x509ce-rbacproxy port-forward deployment/x509ce-rbacproxy-x509-certificate-exporter 19896:9793 || true; sleep 0.2; done",
+    resource_deps=["x509ce-rbacproxy"],
+    readiness_probe=probe(
+        period_secs=2,
+        tcp_socket=tcp_socket_action(port=19896),
+    ),
+)
+
 # 5. Run the assertion suite. tilt ci exits non-zero if this fails,
 # which propagates back to `task test:e2e` and then to the wrapper's trap.
 # Run from the repo root for consistency with the seed step.
@@ -193,11 +272,21 @@ local_resource(
     # -timeout=5m bounds a hung suite: without it, an exporter that never
     # becomes Ready or a metric that never converges would pin `tilt ci`
     # until the outer CI runner kills the job (or forever, locally).
-    # E2E_METRICS_URL accepts a comma-separated list — we scrape both the
-    # secretsExporter Deployment (default Service, 19793) and the
-    # hostPathsExporter DaemonSet (custom Service, 19794) and merge.
+    # All E2E_*_URL env vars are explicit so the test code can default
+    # them safely when run outside Tilt (e.g. `go test` directly against
+    # an existing cluster after `task test:e2e:up`-style debugging).
     cmd=("cd %s && " % ROOT +
          "E2E_METRICS_URL=http://127.0.0.1:19793/metrics,http://127.0.0.1:19794/metrics " +
+         "E2E_SECAUTH_URL=https://127.0.0.1:19895/metrics " +
+         "E2E_SECAUTH_BUNDLE_PATH=/tmp/x509ce-e2e-secauth-bundle.json " +
+         "E2E_RBACPROXY_URL=https://127.0.0.1:19896/metrics " +
          "go test -tags=e2e -count=1 -timeout=5m -v ./test/e2e/..."),
-    resource_deps=["seed", "seed-hostpath", "secrets-port-forward", "nodes-port-forward"],
+    resource_deps=[
+        "seed",
+        "seed-hostpath",
+        "secrets-port-forward",
+        "nodes-port-forward",
+        "secauth-port-forward",
+        "rbacproxy-port-forward",
+    ],
 )

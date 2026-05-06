@@ -1,0 +1,27 @@
+# e2e overrides for the rbacproxy release: chart fronts /metrics with a
+# kube-rbac-proxy sidecar. The proxy speaks HTTPS on the pod port and
+# upstreams plain HTTP to the exporter on `rbacProxy.upstreamListenPort`.
+#
+# Auth uses Kubernetes TokenReview + SubjectAccessReview. Two
+# ServiceAccounts are pre-seeded by `dev/seed/auxiliary.go`:
+#   * `e2e-scraper-authorized` — bound to ClusterRole that allows GET
+#     on nonResourceURLs `/metrics`.
+#   * `e2e-scraper-unauthorized` — no binding.
+#
+# The test fetches a Bearer token for each via TokenRequest API and
+# asserts 200 / 401 / 403 across the three cases.
+---
+prometheusServiceMonitor:
+  create: false
+prometheusRules:
+  create: false
+
+rbacProxy:
+  enabled: true
+
+secretsExporter:
+  cache:
+    maxDuration: 5
+  secretTypes:
+    - type: kubernetes.io/tls
+      key: tls.crt

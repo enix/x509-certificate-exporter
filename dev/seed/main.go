@@ -74,6 +74,7 @@ func main() {
 		}
 		fmt.Printf("[seed] %s %s/%s — keys=%v watched=%v\n", s.Kind, s.Namespace, s.Name, keys(s.Data), s.Watched)
 	}
+	seedAuxiliary(ctx, cs)
 	fmt.Printf("[seed] %d scenarios applied across %d namespace(s)\n", len(all), len(seenNS))
 }
 

@@ -1,0 +1,25 @@
+# e2e overrides for the secauth release: chart enforces TLS + mTLS +
+# basic_auth on /metrics via webConfiguration. The matching server-side
+# PKI lives in Secret `x509ce-secauth-webconfig` (pre-applied by
+# `dev/seed/auxiliary.go`); the chart mounts it at /mnt/ so the file
+# paths in webconfig.yaml resolve.
+#
+# Disable Prometheus operator wiring (no CRDs in the e2e cluster) and
+# leave hostPathsExporter alone — this release is purely a Deployment
+# scrape target with one cert in `x509ce-secauth-leaf`.
+---
+prometheusServiceMonitor:
+  create: false
+prometheusRules:
+  create: false
+
+webConfigurationExistingSecret: x509ce-secauth-webconfig
+
+secretsExporter:
+  # Tighten the watch loop so the seeded `kubernetes.io/tls` Secret is
+  # picked up within the test's poll-and-retry budget.
+  cache:
+    maxDuration: 5
+  secretTypes:
+    - type: kubernetes.io/tls
+      key: tls.crt

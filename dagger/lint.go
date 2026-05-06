@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"dagger/x-509-ce/internal/dagger"
 )
@@ -19,34 +18,12 @@ func (m *X509Ce) lintGoBase() *dagger.Container {
 		})
 }
 
-// LintGo runs golangci-lint over the project's Go code.
-//
-// `mode` selects the rule subset:
-//   - "" (default) — the full configured set (.golangci.yml).
-//   - "gocritic"   — only the gocritic linter (opinionated style).
-//   - "no-critic"  — the full set minus gocritic, for a quick
-//     "is anything actually broken?" check that skips the noisy
-//     opinionated category.
-func (m *X509Ce) LintGo(
-	ctx context.Context,
-	// Rule subset to run: "" (default — full set), "gocritic" (only
-	// the gocritic linter), or "no-critic" (full set minus gocritic).
-	// +optional
-	mode string,
-) (string, error) {
-	cmd := []string{"golangci-lint", "run"}
-	switch mode {
-	case "":
-		// full configured set
-	case "gocritic":
-		cmd = append(cmd, "--enable-only=gocritic")
-	case "no-critic":
-		cmd = append(cmd, "--disable=gocritic")
-	default:
-		return "", fmt.Errorf(`unknown mode %q (expected "", "gocritic", or "no-critic")`, mode)
-	}
-	cmd = append(cmd, "./...")
-	return m.lintGoBase().WithExec(cmd).Stdout(ctx)
+// LintGo runs golangci-lint over the project's Go code with the full
+// configured set (.golangci.yml).
+func (m *X509Ce) LintGo(ctx context.Context) (string, error) {
+	return m.lintGoBase().
+		WithExec([]string{"golangci-lint", "run", "./..."}).
+		Stdout(ctx)
 }
 
 // LintHelm runs `helm lint` on the chart.

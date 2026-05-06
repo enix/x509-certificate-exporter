@@ -13,8 +13,6 @@
       "Bash(task go:upgrade)",
       "Bash(task lint)",
       "Bash(task lint:go)",
-      "Bash(task lint:gocritic)",
-      "Bash(task lint:gonocritic)",
       "Bash(task lint:helm)",
       "Bash(task lint:markdown)",
       "Bash(task lint:renovate)",

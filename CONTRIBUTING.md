@@ -454,30 +454,18 @@ instead.
 
 ### Linting
 
-Three Go-related lint flavours, all backed by the same Dagger
-`lintGoBase` helper that compiles golangci-lint from source against
-the project's Go toolchain:
-
 ```sh
-task lint:go                  # full set: staticcheck, errcheck, ineffassign, unused, gocritic
-task lint:gocritic            # gocritic only — opinionated checks
-task lint:gonocritic          # full set MINUS gocritic
-```
-
-The gocritic split exists because gocritic is more opinionated than
-the others. If you want a quick "is my code unambiguously broken?"
-check, `task lint:gonocritic` runs everything except the opinionated
-noise. If you're already fixing gocritic suggestions,
-`task lint:gocritic` keeps the loop tight.
-
-Plus:
-
-```sh
+task lint:go                  # golangci-lint full set: staticcheck, errcheck, ineffassign, unused, gocritic
 task lint:helm                # helm lint on the chart
 task lint:renovate            # validates renovate.json5 schema
 task lint:markdown            # markdownlint-cli2 on hand-written Markdown
 task lint                     # all of the above
 ```
+
+`lint:go` runs through Dagger so golangci-lint is compiled from source
+against the project's Go toolchain (`GOTOOLCHAIN=auto`) — official
+prebuilt images embed go/parser+go/types of whatever Go they were
+built with, which drifts from `go.mod`.
 
 `task lint:markdown` reads its rules from `.markdownlint-cli2.jsonc` at
 the repo root. `CHANGELOG.md` and `chart/README.md` are ignored there
@@ -662,7 +650,7 @@ Verification commands for downstream consumers are documented in the
 | `task test:helm-fixtures` | Schema regression net — every `test/schema/{valid,invalid}/*.yaml` against the chart, with paired `.expect.txt` (Dagger) |
 | `task test:e2e` | Full e2e against fresh throwaway cluster |
 | `task lint` | All linters (Go + Helm + Renovate + Markdown) |
-| `task lint:{go,gocritic,gonocritic,helm,renovate,markdown}` | Single linter (Dagger) |
+| `task lint:{go,helm,renovate,markdown}` | Single linter (Dagger) |
 | `task security` | All security checks |
 | `task security:govulncheck` | govulncheck only (Dagger) |
 | `task go:tidy` | `go mod tidy` on main module + `dagger/` (direct, no sandbox) |

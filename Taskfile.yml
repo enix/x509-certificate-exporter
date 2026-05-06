@@ -311,16 +311,6 @@ tasks:
     cmds:
       - dagger call lint-go
 
-  lint:gocritic:
-    desc: golangci-lint — gocritic checks only
-    cmds:
-      - dagger call lint-go --mode=gocritic
-
-  lint:gonocritic:
-    desc: golangci-lint — full set minus gocritic
-    cmds:
-      - dagger call lint-go --mode=no-critic
-
   lint:helm:
     desc: helm lint on the chart
     cmds:

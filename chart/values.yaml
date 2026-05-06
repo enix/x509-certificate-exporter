@@ -766,6 +766,13 @@ rbac:
 rbacProxy:
   # -- Should kube-rbac-proxy be used to expose exporters
   enabled: false
+  tls:
+    # -- Pre-provisioned Secret carrying `tls.crt` + `tls.key` for the
+    # kube-rbac-proxy serving cert. When empty, the chart auto-generates
+    # a self-signed cert at install time and reuses it across upgrades
+    # via `lookup`. Set this to a cert-manager-managed Secret (or
+    # similar) for a cert with a real chain you can rotate independently.
+    existingSecretName: ""
   image:
     # -- kube-rbac-proxy image registry
     registry: quay.io

@@ -392,6 +392,7 @@ exporter-toolkit is the recommended path on new installs.
 | rbac.hostPathsExporter.clusterRoleAnnotations | object | `{}` | Annotations added to the ClusterRole for the hostPath exporters |
 | rbac.hostPathsExporter.clusterRoleBindingAnnotations | object | `{}` | Annotations added to the ClusterRoleBinding for the hostPath exporters |
 | rbacProxy.enabled | bool | `false` | Should kube-rbac-proxy be used to expose exporters |
+| rbacProxy.tls.existingSecretName | string | `""` | Pre-provisioned Secret carrying `tls.crt` + `tls.key` for the kube-rbac-proxy serving cert. When empty, the chart auto-generates a self-signed cert at install time and reuses it across upgrades via `lookup`. Set this to a cert-manager-managed Secret (or similar) for a cert with a real chain you can rotate independently. |
 | rbacProxy.image.registry | string | `"quay.io"` | kube-rbac-proxy image registry |
 | rbacProxy.image.repository | string | `"brancz/kube-rbac-proxy"` | kube-rbac-proxy image repository |
 | rbacProxy.image.tag | string | `"v0.22.0"` | kube-rbac-proxy image tag |

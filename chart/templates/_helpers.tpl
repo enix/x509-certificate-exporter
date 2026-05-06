@@ -181,6 +181,15 @@ Web configuration Secret name
 {{- end -}}
 
 {{/*
+kube-rbac-proxy serving cert Secret name. Always defined; the actual
+Secret in use is `rbacProxy.tls.existingSecretName` if set, otherwise
+the chart-generated one named here.
+*/}}
+{{- define "x509-certificate-exporter.rbacProxy.tlsSecretName" -}}
+{{ include "x509-certificate-exporter.fullname" . }}-rbac-proxy-tls
+{{- end -}}
+
+{{/*
 kubectl image for hook jobs.
 Precedence: digest > explicit tag > auto-detected cluster version.
 When digest is set the tag is omitted (digest is immutable).

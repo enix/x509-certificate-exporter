@@ -751,6 +751,19 @@
           "additionalProperties": true,
           "required": []
         },
+        "tls": {
+          "additionalProperties": false,
+          "properties": {
+            "existingSecretName": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "existingSecretName"
+          ],
+          "type": "object"
+        },
         "upstreamListenPort": {
           "default": "9091",
           "maximum": 65535,
@@ -760,6 +773,7 @@
       },
       "required": [
         "enabled",
+        "tls",
         "image"
       ],
       "type": "object"

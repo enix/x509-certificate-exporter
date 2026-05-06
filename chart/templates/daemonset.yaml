@@ -165,17 +165,22 @@ spec:
         image: {{ include "x509-certificate-exporter.rbacProxy.image" $ }}
         imagePullPolicy: {{ $.Values.rbacProxy.image.pullPolicy }}
         args:
-        - --logtostderr
-        - -v=99
         - --upstream=http://127.0.0.1:{{ $.Values.rbacProxy.upstreamListenPort }}
         # Bind on every interface (including loopback) so probes,
         # `kubectl port-forward`, and in-cluster Service routes all reach
         # the listener. kube-rbac-proxy provides authn/authz at the
         # request layer, so a wider socket binding is not a security risk.
         - --secure-listen-address=:{{ $.Values.podListenPort }}
+        # Explicit serving cert — see deployment.yaml for the rationale.
+        - --tls-cert-file=/etc/rbac-proxy/tls/tls.crt
+        - --tls-private-key-file=/etc/rbac-proxy/tls/tls.key
         ports:
         - name: metrics
           containerPort: {{ $.Values.podListenPort }}
+        volumeMounts:
+        - name: rbac-proxy-tls
+          mountPath: /etc/rbac-proxy/tls
+          readOnly: true
         readinessProbe:
         {{- with omit $.Values.hostPathsExporter.readinessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}
@@ -247,6 +252,11 @@ spec:
           items:
           - key: webconfig.yaml
             path: webconfig.yaml
+      {{- end }}
+      {{- if $.Values.rbacProxy.enabled }}
+      - name: rbac-proxy-tls
+        secret:
+          secretName: "{{ default (include "x509-certificate-exporter.rbacProxy.tlsSecretName" $) $.Values.rbacProxy.tls.existingSecretName }}"
       {{- end }}
       {{- range $extraVolumes }}
       - {{ tpl (. | toYaml) $ | indent 8 | trim }}

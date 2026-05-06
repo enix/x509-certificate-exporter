@@ -11,6 +11,22 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
+{{/*
+Effective probe listen port. Returns "0" when the probe server is
+disabled. Auto-enables to 8080 when the main /metrics port is
+auth-gated (webConfiguration set or rbacProxy.enabled). User-set
+probeListenPort > 0 takes precedence.
+*/}}
+{{- define "x509-certificate-exporter.probeListenPort" -}}
+{{- if gt (int .Values.probeListenPort) 0 -}}
+{{- .Values.probeListenPort -}}
+{{- else if or .Values.webConfiguration .Values.webConfigurationExistingSecret .Values.rbacProxy.enabled -}}
+8080
+{{- else -}}
+0
+{{- end -}}
+{{- end -}}
+
 {{- define "x509-certificate-exporter.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}

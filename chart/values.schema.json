@@ -405,6 +405,12 @@
       "default": "",
       "type": "string"
     },
+    "probeListenPort": {
+      "default": "0",
+      "maximum": 65535,
+      "minimum": 0,
+      "required": []
+    },
     "prometheusPodMonitor": {
       "additionalProperties": true,
       "properties": {

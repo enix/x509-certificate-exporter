@@ -16,6 +16,10 @@ data:
       {{- if or .Values.webConfiguration .Values.webConfigurationExistingSecret }}
       webConfigFile: "/mnt/webconfig.yaml"
       {{- end }}
+      {{- $probePort := int (include "x509-certificate-exporter.probeListenPort" .) }}
+      {{- if gt $probePort 0 }}
+      probeListen: ":{{ $probePort }}"
+      {{- end }}
 
     log:
       level: {{ ternary "debug" "info" .Values.secretsExporter.debugMode }}
@@ -97,6 +101,10 @@ data:
       listen: ":{{ if $.Values.rbacProxy.enabled }}{{ $.Values.rbacProxy.upstreamListenPort }}{{ else }}{{ $.Values.podListenPort }}{{ end }}"
       {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
       webConfigFile: "/mnt/webconfig.yaml"
+      {{- end }}
+      {{- $probePort := int (include "x509-certificate-exporter.probeListenPort" $) }}
+      {{- if gt $probePort 0 }}
+      probeListen: ":{{ $probePort }}"
       {{- end }}
 
     log:

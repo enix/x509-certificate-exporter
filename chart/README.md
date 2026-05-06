@@ -333,6 +333,7 @@ exporter-toolkit is the recommended path on new installs.
 | hostPathsExporter.env | list | `[]` | Additional environment variables for containers |
 | hostPathsExporter.daemonSets | object | `{}` | [SEE README] Map to define one or many DaemonSets running hostPath exporters. Key is used as a name ; value is a map to override all default settings set by `hostPathsExporter.*`. |
 | podListenPort | int | `9793` | TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not) |
+| probeListenPort | int | `0` | TCP port for a separate plain-HTTP server exposing only `/healthz` and `/readyz`, used as the kubelet probe target. `0` disables it; the chart auto-enables `8080` when the main `/metrics` port is auth-gated (`webConfiguration` set or `rbacProxy.enabled`), so kubelet probes can succeed without a TLS / mTLS / Bearer credential. Set explicitly to override the auto-default. |
 | hostNetwork | bool | `false` | Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster |
 | web.enableStats | bool | `true` | Expose internal cache statistics via HTML on the root endpoint (/) |
 | webConfiguration | string | `""` | HTTP server configuration for enabling TLS and authentication (password, mTLS) ; see [documentation at Exporter Toolkit](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md) |

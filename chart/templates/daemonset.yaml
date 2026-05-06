@@ -128,39 +128,34 @@ spec:
         - {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
       {{- if not $.Values.rbacProxy.enabled }}
+        {{- $probePort := int (include "x509-certificate-exporter.probeListenPort" $) }}
         ports:
         - name: metrics
           containerPort: {{ $.Values.podListenPort }}
+        {{- if gt $probePort 0 }}
+        - name: probe
+          containerPort: {{ $probePort }}
+        {{- end }}
         readinessProbe:
         {{- with omit $.Values.hostPathsExporter.readinessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
-        {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
-          tcpSocket:
-            port: metrics
-        {{- else }}
           httpGet:
             path: /healthz
-            port: metrics
+            port: {{ if gt $probePort 0 }}probe{{ else }}metrics{{ end }}
           {{- with $.Values.hostPathsExporter.readinessProbe.httpGet }}
             {{ tpl (. | toYaml) $ | indent 12 | trim }}
           {{- end }}
-        {{- end }}
         livenessProbe:
         {{- with omit $.Values.hostPathsExporter.livenessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
-        {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
-          tcpSocket:
-            port: metrics
-        {{- else }}
           httpGet:
             path: /healthz
-            port: metrics
+            port: {{ if gt $probePort 0 }}probe{{ else }}metrics{{ end }}
           {{- with $.Values.hostPathsExporter.livenessProbe.httpGet }}
             {{ tpl (. | toYaml) $ | indent 12 | trim }}
           {{- end }}
-        {{- end }}
       {{- else }}
       - name: kube-rbac-proxy
         {{- with $.Values.rbacProxy.securityContext }}
@@ -182,17 +177,23 @@ spec:
         - name: metrics
           containerPort: {{ $.Values.podListenPort }}
         readinessProbe:
-          tcpSocket:
-            port: metrics
         {{- with omit $.Values.hostPathsExporter.readinessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
+          # The exporter container runs its plain-HTTP probe server on
+          # this numeric port (auto-enabled by the chart whenever
+          # rbacProxy.enabled, see _helpers.tpl). The sidecar's probe
+          # targets it directly — bypasses the proxy's HTTPS+Bearer.
+          httpGet:
+            path: /healthz
+            port: {{ int (include "x509-certificate-exporter.probeListenPort" $) }}
         livenessProbe:
-          tcpSocket:
-            port: metrics
         {{- with omit $.Values.hostPathsExporter.livenessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
+          httpGet:
+            path: /healthz
+            port: {{ int (include "x509-certificate-exporter.probeListenPort" $) }}
         {{- with $.Values.rbacProxy.resources }}
         resources:
         {{- . | toYaml | trim | nindent 10 }}

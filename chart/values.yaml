@@ -501,6 +501,18 @@ hostPathsExporter:
 # -- TCP port to expose Pods on (whether kube-rbac-proxy is enabled or not)
 podListenPort: 9793
 
+# @schema
+# minimum: 0
+# maximum: 65535
+# @schema
+# -- TCP port for a separate plain-HTTP server exposing only `/healthz`
+# and `/readyz`, used as the kubelet probe target. `0` disables it; the
+# chart auto-enables `8080` when the main `/metrics` port is auth-gated
+# (`webConfiguration` set or `rbacProxy.enabled`), so kubelet probes
+# can succeed without a TLS / mTLS / Bearer credential. Set explicitly
+# to override the auto-default.
+probeListenPort: 0
+
 # -- Enable hostNetwork mode. Useful when Prometheus is deployed outside of the Kubernetes cluster
 hostNetwork: false
 

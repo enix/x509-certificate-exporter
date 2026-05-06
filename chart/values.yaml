@@ -17,7 +17,7 @@ imagePullSecrets: []
 
 image:
   # -- Exporter image registry
-  registry: docker.io
+  registry: quay.io
   # -- Exporter image repository
   repository: enix/x509-certificate-exporter
   # -- Exporter image tag (defaults to Chart appVersion)

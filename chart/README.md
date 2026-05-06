@@ -240,7 +240,7 @@ exporter-toolkit is the recommended path on new installs.
 | extraDeploy | list | `[]` | Additional objects to deploy with the release |
 | extraDeployVerbatim | list | `[]` | Same as `extraDeploy` but objects won't go through the templating engine |
 | imagePullSecrets | list | `[]` | Specify docker-registry secret names as an array |
-| image.registry | string | `"docker.io"` | Exporter image registry |
+| image.registry | string | `"quay.io"` | Exporter image registry |
 | image.repository | string | `"enix/x509-certificate-exporter"` | Exporter image repository |
 | image.tag | string | `""` | Exporter image tag (defaults to Chart appVersion) |
 | image.tagSuffix | string | `""` | Appended to the image tag to select a container flavor. Use `-busybox` for a shell-enabled image |

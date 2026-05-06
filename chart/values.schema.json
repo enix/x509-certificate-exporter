@@ -271,7 +271,7 @@
           "required": []
         },
         "registry": {
-          "default": "docker.io",
+          "default": "quay.io",
           "type": "string"
         },
         "repository": {

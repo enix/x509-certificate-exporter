@@ -103,13 +103,27 @@ In v3, `enix/x509-certificate-exporter` was the canonical reference
 (implicitly Docker Hub). v4 publishes the same image to **three**
 registries simultaneously, with byte-identical contents and signatures:
 
+- `quay.io/enix/x509-certificate-exporter` (chart default in v4)
 - `ghcr.io/enix/x509-certificate-exporter`
-- `quay.io/enix/x509-certificate-exporter`
 - `docker.io/enix/x509-certificate-exporter` (`enix/x509-certificate-exporter` short form)
 
-Pick whichever fits your egress / pull-rate-limit policy. The chart's
-default `image.registry` value is unchanged (`docker.io`), so no edit is
-needed unless you want to switch.
+> [!IMPORTANT]
+> **The chart's default `image.registry` flips from `docker.io` to
+> `quay.io` in v4.** A plain v3 → v4 upgrade therefore changes the
+> registry the kubelet pulls from. If your cluster relies on
+> ImagePullSecrets, registry mirrors, network policy egress rules, or
+> admission webhooks scoped to Docker Hub, override `image.registry`
+> back to `docker.io` (or any of the three) — all three registries are
+> kept in lockstep and serve byte-identical images and signatures.
+
+```yaml
+# values.yaml — opt back to Docker Hub if your environment requires it
+image:
+  registry: docker.io
+```
+
+Pick whichever fits your egress / pull-rate-limit policy. Otherwise
+no edit is needed.
 
 ### Variants
 

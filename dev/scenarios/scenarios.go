@@ -311,13 +311,25 @@ func build() {
 
 	// ─── Errors — corrupt PEM, corrupt PKCS#12, wrong passphrase ────────
 	// Valid base64 of bytes that do not parse as a certificate → bad_pem
-	// (with Index>=0 so x509_cert_error gets a series).
+	// (with Index>=0 so x509_cert_error gets a series). The matching
+	// `tls.key` is intentionally a real key for an unrelated cert: the
+	// kube-apiserver will warn about the cert being malformed (which
+	// is the whole point of this fixture and its expected ParseError
+	// assertion) but won't add a separate, unrelated warning about
+	// missing PEM data on the key.
+	_, badPEMKey, err := Selfsigned(CertSpec{
+		CN:        "bad-pem-companion-key",
+		NotBefore: in(-time.Hour),
+		NotAfter:  in(day),
+		Algo:      AlgoRSA2048,
+	})
+	must(err)
 	sc = append(sc, Scenario{
 		Namespace: "x509ce-errors", Name: "bad-pem",
 		Kind: "Secret", SecretType: "kubernetes.io/tls",
 		Data: map[string][]byte{
 			"tls.crt": []byte("-----BEGIN CERTIFICATE-----\nQUFBQUFBQUFBQUFBQUFBQQ==\n-----END CERTIFICATE-----\n"),
-			"tls.key": []byte("dummy"),
+			"tls.key": EncodeKeyPEM(badPEMKey),
 		},
 		Watched: true,
 		Expect:  []ExpectCert{{Key: "tls.crt", ParseError: ErrBadPEM}},
@@ -351,7 +363,7 @@ func build() {
 	})
 
 	// ─── Negative — namespace excluded by label ─────────────────────────
-	hiddenCert, _, err := Selfsigned(CertSpec{
+	hiddenCert, hiddenKey, err := Selfsigned(CertSpec{
 		CN: "hidden.example.test", DNSNames: []string{"hidden.example.test"},
 		NotBefore: in(-time.Hour), NotAfter: in(180 * day), Algo: AlgoRSA2048,
 	})
@@ -361,7 +373,7 @@ func build() {
 		Kind: "Secret", SecretType: "kubernetes.io/tls",
 		Data: map[string][]byte{
 			"tls.crt": EncodeCertsPEM(hiddenCert),
-			"tls.key": []byte("dummy"),
+			"tls.key": EncodeKeyPEM(hiddenKey),
 		},
 		NamespaceLabels: map[string]string{
 			"x509ce-test/ignore": "true",
@@ -370,7 +382,7 @@ func build() {
 	})
 
 	// ─── Negative — namespace excluded by name ─────────────────────────
-	hiddenByName, _, err := Selfsigned(CertSpec{
+	hiddenByName, hiddenByNameKey, err := Selfsigned(CertSpec{
 		CN: "hidden-by-name.example.test", DNSNames: []string{"hidden-by-name.example.test"},
 		NotBefore: in(-time.Hour), NotAfter: in(180 * day), Algo: AlgoRSA2048,
 	})
@@ -380,7 +392,7 @@ func build() {
 		Kind: "Secret", SecretType: "kubernetes.io/tls",
 		Data: map[string][]byte{
 			"tls.crt": EncodeCertsPEM(hiddenByName),
-			"tls.key": []byte("dummy"),
+			"tls.key": EncodeKeyPEM(hiddenByNameKey),
 		},
 		Watched: false,
 	})
@@ -401,7 +413,7 @@ func build() {
 	})
 
 	// ─── Negative — secret excluded by label (server-side selector) ────
-	hiddenSecCert, _, err := Selfsigned(CertSpec{
+	hiddenSecCert, hiddenSecKey, err := Selfsigned(CertSpec{
 		CN: "hidden-secret-label.example.test", DNSNames: []string{"hidden-secret-label.example.test"},
 		NotBefore: in(-time.Hour), NotAfter: in(180 * day), Algo: AlgoRSA2048,
 	})
@@ -411,7 +423,7 @@ func build() {
 		Kind: "Secret", SecretType: "kubernetes.io/tls",
 		Data: map[string][]byte{
 			"tls.crt": EncodeCertsPEM(hiddenSecCert),
-			"tls.key": []byte("dummy"),
+			"tls.key": EncodeKeyPEM(hiddenSecKey),
 		},
 		Labels: map[string]string{
 			"x509ce-test/ignore": "true",

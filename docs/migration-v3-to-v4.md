@@ -11,7 +11,7 @@ values shape, then metrics changes, then the rest.
 
 | Area | v3 | v4 |
 | --- | --- | --- |
-| Helm chart distribution | `https://charts.enix.io` (classic) **and** `oci://quay.io/enix/charts/...` | Both still work — OCI recommended |
+| Helm chart distribution | Hybrid: `https://charts.enix.io` index pointing at `oci://quay.io/enix/charts/...` artifacts | Same hybrid still works — going full OCI recommended |
 | Container image variants | `busybox` (default), `alpine`, `scratch` | `scratch` (default, minimal), `busybox` (alt, with shell) — Alpine retired |
 | Image registries | Docker Hub, Quay | Docker Hub, Quay, GHCR |
 | Exporter configuration | CLI flags | YAML config file (`--config`) |
@@ -21,14 +21,18 @@ values shape, then metrics changes, then the rest.
 
 ---
 
-## 1. Helm chart distribution: OCI recommended
+## 1. Helm chart distribution: go full OCI
 
-The classic Helm repository at `https://charts.enix.io` continues to
-work and will keep receiving v4 releases — **no action required** if
-you stay on it. That said, we recommend migrating to the OCI reference
-at your own pace: OCI artifacts are the direction the Helm ecosystem is
-heading, and the OCI publication is where cosign signatures, SBOM
-attestations and provenance are attached.
+**No breaking change here** — chart releases have been published as OCI
+artifacts since v3. The classic index at `https://charts.enix.io` was
+always a thin hybrid: an HTTP `index.yaml` whose `urls:` entries point
+straight at `oci://quay.io/enix/charts/...`. It keeps working in v4 and
+will keep receiving releases, so **no action is required**.
+
+We do recommend pointing your tooling directly at the OCI reference at
+your own pace. The hybrid index adds an extra hop with no upside, and
+OCI is where cosign signatures, SBOM attestations and provenance live —
+verifying them is straightforward when you pull the artifact directly.
 
 > [!TIP]
 > If your tooling already supports OCI (Helm 3.8+, Argo CD 2.6+,

@@ -85,7 +85,7 @@ func Generate(serverDNS []string) (*Bundle, error) {
 		O:         []string{"x509ce-e2e"},
 		NotBefore: notBefore,
 		NotAfter:  notAfter,
-		Algo:      scenarios.AlgoRSA2048,
+		Algo:      scenarios.AlgoECDSAP256,
 		IsCA:      true,
 	})
 	if err != nil {
@@ -172,7 +172,7 @@ func signLeaf(s leafSpec, parent *x509.Certificate, parentKey crypto.Signer) (*x
 		CN:        s.cn + "-keygen-discard",
 		NotBefore: s.notBefore,
 		NotAfter:  s.notAfter,
-		Algo:      scenarios.AlgoRSA2048,
+		Algo:      scenarios.AlgoECDSAP256,
 	})
 	if err != nil {
 		return nil, nil, err

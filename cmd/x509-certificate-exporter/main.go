@@ -214,7 +214,6 @@ func run() error {
 		Readiness:    readiness,
 		Logger:       logger,
 	})
-	logger.Info("listening", "addr", cfg.Server.Listen)
 
 	if cfg.Diagnostics.Pprof.Enabled {
 		listen := cfg.Diagnostics.Pprof.Listen

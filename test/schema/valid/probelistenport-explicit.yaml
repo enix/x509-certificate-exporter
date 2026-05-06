@@ -1,0 +1,3 @@
+# Locks down the [0, 65535] range on probeListenPort. 0 = disabled
+# (default); any 1..65535 enables a separate plain-HTTP probe server.
+probeListenPort: 8081

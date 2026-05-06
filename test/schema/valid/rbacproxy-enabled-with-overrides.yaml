@@ -1,0 +1,11 @@
+# Locks down a realistic rbacProxy.enabled=true configuration: enabling
+# the kube-rbac-proxy sidecar plus typical image / port overrides a user
+# would set when fronting /metrics with TokenReview authn.
+rbacProxy:
+  enabled: true
+  upstreamListenPort: 9091
+  image:
+    registry: quay.io
+    repository: brancz/kube-rbac-proxy
+    tag: v0.22.0
+    pullPolicy: IfNotPresent

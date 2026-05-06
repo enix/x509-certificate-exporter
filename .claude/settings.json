@@ -24,6 +24,7 @@
       "Bash(task security:vuln-deps)",
       "Bash(task test)",
       "Bash(task test:e2e)",
+      "Bash(task test:fuzz)",
       "Bash(task test:helm-examples)",
       "Bash(task test:helm-fixtures)",
       "Bash(task test:unit)"

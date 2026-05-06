@@ -69,6 +69,13 @@ type Config struct {
 type Server struct {
 	Listen        string        `yaml:"listen"`
 	WebConfigFile string        `yaml:"webConfigFile"`
+	// ProbeListen, when non-empty, runs a second http.Server on this
+	// address serving only /healthz and /readyz over plain HTTP. Lets
+	// kubelet probes succeed when the main /metrics port is gated by
+	// TLS / mTLS / basic_auth (webConfiguration) or fronted by a
+	// kube-rbac-proxy sidecar. Empty disables — probes use the main
+	// port.
+	ProbeListen   string        `yaml:"probeListen"`
 	SystemdSocket bool          `yaml:"systemdSocket"`
 	ReadTimeout   time.Duration `yaml:"readTimeout"`
 	WriteTimeout  time.Duration `yaml:"writeTimeout"`
@@ -373,6 +380,7 @@ type CLIOverrides struct {
 	WatchKubeSecrets bool
 	Listen           string
 	WebConfigFile    string
+	ProbeListen      string
 	Debug            bool
 	Profile          bool
 }
@@ -389,6 +397,9 @@ func ApplyCLI(base Config, ov CLIOverrides) Config {
 	}
 	if ov.WebConfigFile != "" {
 		base.Server.WebConfigFile = ov.WebConfigFile
+	}
+	if ov.ProbeListen != "" {
+		base.Server.ProbeListen = ov.ProbeListen
 	}
 	if ov.Debug {
 		base.Log.Level = "debug"

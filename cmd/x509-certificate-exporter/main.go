@@ -53,6 +53,7 @@ type CLI struct {
 	WatchKubeSecrets bool     `name:"watch-kube-secrets" help:"Enable Kubernetes secrets scanning."`
 	Listen           string   `name:"listen-address" short:"b" help:"Listen address."`
 	WebConfigFile    string   `name:"web.config.file" help:"Exporter-toolkit web configuration file."`
+	ProbeListen      string   `name:"probe.listen-address" help:"Listen address for a separate plain-HTTP server exposing only /healthz and /readyz. Useful when --web.config.file gates the main port with TLS / mTLS / basic_auth and kubelet probes can't reach it."`
 	Debug            bool     `name:"debug" help:"Enable debug logging."`
 	Profile          bool     `name:"profile" help:"Enable pprof endpoint on :6060."`
 	Version          bool     `name:"version" short:"v" help:"Print version and exit."`
@@ -89,6 +90,7 @@ func run() error {
 		WatchFiles: cli.WatchFiles, WatchDirs: cli.WatchDirs,
 		WatchKubeconf: cli.WatchKubeconfs, WatchKubeSecrets: cli.WatchKubeSecrets,
 		Listen: cli.Listen, WebConfigFile: cli.WebConfigFile,
+		ProbeListen: cli.ProbeListen,
 		Debug: cli.Debug, Profile: cli.Profile,
 	})
 	if !config.HasSources(cfg) {
@@ -227,6 +229,26 @@ func run() error {
 		go func() {
 			defer recoverPanic(reg, "pprof", logger)
 			server.RunPprof(ctx, pprofSrv, logger)
+		}()
+	}
+
+	// Probe-only server. Plain HTTP, /healthz + /readyz only — exists so
+	// kubelet probes succeed when the main port is auth-gated. Empty
+	// ProbeListen disables; in that case probes use the main port and
+	// behave as before.
+	if cfg.Server.ProbeListen != "" {
+		probeSrv := server.BuildProbe(server.ProbeOptions{
+			Listen:       cfg.Server.ProbeListen,
+			ReadTimeout:  cfg.Server.ReadTimeout,
+			WriteTimeout: cfg.Server.WriteTimeout,
+			Readiness:    readiness,
+		})
+		logger.Info("probe listening", "addr", cfg.Server.ProbeListen)
+		go func() {
+			defer recoverPanic(reg, "probe", logger)
+			if err := server.Run(ctx, probeSrv, logger); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error("probe server exited with error", "error", err)
+			}
 		}()
 	}
 

@@ -52,8 +52,31 @@ type Options struct {
 	Stats        *registry.Registry
 }
 
-// Build constructs an *http.Server with the right Mux. Caller starts and
-// stops it. The exporter-toolkit web config wiring is done in main.go.
+// healthzHandler always returns 200 — kubelet only cares that the
+// process is alive enough to answer.
+func healthzHandler(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.WriteString(w, "ok\n")
+}
+
+// readyzHandler reports 200 once every source has finished its initial
+// sync, 503 before that. The Readiness latch is the single source of
+// truth — shared between the main server and the probe-only server.
+func readyzHandler(r *Readiness) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		if r != nil && !r.IsReady() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = io.WriteString(w, "syncing\n")
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, "ready\n")
+	}
+}
+
+// Build constructs the main *http.Server (everything the chart's
+// /metrics scrape needs). Caller starts and stops it; exporter-toolkit
+// wraps it for TLS / mTLS / basic_auth when webConfiguration is set.
 func Build(opts Options) *http.Server {
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
@@ -62,19 +85,8 @@ func Build(opts Options) *http.Server {
 	mux.Handle("/metrics", promhttp.HandlerFor(opts.Registry, promhttp.HandlerOpts{
 		ErrorHandling: promhttp.ContinueOnError, // never 500 on partial errors
 	}))
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = io.WriteString(w, "ok\n")
-	})
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		if opts.Readiness != nil && !opts.Readiness.IsReady() {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = io.WriteString(w, "syncing\n")
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = io.WriteString(w, "ready\n")
-	})
+	mux.HandleFunc("/healthz", healthzHandler)
+	mux.HandleFunc("/readyz", readyzHandler(opts.Readiness))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -131,6 +143,37 @@ func Build(opts Options) *http.Server {
 </ul>
 %s</body></html>`, statsHTML)
 	})
+	return &http.Server{
+		Addr:         opts.Listen,
+		Handler:      mux,
+		ReadTimeout:  opts.ReadTimeout,
+		WriteTimeout: opts.WriteTimeout,
+	}
+}
+
+// ProbeOptions drives the probe-only server. Used when the main server
+// is auth-gated (webConfiguration / kube-rbac-proxy sidecar) and
+// kubelet probes can't reach /healthz on the main port over plain HTTP.
+type ProbeOptions struct {
+	Listen       string
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	Readiness    *Readiness
+}
+
+// BuildProbe constructs a separate *http.Server exposing **only**
+// /healthz and /readyz, plain HTTP — no /metrics, no auth, no TLS. It
+// shares the Readiness latch with the main server, so /readyz reflects
+// the same state.
+//
+// Run alongside the main server when the chart sets a non-empty
+// `--probe.listen-address`. Default unused — when the flag is empty,
+// the binary falls back to serving probes on the main port (current
+// behaviour).
+func BuildProbe(opts ProbeOptions) *http.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", healthzHandler)
+	mux.HandleFunc("/readyz", readyzHandler(opts.Readiness))
 	return &http.Server{
 		Addr:         opts.Listen,
 		Handler:      mux,

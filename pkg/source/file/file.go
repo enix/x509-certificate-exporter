@@ -269,9 +269,7 @@ func (s *Source) processEntry(ctx context.Context, sink cert.Sink, e fileglob.En
 			}
 			ref.Attributes["pattern"] = e.Pattern
 		}
-		t0 := time.Now()
 		b := p.Parse(data, ref, s.opts.ParseOpts)
-		_ = time.Since(t0)
 		if b.HasFatalError() && len(s.opts.Formats) > 1 {
 			// fall through to next parser
 			continue

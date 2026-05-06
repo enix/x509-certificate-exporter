@@ -135,22 +135,32 @@ spec:
         {{- with omit $.Values.hostPathsExporter.readinessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
+        {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
+          tcpSocket:
+            port: metrics
+        {{- else }}
           httpGet:
             path: /healthz
             port: metrics
           {{- with $.Values.hostPathsExporter.readinessProbe.httpGet }}
             {{ tpl (. | toYaml) $ | indent 12 | trim }}
           {{- end }}
+        {{- end }}
         livenessProbe:
         {{- with omit $.Values.hostPathsExporter.livenessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
+        {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
+          tcpSocket:
+            port: metrics
+        {{- else }}
           httpGet:
             path: /healthz
             port: metrics
           {{- with $.Values.hostPathsExporter.livenessProbe.httpGet }}
             {{ tpl (. | toYaml) $ | indent 12 | trim }}
           {{- end }}
+        {{- end }}
       {{- else }}
       - name: kube-rbac-proxy
         {{- with $.Values.rbacProxy.securityContext }}
@@ -162,26 +172,23 @@ spec:
         args:
         - --logtostderr
         - -v=99
-        - --upstream=http://[127.0.0.1]:{{ $.Values.rbacProxy.upstreamListenPort }}
-        - --secure-listen-address=[$(IP)]:{{ $.Values.podListenPort }}
-        env:
-        - name: IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
+        - --upstream=http://127.0.0.1:{{ $.Values.rbacProxy.upstreamListenPort }}
+        # Bind on every interface (including loopback) so probes,
+        # `kubectl port-forward`, and in-cluster Service routes all reach
+        # the listener. kube-rbac-proxy provides authn/authz at the
+        # request layer, so a wider socket binding is not a security risk.
+        - --secure-listen-address=:{{ $.Values.podListenPort }}
         ports:
         - name: metrics
           containerPort: {{ $.Values.podListenPort }}
         readinessProbe:
-          httpGet:
-            path: /healthz
+          tcpSocket:
             port: metrics
         {{- with omit $.Values.hostPathsExporter.readinessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}
         {{- end }}
         livenessProbe:
-          httpGet:
-            path: /healthz
+          tcpSocket:
             port: metrics
         {{- with omit $.Values.hostPathsExporter.livenessProbe "httpGet" }}
           {{ tpl (. | toYaml) $ | indent 10 | trim }}

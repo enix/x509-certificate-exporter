@@ -22,6 +22,7 @@ import (
 	"github.com/KimMachineGun/automemlimit/memlimit"
 	"github.com/alecthomas/kong"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/exporter-toolkit/web"
 	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/enix/x509-certificate-exporter/v4/internal/config"
@@ -231,7 +232,21 @@ func run() error {
 
 	srvErr := make(chan error, 1)
 	go func() {
-		srvErr <- srv.ListenAndServe()
+		// exporter-toolkit's ListenAndServe is the canonical way to wire
+		// up Prometheus-style web.config.file (TLS, mTLS, basic_auth).
+		// When WebConfigFile is empty, it falls back to plain HTTP — same
+		// behaviour as net/http's ListenAndServe — so this wrapper is
+		// always safe regardless of whether the user opts into auth.
+		listenAddrs := []string{cfg.Server.Listen}
+		webFlags := &web.FlagConfig{
+			WebListenAddresses: &listenAddrs,
+			WebConfigFile:      &cfg.Server.WebConfigFile,
+		}
+		err := web.ListenAndServe(srv, webFlags, logger)
+		if errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		srvErr <- err
 	}()
 
 	select {

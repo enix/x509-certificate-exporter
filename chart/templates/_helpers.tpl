@@ -237,7 +237,10 @@ resource is found.
   {{- if $existingResource -}}
     {{- $chartLabel := index $existingResource.metadata.labels "helm.sh/chart" -}}
     {{- if $chartLabel -}}
-      {{- $result = trimPrefix "x509-certificate-exporter-" $chartLabel -}}
+      {{/* Helm replaces `+` with `_` when building the chart label
+           (labels can't contain `+`); revert to get parseable semver
+           build metadata, e.g. `3.20.0_abcdef` → `3.20.0+abcdef`. */}}
+      {{- $result = trimPrefix "x509-certificate-exporter-" $chartLabel | replace "_" "+" -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}

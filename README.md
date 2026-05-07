@@ -38,7 +38,7 @@ cluster it observes, but equally happy as a standalone binary.
 ## ✨ What's new in v4
 
 - **Full rewrite** around a YAML config file and a pluggable architecture — clean foundations for the project to grow on.
-- **Memory-safe Kubernetes watch** — RAM usage stays flat instead of spiking; expect to set memory limits ~10× lower than before.
+- **Memory-safe Kubernetes watch** — RAM stays flat instead of spiking; on Secret-heavy clusters, memory limits drop ~10×.
 - **Richer PKCS#12 wiring** — full keystore + truststore coverage, flexible passphrase sourcing.
 - **Surface workload metadata** — lift watched resource labels onto emitted certificate series.
 - **Supply-chain hardened** — SLSA Build L3 provenance, cosign-signed binaries, images and chart, SBOM attestations.

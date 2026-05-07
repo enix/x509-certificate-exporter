@@ -377,12 +377,12 @@ exporter-toolkit is the recommended path on new installs.
 | prometheusRules.certificateErrorsSeverity | string | `"warning"` | Severity for the CertificateError alerting rule |
 | prometheusRules.certificateRenewalsSeverity | string | `"warning"` | Severity for the CertificateRenewal alerting rule |
 | prometheusRules.certificateExpirationsSeverity | string | `"critical"` | Severity for the CertificateExpiration alerting rule |
-| prometheusRules.warningDaysLeft | int | `28` | Raise a warning alert when this few days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29) |
-| prometheusRules.criticalDaysLeft | int | `14` | Raise a critical alert when this few days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue) |
+| prometheusRules.warningDaysLeft | int | `28` | Raise a warning alert when fewer than this many days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29) |
+| prometheusRules.criticalDaysLeft | int | `14` | Raise a critical alert when fewer than this many days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue) |
 | prometheusRules.extraLabels | object | `{}` | Additional labels to add to PrometheusRule objects |
 | prometheusRules.alertExtraLabels | object | `{}` | Additional labels to add to PrometheusRule rules |
 | prometheusRules.alertExtraAnnotations | object | `{}` | Additional annotations to add to PrometheusRule rules |
-| prometheusRules.rulePrefix | string | `""` | Additional rulePrefix to PrometheusRule rules |
+| prometheusRules.rulePrefix | string | `""` | Prefix prepended to the alert rule names of PrometheusRule rules |
 | prometheusRules.disableBuiltinAlertGroup | bool | `false` | Skip all built-in alerts when using extraAlertGroups |
 | prometheusRules.extraAlertGroups | list | `[]` | Additional alert groups for custom configuration (example in `values.yaml`) |
 | extraLabels | object | `{}` | Additional labels added to all chart objects |

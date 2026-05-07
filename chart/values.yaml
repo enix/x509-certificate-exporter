@@ -129,10 +129,10 @@ grafana:
   # @schema
   # -- Annotations added to the Grafana dashboard ConfigMap (example in `values.yaml`)
   annotations: {}
+  #  k8s-sidecar-target-directory: "/tmp/dashboards/Example"
   # @schema
   # additionalProperties: true
   # @schema
-    # k8s-sidecar-target-directory: "/tmp/dashboards/Example"
   # -- Additional labels added to the Grafana dashboard ConfigMap
   extraLabels: {}
 
@@ -643,12 +643,12 @@ prometheusRules:
   # @schema
   # minimum: 0
   # @schema
-  # -- Raise a warning alert when this few days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)
+  # -- Raise a warning alert when fewer than this many days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29)
   warningDaysLeft: 28
   # @schema
   # minimum: 0
   # @schema
-  # -- Raise a critical alert when this few days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)
+  # -- Raise a critical alert when fewer than this many days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)
   criticalDaysLeft: 14
   # @schema
   # additionalProperties: true
@@ -665,7 +665,7 @@ prometheusRules:
   # @schema
   # -- Additional annotations to add to PrometheusRule rules
   alertExtraAnnotations: {}
-  # -- Additional rulePrefix to PrometheusRule rules
+  # -- Prefix prepended to the alert rule names of PrometheusRule rules
   rulePrefix: ""
   # -- Skip all built-in alerts when using extraAlertGroups
   disableBuiltinAlertGroup: false

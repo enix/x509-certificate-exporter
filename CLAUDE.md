@@ -302,49 +302,69 @@ public changelog.
 
 ### Build & publish — release.yaml
 
-Triggered by a `v*` tag push. Two jobs, all driven by
-[`.goreleaser.yaml`](./.goreleaser.yaml) for the heavy lifting:
+Triggered by a `v*` tag push. The pipeline splits "build everything"
+from "push to public registries" so reviewers gate **publishing**, not
+**building** — which means the artifacts they approve are bit-identical
+to what users pull (verified by digest, not rebuilt). Five jobs:
 
-1. **`goreleaser`** (env `release`, gated by required reviewers) —
-   builds binaries × 6 OS / 4 archs (with exclusions for non-existent
-   combos), packages as `.tar.gz` / `.zip`, computes checksums, signs
-   the checksums file with cosign keyless. Builds two multi-arch
-   container images (scratch is the default, busybox is the alt with
-   shell; each spans amd64/arm64/riscv64) via GoReleaser's
-   `dockers_v2` — one `docker buildx build --push --platform=...` per
-   variant, hitting ghcr/quay/docker.io in one go. Each pushed multi-arch image is signed with cosign keyless
-   (`docker_signs` → `artifacts: images`). Then a post-loop reads
-   `dist/artifacts.json`, resolves each pushed image tag → digest,
-   runs syft for an image SBOM, and attaches it as a cosign
-   attestation (predicateType `cyclonedx`). The Dockerfiles use
-   `ARG TARGETPLATFORM` + `COPY $TARGETPLATFORM/<binary>` per the
-   dockers_v2 build-context layout.
-   The same job emits a SLSA Build Level 3 provenance attestation
-   over `dist/checksums.txt` via `actions/attest-build-provenance`,
-   uploaded to GitHub's native Attestations API and signed via
-   Sigstore. Verified by consumers with
-   `gh attestation verify <archive> --owner enix`.
-2. **`chart`** (env `release`) — packages the Helm chart with `helm
-   package` (overriding `name:`/`version:`/`appVersion:` in-runner
-   from the env vars + tag, so the chart on disk stays generic),
-   pushes as an OCI artifact, signs with cosign keyless. Waits on
-   `goreleaser` so the chart's image references point to images that
-   actually exist in the registries.
+1. **`security` / `lint` / `test`** — reusable workflows, same gates as
+   PRs. No `release` Environment access.
+2. **`build`** (no Environment) — drives `goreleaser release` with
+   `GORELEASER_PUBLISH_TARGETS=ghcr-only`. Builds binaries × 6 OS / 4
+   archs (with exclusions), archives, checksums, two multi-arch
+   container images (scratch default, busybox alt) — and pushes
+   them **only to GHCR** (auth via `GITHUB_TOKEN`). Cosign-signs the
+   checksums file (`signs:` blob) and every pushed image
+   (`docker_signs` by digest). Emits a SLSA Build Level 3 provenance
+   attestation over `dist/checksums.txt` via
+   `actions/attest-build-provenance`. Generates a CycloneDX SBOM per
+   image (syft) and attaches it as a cosign attestation. Packages the
+   Helm chart, pushes it to GHCR staging at
+   `ghcr.io/enix/<IMAGE_NAME>/charts/<CHART_NAME>:<VERSION>`, signs it
+   with cosign keyless. Creates the GitHub Release as a **draft** with
+   binaries + checksums + sigstore bundle attached. Uploads
+   `dist/publish-manifest.json` (image refs, chart ref, prerelease
+   flag) as a workflow artifact for the publish job.
+3. **`publish`** (env `release`, gated by required reviewers) — pure
+   mirror step. Logs into quay.io, docker.io, and `CHART_REGISTRY`,
+   then `oras copy -r`s every staged image and the chart from GHCR
+   to the public registries. `oras copy -r` follows OCI 1.1
+   referrers, so the cosign signature, SLSA provenance attestation,
+   and CycloneDX SBOM all travel with the artifact by digest;
+   nothing is rebuilt or re-signed. (cosign 3.x stores all three as
+   referrers; `cosign copy` is deprecated and does not follow them.)
+   The destination ref's chart path is the canonical user-facing
+   form (`<CHART_REGISTRY>/<CHART_NAME>`), not the GHCR staging
+   path.
+4. **`helm-index`** (env `release`) — pulls the chart back from
+   `CHART_REGISTRY`, regenerates the classic Helm repo index, pushes
+   it as an OCI artifact, then triggers the publish workflow in
+   `enix/helm-charts` to refresh `https://charts.enix.io`. Keeps the
+   legacy `helm repo add` install path working.
+5. **`release-edit`** — flips the GitHub Release out of draft state.
+   Last step: if any prior job fails, the release stays a draft and
+   no public-facing announcement happens.
 
 GoReleaser refuses to release on a dirty working tree, which gives a
 free reproducibility guarantee.
 
-The `goreleaser` and `chart` jobs both run in the `release` GitHub
-Environment. Three `vars.*` MUST be set on that Environment (no
-fallback — the workflow validates and fails fast):
+The `GORELEASER_PUBLISH_TARGETS=ghcr-only` env var swaps the
+`dockers_v2` entries via `disable:` templates: `scratch` and `busybox`
+disable themselves, while `scratch-ghcr` and `busybox-ghcr` (single
+GHCR target, otherwise identical) take over. Manual `goreleaser
+release` runs (env unset) keep pushing to all three registries — the
+ghcr-only mode is opt-in for the CI build phase only.
 
-- `IMAGE_NAME`     — container image name (e.g. `x509-certificate-exporter`)
-- `CHART_NAME`     — Helm chart name (often == `IMAGE_NAME`)
+**Repo-level** variables (Settings → Variables, no Environment scope —
+accessible to the build job which runs without environment access):
+
+- `IMAGE_NAME` — container image name (e.g. `x509-certificate-exporter`)
+- `CHART_NAME` — Helm chart name (often == `IMAGE_NAME`)
+
+**Environment-scoped** variable on `release`:
+
 - `CHART_REGISTRY` — OCI host/namespace where the chart is pushed,
-                     WITHOUT the `oci://` scheme (e.g. `quay.io/enix/charts`).
-                     The workflow prepends `oci://` only where helm
-                     needs it; cosign and the verification commands
-                     consume the bare form directly.
+  WITHOUT the `oci://` scheme (e.g. `quay.io/enix/charts`).
 
 The container image registries (`ghcr.io/enix`, `quay.io/enix`,
 `docker.io/enix`) are hardcoded in `.goreleaser.yaml` rather than
@@ -359,7 +379,9 @@ the `vars.*` overrides. Consumers downloading binaries always
 extract a binary called `x509-certificate-exporter` and can script
 against that name.
 
-Registry credentials live on the `release` Environment:
+Registry credentials live on the `release` Environment (only the
+publish + helm-index jobs need them; the build job runs with only
+`GITHUB_TOKEN` for GHCR):
 
 - Image registries: `QUAY_USERNAME`/`QUAY_TOKEN`,
   `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`. GHCR uses the runner's

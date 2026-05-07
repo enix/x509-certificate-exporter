@@ -235,9 +235,11 @@ service:
 > `clusterIP: None`) would fail with `spec.clusterIPs[0]: may not change
 > once set`. The chart ships a pre-upgrade hook that detects a v3 release
 > via the existing Service's `helm.sh/chart` label and deletes the old
-> Service before the upgrade reconciles, so helm can recreate it cleanly
-> from the new template. A few seconds of scrape disruption during the
-> upgrade window; Pods themselves stay up.
+> Service, Deployment, and DaemonSets before the upgrade reconciles, so
+> helm can recreate them cleanly from the new templates (the v4 label
+> rework also rotates the immutable Deployment/DaemonSet selectors). A
+> few seconds of scrape disruption during the upgrade window; Pods
+> themselves stay up.
 
 ### Image schema — `digest` and split `migration.image`
 

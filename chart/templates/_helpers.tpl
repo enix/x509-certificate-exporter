@@ -204,3 +204,108 @@ When digest is set the tag is omitted (digest is immutable).
   {{- printf "%s:%s" $repo (.Capabilities.KubeVersion.Version | regexFind "v[0-9]+\\.[0-9]+\\.[0-9]+") -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Detect the previous chart version from any chart-managed resource that
+is still in the cluster. Probes Service → Deployment → DaemonSets and
+returns the version stripped from the `helm.sh/chart` label of the
+first hit. Returns empty when not an upgrade or when no chart-labeled
+resource is found.
+*/}}
+{{- define "migration.prevVersion" -}}
+{{- $result := "" -}}
+{{- if .Release.IsUpgrade -}}
+  {{- $ns := include "x509-certificate-exporter.namespace" . -}}
+  {{- $existingResource := dict -}}
+  {{- if .Values.service.create -}}
+    {{- $svc := lookup "v1" "Service" $ns (include "x509-certificate-exporter.fullname" .) -}}
+    {{- if $svc }}{{ $existingResource = $svc }}{{ end -}}
+  {{- end -}}
+  {{- if not $existingResource -}}
+    {{- $dep := lookup "apps/v1" "Deployment" $ns (include "x509-certificate-exporter.secretsExporterName" .) -}}
+    {{- if $dep }}{{ $existingResource = $dep }}{{ end -}}
+  {{- end -}}
+  {{- if not $existingResource -}}
+    {{- range $name, $_ := .Values.hostPathsExporter.daemonSets -}}
+      {{- if not $existingResource -}}
+        {{- $dsName := printf "%s-%s" (include "x509-certificate-exporter.fullname" $) $name -}}
+        {{- $ds := lookup "apps/v1" "DaemonSet" $ns $dsName -}}
+        {{- if $ds }}{{ $existingResource = $ds }}{{ end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if $existingResource -}}
+    {{- $chartLabel := index $existingResource.metadata.labels "helm.sh/chart" -}}
+    {{- if $chartLabel -}}
+      {{- $result = trimPrefix "x509-certificate-exporter-" $chartLabel -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- $result -}}
+{{- end -}}
+
+{{/*
+Compute the set of pre-upgrade cleanup tasks to run, based on the
+detected previous chart version. Returns a YAML-encoded dict with
+boolean keys. Callers parse it via `fromYaml`.
+
+Rule table (all guards OR-merged into the same dict):
+
+  prev<3.20.0 AND target<4.0.0 → deleteDeployment, deleteDaemonsets
+  prev<4.0.0                   → deleteService (if service.create),
+                                 deleteDeployment, deleteDaemonsets
+
+To extend, add a rule branch below. Each task is further gated on
+its own preconditions (deleteService requires service.create;
+deleteDaemonsets requires hostPathsExporter.daemonSets non-empty),
+so the Role's verbs and the Job's args stay in sync automatically.
+*/}}
+{{- define "migration.tasks" -}}
+{{- $tasks := dict "deleteService" false "deleteDeployment" false "deleteDaemonsets" false -}}
+{{- $prev := include "migration.prevVersion" . -}}
+{{- if $prev -}}
+  {{- if and (semverCompare "<3.20.0" $prev) (semverCompare "<4.0.0" .Chart.Version) -}}
+    {{- $_ := set $tasks "deleteDeployment" true -}}
+    {{- $_ := set $tasks "deleteDaemonsets" true -}}
+  {{- end -}}
+  {{- if semverCompare "<4.0.0" $prev -}}
+    {{- if .Values.service.create -}}{{- $_ := set $tasks "deleteService" true -}}{{- end -}}
+    {{- $_ := set $tasks "deleteDeployment" true -}}
+    {{- $_ := set $tasks "deleteDaemonsets" true -}}
+  {{- end -}}
+  {{- if not .Values.hostPathsExporter.daemonSets -}}
+    {{- $_ := set $tasks "deleteDaemonsets" false -}}
+  {{- end -}}
+{{- end -}}
+{{- $tasks | toYaml -}}
+{{- end -}}
+
+{{/*
+Truthy ("true") iff at least one migration task is enabled. Used to
+gate the entire pre-upgrade hook bundle (SA + Role + RoleBinding +
+Job).
+*/}}
+{{- define "migration.needsHook" -}}
+{{- $tasks := fromYaml (include "migration.tasks" .) -}}
+{{- if or $tasks.deleteService $tasks.deleteDeployment $tasks.deleteDaemonsets -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+Build the Role's `rules:` list as the union of the verbs needed by the
+enabled tasks. Returns a YAML list (no leading newline) suitable for
+`{{ include "migration.roleRules" . | nindent 2 }}` under `rules:`.
+*/}}
+{{- define "migration.roleRules" -}}
+{{- $tasks := fromYaml (include "migration.tasks" .) -}}
+{{- $rules := list -}}
+{{- if $tasks.deleteService -}}
+{{- $rules = append $rules (dict "apiGroups" (list "") "resources" (list "services") "verbs" (list "get" "list" "delete")) -}}
+{{- end -}}
+{{- $appsRes := list -}}
+{{- if $tasks.deleteDeployment -}}{{- $appsRes = append $appsRes "deployments" -}}{{- end -}}
+{{- if $tasks.deleteDaemonsets -}}{{- $appsRes = append $appsRes "daemonsets" -}}{{- end -}}
+{{- if $appsRes -}}
+{{- $rules = append $rules (dict "apiGroups" (list "apps") "resources" $appsRes "verbs" (list "get" "list" "delete")) -}}
+{{- end -}}
+{{- $rules | toYaml -}}
+{{- end -}}

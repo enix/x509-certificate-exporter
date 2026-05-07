@@ -254,10 +254,9 @@ boolean keys. Callers parse it via `fromYaml`.
 
 Rule table (all guards OR-merged into the same dict):
 
-  prev<3.20.0 AND target<4.0.0 → deleteDeployment, deleteDaemonsets
-  prev<4.0.0                   → deleteService (if service.create),
-                                 deleteDeployment, deleteDaemonsets
-  prev<4.1.0 AND target>=4.1.0 → deleteDaemonsets
+  prev<4.0.0 → deleteService (if service.create),
+               deleteDeployment, deleteDaemonsets
+  prev<4.1.0 → deleteDaemonsets
 
 To extend, add a rule branch below. Each task is further gated on
 its own preconditions (deleteService requires service.create;
@@ -268,16 +267,12 @@ so the Role's verbs and the Job's args stay in sync automatically.
 {{- $tasks := dict "deleteService" false "deleteDeployment" false "deleteDaemonsets" false -}}
 {{- $prev := include "migration.prevVersion" . -}}
 {{- if $prev -}}
-  {{- if and (semverCompare "<3.20.0" $prev) (semverCompare "<4.0.0" .Chart.Version) -}}
-    {{- $_ := set $tasks "deleteDeployment" true -}}
-    {{- $_ := set $tasks "deleteDaemonsets" true -}}
-  {{- end -}}
   {{- if semverCompare "<4.0.0" $prev -}}
     {{- if .Values.service.create -}}{{- $_ := set $tasks "deleteService" true -}}{{- end -}}
     {{- $_ := set $tasks "deleteDeployment" true -}}
     {{- $_ := set $tasks "deleteDaemonsets" true -}}
   {{- end -}}
-  {{- if and (semverCompare "<4.1.0" $prev) (semverCompare ">=4.1.0" .Chart.Version) -}}
+  {{- if semverCompare "<4.1.0" $prev -}}
     {{- $_ := set $tasks "deleteDaemonsets" true -}}
   {{- end -}}
   {{- if not .Values.hostPathsExporter.daemonSets -}}

@@ -8,9 +8,20 @@
 # than its binary SBOM, and a post-loop is more flexible.
 #
 # IMAGE_NAME is the only overridable knob: forks set it via the
-# `release` Environment's `vars.IMAGE_NAME`. Registries (ghcr/quay/
-# docker.io) and namespace (`enix`) are hardcoded — change in this file
-# if a fork needs different ones.
+# repo-level `vars.IMAGE_NAME` (accessible without environment access,
+# so the build phase of release.yaml can read it pre-approval).
+# Registries (ghcr/quay/docker.io) and namespace (`enix`) are
+# hardcoded — change in this file if a fork needs different ones.
+#
+# GORELEASER_PUBLISH_TARGETS controls which image registries are
+# pushed to in the dockers_v2 step:
+#   - unset (default): all three registries (ghcr/quay/docker.io). Used
+#     by `task build:image:*` snapshots and by manual `goreleaser
+#     release` runs.
+#   - "ghcr-only":     only GHCR. Used by release.yaml's build phase,
+#     which signs images on GHCR pre-approval; the publish phase
+#     mirrors them to quay/docker.io via `cosign copy` (preserves
+#     signatures, attestations, SBOMs).
 #
 # Reference: https://goreleaser.com/customization/
 
@@ -166,10 +177,10 @@ signs:
 # template. Labels are reused across pairs via YAML anchors.
 dockers_v2:
   - id: scratch
-    disable: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") }}true{{ end }}'
+    disable: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") (eq (envOrDefault "GORELEASER_PUBLISH_TARGETS" "") "ghcr-only") }}true{{ end }}'
     ids: [x509ce]
     dockerfile: build/Dockerfile.scratch
-    platforms:
+    platforms: &scratch-platforms
       - linux/amd64
       - linux/arm64
       - linux/riscv64
@@ -177,7 +188,7 @@ dockers_v2:
       - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
       - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
       - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
-    tags:
+    tags: &scratch-tags
       - "{{ .Version }}"
       - '{{ if and (not .IsSnapshot) (eq .Prerelease "") }}latest{{ end }}'
     sbom: false
@@ -191,6 +202,21 @@ dockers_v2:
       org.opencontainers.image.created: "{{ .Date }}"
       org.opencontainers.image.licenses: "MIT"
 
+  # GHCR-only twin of `scratch`. Active when GORELEASER_PUBLISH_TARGETS
+  # is set to "ghcr-only" (release.yaml's build phase). Same multi-arch
+  # build, single push target — the publish phase mirrors to quay and
+  # docker.io with cosign copy.
+  - id: scratch-ghcr
+    disable: '{{ if ne (envOrDefault "GORELEASER_PUBLISH_TARGETS" "") "ghcr-only" }}true{{ end }}'
+    ids: [x509ce]
+    dockerfile: build/Dockerfile.scratch
+    platforms: *scratch-platforms
+    images:
+      - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
+    tags: *scratch-tags
+    sbom: false
+    labels: *scratch-labels
+
   - id: scratch-local
     disable: '{{ if eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1" }}{{ else }}true{{ end }}'
     ids: [x509ce-local]
@@ -201,17 +227,15 @@ dockers_v2:
       - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
       - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
       - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
-    tags:
-      - "{{ .Version }}"
-      - '{{ if and (not .IsSnapshot) (eq .Prerelease "") }}latest{{ end }}'
+    tags: *scratch-tags
     sbom: false
     labels: *scratch-labels
 
   - id: busybox
-    disable: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") }}true{{ end }}'
+    disable: '{{ if or (eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1") (eq (envOrDefault "GORELEASER_TILT" "") "1") (eq (envOrDefault "GORELEASER_PUBLISH_TARGETS" "") "ghcr-only") }}true{{ end }}'
     ids: [x509ce]
     dockerfile: build/Dockerfile.busybox
-    platforms:
+    platforms: &busybox-platforms
       - linux/amd64
       - linux/arm64
       - linux/riscv64
@@ -219,7 +243,7 @@ dockers_v2:
       - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
       - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
       - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
-    tags:
+    tags: &busybox-tags
       - "{{ .Version }}-busybox"
       - '{{ if and (not .IsSnapshot) (eq .Prerelease "") }}busybox{{ end }}'
     sbom: false
@@ -233,6 +257,18 @@ dockers_v2:
       org.opencontainers.image.created: "{{ .Date }}"
       org.opencontainers.image.licenses: "MIT"
 
+  # GHCR-only twin of `busybox`. See scratch-ghcr for context.
+  - id: busybox-ghcr
+    disable: '{{ if ne (envOrDefault "GORELEASER_PUBLISH_TARGETS" "") "ghcr-only" }}true{{ end }}'
+    ids: [x509ce]
+    dockerfile: build/Dockerfile.busybox
+    platforms: *busybox-platforms
+    images:
+      - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
+    tags: *busybox-tags
+    sbom: false
+    labels: *busybox-labels
+
   - id: busybox-local
     disable: '{{ if eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1" }}{{ else }}true{{ end }}'
     ids: [x509ce-local]
@@ -243,9 +279,7 @@ dockers_v2:
       - "ghcr.io/enix/{{ .Env.IMAGE_NAME }}"
       - "quay.io/enix/{{ .Env.IMAGE_NAME }}"
       - "docker.io/enix/{{ .Env.IMAGE_NAME }}"
-    tags:
-      - "{{ .Version }}-busybox"
-      - '{{ if and (not .IsSnapshot) (eq .Prerelease "") }}busybox{{ end }}'
+    tags: *busybox-tags
     sbom: false
     labels: *busybox-labels
 

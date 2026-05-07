@@ -458,8 +458,7 @@ hostPathsExporter:
     runAsUser: 0
     runAsGroup: 0
     readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: true
-    privileged: true
+    allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL

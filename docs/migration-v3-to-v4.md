@@ -262,9 +262,7 @@ Every component (`secretsExporter`, `hostPathsExporter`, `migration`,
 `restricted` profile requires:
 
 - `podSecurityContext.seccompProfile.type: RuntimeDefault`
-- `securityContext.allowPrivilegeEscalation: false` — except on
-  `hostPathsExporter`, which keeps `true` because it runs privileged
-  as root to read host PKI files (kubelet, etcd, kube-apiserver).
+- `securityContext.allowPrivilegeEscalation: false`
 
 The chart was already running as `runAsNonRoot: true` with `drop: [ALL]`
 capabilities and `readOnlyRootFilesystem: true`; the two new fields

@@ -1,36 +1,42 @@
 name: Release
 
 # Triggered by pushing a vX.Y.Z tag (typically by release-please when
-# its release PR is merged). Pre-release gates + three release jobs:
+# its release PR is merged). Five jobs:
 #
-#   0. check       — `task check` (lint + tests + security) on the tagged
-#                    commit, by re-using the same three workflows that
-#                    gate every PR (lint.yaml / security.yaml / test.yaml).
-#                    Each gate runs on isolated runners with NO access to
-#                    the `release` Environment, so a misbehaving check
-#                    never sees the push secrets. The release jobs (1-3
-#                    below) `needs:` every gate; a single failure
-#                    short-circuits the whole workflow before any
-#                    artifact moves.
-#   1. goreleaser  — builds binaries × OS/arch, archives, checksums,
-#                    container images (busybox + scratch, multi-arch,
-#                    pushed to ghcr/quay/docker.io), cosign-signs
-#                    everything, attaches assets to the GitHub Release.
-#                    Also produces a SLSA Build Level 3 provenance
-#                    attestation over all binaries via GitHub's native
-#                    `actions/attest-build-provenance`. Driven by
-#                    .goreleaser.yaml + the attest step at the tail.
-#   2. chart       — packages the Helm chart, pushes as OCI artifact,
-#                    cosign-signs.
-#   3. helm-index  — rebuilds the classic Helm repository index on
-#                    charts.enix.io, pointing the download URL at the
-#                    OCI artifact pushed by job 2. Keeps the classic
-#                    `helm repo add` install path working for users who
-#                    haven't migrated to OCI yet.
-#
-# Container image SBOMs (CycloneDX via syft, attached as cosign
-# attestations) are generated in a post-loop inside the goreleaser job,
-# after GoReleaser has pushed the manifests.
+#   0. check        — `task check` (lint + tests + security) on the tagged
+#                     commit, by re-using the same three workflows that
+#                     gate every PR (lint.yaml / security.yaml / test.yaml).
+#                     Each gate runs on isolated runners with NO access to
+#                     the `release` Environment, so a misbehaving check
+#                     never sees the push secrets. The build job (1)
+#                     `needs:` every gate; a single failure short-circuits
+#                     the whole workflow before any artifact moves.
+#   1. build        — builds binaries × OS/arch, archives, checksums,
+#                     container images (busybox + scratch, multi-arch),
+#                     packages the Helm chart, **pushes everything to
+#                     GHCR only**, cosign-signs every artifact, attaches
+#                     binaries to a draft GitHub Release, produces SLSA
+#                     L3 provenance + CycloneDX SBOMs. Runs WITHOUT the
+#                     `release` Environment — only the workflow's
+#                     `GITHUB_TOKEN` is needed for GHCR. Maintainers can
+#                     review the draft release and the staged artifacts
+#                     in GHCR before approving.
+#   2. publish      — gated by the `release` Environment (manual approval).
+#                     Mirrors images and the chart from GHCR to the
+#                     public registries (quay.io, docker.io,
+#                     CHART_REGISTRY) via `oras copy -r`, which follows
+#                     OCI 1.1 referrers — signatures, attestations, and
+#                     SBOMs all travel with the artifact by digest. No
+#                     rebuild, no re-sign — what reviewers approved is
+#                     bit-identical to what gets published.
+#   3. helm-index   — rebuilds the classic Helm repository index on
+#                     charts.enix.io, pointing the download URL at the
+#                     OCI artifact pushed in job 2. Keeps the classic
+#                     `helm repo add` install path working for users who
+#                     haven't migrated to OCI yet. Runs after job 2 so
+#                     the OCI chart already exists.
+#   4. release-edit — flips the GitHub Release out of draft state once
+#                     everything else has succeeded.
 #
 # Verification by consumers (commands shown for the upstream repo;
 # substitute the source-uri / certificate-identity / owner for forks):
@@ -41,16 +47,18 @@ name: Release
 #
 # Manual setup required:
 #   - Repo environment "release" with required reviewers (Settings → Environments)
-#   - Environment variables on the `release` env (no fallbacks — workflow fails fast):
+#   - **Repo-level** variables (Settings → Variables, no Environment scope —
+#     accessible to the build job which runs without environment access):
 #       - IMAGE_NAME      — container image name (e.g. x509-certificate-exporter)
 #       - CHART_NAME      — Helm chart name (often == IMAGE_NAME)
+#   - **Environment-level** variable on `release`:
 #       - CHART_REGISTRY  — OCI host/namespace where the chart is pushed,
 #                           WITHOUT the `oci://` scheme (e.g. quay.io/enix/charts)
 #   - Repo secrets:
 #       - quay.io      → QUAY_USERNAME, QUAY_TOKEN
 #       - docker.io    → DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
 #       - ghcr.io      → no secret needed (uses workflow GITHUB_TOKEN)
-#   - Chart OCI registry credentials:
+#   - Chart OCI registry credentials (on `release` environment):
 #       - CHART_REGISTRY_USERNAME
 #       - CHART_REGISTRY_TOKEN
 #   - Classic Helm index update (helm-index job):
@@ -78,7 +86,7 @@ jobs:
   # on the tagged commit. Each runs on its own runner (strict isolation
   # from the build environment) and intentionally has NO access to the
   # `release` Environment, so a misbehaving gate never sees the push
-  # secrets. The release jobs below `needs:` all three; a single failure
+  # secrets. The build job below `needs:` all three; a single failure
   # aborts before anything moves to a registry.
   #
   # Ordering: `security` runs first; `lint` and `test` `needs:` it so a
@@ -89,13 +97,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: write # gitleaks-action posts on PRs; no-op on tag pushes
-    # `secrets: inherit` propagates GITLEAKS_LICENSE (a repo-level
-    # secret) into the called workflow. Scope is safe: this `security`
-    # job has no `environment:` set, and neither does any job inside
-    # security.yaml — so the `environment: release` secrets used by
-    # the goreleaser/chart jobs below remain out of reach throughout
-    # this chain. `inherit` propagates the calling job's context, not
-    # the entire workflow's.
     secrets: inherit
   lint:
     needs: security
@@ -112,29 +113,36 @@ jobs:
     with:
       skip-e2e: true
 
-  # ─── 1. Build, push, sign everything (binaries + images) ─────────────────
-  goreleaser:
-    name: Build, push & sign
+  # ─── 1. Build, push to GHCR, sign everything ─────────────────────────────
+  # Runs WITHOUT the `release` Environment. Only GHCR is touched (auth
+  # via the workflow's GITHUB_TOKEN). Reviewers approving the publish
+  # job below see the staged artifacts already built and signed in
+  # GHCR — the publish step is a pure copy.
+  build:
+    name: Build, push to GHCR & sign
     needs: [lint, security, test]
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    environment: release
     permissions:
-      contents: write # create/append the GitHub Release
+      contents: write # create/append the GitHub Release (in draft)
       packages: write # push to ghcr.io
       id-token: write # OIDC for cosign keyless + SLSA provenance signing
       attestations: write # upload SLSA build provenance to the GitHub Attestations API
     env:
       IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+      CHART_NAME: ${{ vars.CHART_NAME }}
     steps:
-      - name: Validate environment variables
+      - name: Validate repo variables
         run: |
           set -euo pipefail
-          [ -n "${IMAGE_NAME:-}" ] || {
-            echo "::error::Missing required Environment variable: IMAGE_NAME"
-            echo "::error::Set it at Settings → Environments → release → Variables"
+          missing=()
+          [ -n "${IMAGE_NAME:-}" ] || missing+=("IMAGE_NAME")
+          [ -n "${CHART_NAME:-}" ] || missing+=("CHART_NAME")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required repo variable(s): ${missing[*]}"
+            echo "::error::Set them at Settings → Secrets and variables → Actions → Variables"
             exit 1
-          }
+          fi
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -153,35 +161,24 @@ jobs:
       - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
       - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
-      # Logins for the three image registries. Quay/Docker Hub are
-      # skipped if their token is missing, mirroring the previous
-      # workflow's per-registry opt-in pattern.
+      # Only GHCR login here. Quay/Docker Hub creds live on the `release`
+      # environment and are deliberately out of reach for this job.
       - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Login to quay.io
-        env:
-          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
-        if: env.QUAY_TOKEN != ''
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_TOKEN }}
-      - name: Login to docker.io
-        env:
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        if: env.DOCKERHUB_TOKEN != ''
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4
       - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
+        with:
+          version: "4.1.4"
 
+      # GORELEASER_PUBLISH_TARGETS=ghcr-only switches dockers_v2 entries
+      # to the GHCR-only twins (see .goreleaser.yaml). Images are
+      # pushed and signed on GHCR only; the publish job mirrors them
+      # afterwards via `oras copy -r`.
       - uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7
         with:
           version: "v2.15.4"
@@ -200,6 +197,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GODEBUG: http2client=0
+          GORELEASER_PUBLISH_TARGETS: ghcr-only
 
       # SLSA Build Level 3 provenance for every binary listed in
       # GoReleaser's dist/checksums.txt (sha256sum -c format). Signed
@@ -211,35 +209,20 @@ jobs:
           subject-checksums: dist/checksums.txt
 
       # CycloneDX SBOMs on the multi-arch manifests, as cosign
-      # attestations. Iterates over the images GoReleaser pushed
+      # attestations. Iterates over the GHCR images GoReleaser pushed
       # (read from dist/artifacts.json — its source of truth).
-      #
-      # dockers_v2 emits one "Docker Image" artifact per (registry, tag),
-      # where each tag is the multi-arch index manifest pushed by a single
-      # `docker buildx build --push --platform=...` invocation. There's no
-      # separate "Docker Manifest" artifact type anymore — those existed
-      # only for the legacy `dockers + docker_manifests` two-step flow.
       #
       # Dedup by digest before attesting: on stable releases, the same
       # multi-arch index is pushed under multiple tags (e.g. `:VERSION`
       # and `:latest`), which resolve to the SAME digest. Without
       # dedup we'd run syft + cosign attest twice on the same content,
       # doubling the work and the exposure to registry flakes.
-      #
-      # GODEBUG=http2client=0 forces HTTP/1.1 in the Go HTTP client used
-      # by cosign / go-containerregistry. Mitigates Docker Hub's flaky
-      # HTTP/2 stream resets ("INTERNAL_ERROR; received from peer") that
-      # have hit this step intermittently on the attestation upload.
-      - name: Generate + attest image SBOMs
+      - name: Generate + attest image SBOMs (GHCR)
         env:
           COSIGN_YES: "true"
           GODEBUG: http2client=0
         run: |
           set -euo pipefail
-          # Resolve every pushed (registry, tag) to its digest, then
-          # dedup — the digest is the immutable identity, so attesting
-          # once per digest is enough. `${ref%:*}` strips the trailing
-          # `:tag` (shortest-match suffix removal).
           while read -r ref; do
             digest=$(docker buildx imagetools inspect "$ref" \
                         --format '{{ .Manifest.Digest }}')
@@ -254,62 +237,11 @@ jobs:
                 echo "::endgroup::"
               done
 
-  # ─── 2. Helm chart: package, push as OCI, cosign-sign, update classic ───
-  # Single job by design: the `release` Environment requires a maintainer's
-  # approval to start, and splitting OCI push, signing, and the legacy
-  # helm-repo index update across multiple jobs would prompt for that
-  # approval each time. Co-locating them also lets the index step reuse
-  # the .tgz produced by `helm package` instead of re-building the chart.
-  chart:
-    name: Chart publish, sign, and index
-    needs: goreleaser # the chart references the just-pushed images
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: release
-    permissions:
-      contents: read
-      id-token: write # OIDC for cosign keyless
-    env:
-      CHART_NAME: ${{ vars.CHART_NAME }}
-      CHART_REGISTRY: ${{ vars.CHART_REGISTRY }}
-    steps:
-      - name: Validate environment variables
-        run: |
-          set -euo pipefail
-          missing=()
-          [ -n "${CHART_NAME:-}" ]     || missing+=("CHART_NAME")
-          [ -n "${CHART_REGISTRY:-}" ] || missing+=("CHART_REGISTRY")
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo "::error::Missing required Environment variable(s): ${missing[*]}"
-            echo "::error::Set them at Settings → Environments → release → Variables"
-            exit 1
-          fi
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
-        with:
-          version: "4.1.4"
-      - uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4
-      - uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2
-
-      # Three logins to the same host (CHART_REGISTRY) because helm,
-      # cosign and oras each maintain their own credential stores:
-      #   - `helm registry login` writes to helm's own config
-      #     (used by `helm push` below)
-      #   - `cosign login` writes to ~/.docker/config.json (used by cosign
-      #     when it uploads the signature blob as an OCI artifact)
-      #   - `oras login` writes to its own auth file (used to push the
-      #     classic-repo index.yaml as an OCI artifact)
-      # Without all three, the matching downstream step fails UNAUTHORIZED.
-      - name: Login to chart OCI registry
-        env:
-          CHART_REGISTRY_USERNAME: ${{ secrets.CHART_REGISTRY_USERNAME }}
-          CHART_REGISTRY_TOKEN: ${{ secrets.CHART_REGISTRY_TOKEN }}
-        run: |
-          set -euo pipefail
-          host="${CHART_REGISTRY%%/*}"
-          echo "$CHART_REGISTRY_TOKEN" | helm registry login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
-          echo "$CHART_REGISTRY_TOKEN" | cosign login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
-          echo "$CHART_REGISTRY_TOKEN" | oras login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
+      # Chart staging on GHCR. The chart is published to
+      # `ghcr.io/enix/$IMAGE_NAME/charts/$CHART_NAME:$VERSION` so it
+      # stays under the same project namespace as the image. The
+      # publish job will `oras copy -r` it to CHART_REGISTRY (renaming
+      # the path to the canonical user-facing form).
       - name: Override chart name if needed
         run: |
           set -euo pipefail
@@ -344,45 +276,212 @@ jobs:
             --destination dist/ \
             --version "$version" \
             --app-version "$version"
-      - name: Helm push to OCI registry
-        id: push
+      - name: Helm registry login (GHCR)
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login -u "${{ github.actor }}" --password-stdin ghcr.io
+      - name: Helm push to GHCR (staging)
+        id: chart_push
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
           chart_tgz="dist/${CHART_NAME}-${version}.tgz"
-          out=$(helm push "$chart_tgz" "oci://${CHART_REGISTRY}" 2>&1 | tee /dev/stderr)
+          staging_ns="ghcr.io/enix/${IMAGE_NAME}/charts"
+          out=$(helm push "$chart_tgz" "oci://${staging_ns}" 2>&1 | tee /dev/stderr)
           digest=$(printf '%s\n' "$out" | grep -oE 'sha256:[a-f0-9]+' | head -1)
           if [ -z "$digest" ]; then
             echo "::error::Could not extract digest from helm push output"
             exit 1
           fi
-          ref="${CHART_REGISTRY}/${CHART_NAME}@${digest}"
-          echo "ref=$ref" >> "$GITHUB_OUTPUT"
-      - name: Sign chart with cosign keyless
+          ref="${staging_ns}/${CHART_NAME}@${digest}"
+          tagged_ref="${staging_ns}/${CHART_NAME}:${version}"
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+          echo "tagged_ref=${tagged_ref}" >> "$GITHUB_OUTPUT"
+      - name: Sign chart with cosign keyless (GHCR)
         env:
           COSIGN_YES: "true"
-        run: cosign sign "${{ steps.push.outputs.ref }}"
+        run: cosign sign "${{ steps.chart_push.outputs.ref }}"
 
-      # Classic Helm repository index — rebuilt from the .tgz produced
-      # above, pushed as an OCI artifact to the chart registry, then
-      # picked up by a workflow in enix/helm-charts that serves it at
-      # https://charts.enix.io to keep the legacy `helm repo add` path
-      # working.
-      - name: Build and push Helm index
+      # Hand off to the publish job: the digests it needs to mirror.
+      # dist/artifacts.json carries the image refs; the chart's tagged
+      # GHCR ref is captured into the manifest below.
+      - name: Build publish manifest
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          jq -n \
+            --arg version "$version" \
+            --arg chart_ghcr "${{ steps.chart_push.outputs.tagged_ref }}" \
+            --argjson is_prerelease "$([[ "$GITHUB_REF_NAME" == *-* ]] && echo true || echo false)" \
+            --slurpfile artifacts dist/artifacts.json \
+            '{version: $version, is_prerelease: $is_prerelease, chart_ghcr_ref: $chart_ghcr, image_ghcr_refs: ($artifacts[0] | map(select(.type == "Docker Image") | .name))}' \
+            > dist/publish-manifest.json
+          cat dist/publish-manifest.json
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: publish-manifest
+          path: dist/publish-manifest.json
+          retention-days: 7
+
+  # ─── 2. Mirror to public registries + chart registry ─────────────────────
+  # Gated by the `release` Environment. Pure copy, no rebuild.
+  # `oras copy -r` (recursive) transfers the OCI artifact along with
+  # its referrers — cosign sigs, SLSA provenance, CycloneDX SBOM
+  # attestations — all anchored to the immutable digest. Cosign 3.x
+  # stores all three as OCI 1.1 referrers, which `cosign copy` (now
+  # deprecated) does not follow; oras does.
+  publish:
+    name: Mirror to public registries
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      packages: read # pull from GHCR
+    env:
+      IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+      CHART_NAME: ${{ vars.CHART_NAME }}
+      CHART_REGISTRY: ${{ vars.CHART_REGISTRY }}
+    steps:
+      - name: Validate variables
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -n "${IMAGE_NAME:-}" ]     || missing+=("IMAGE_NAME (repo)")
+          [ -n "${CHART_NAME:-}" ]     || missing+=("CHART_NAME (repo)")
+          [ -n "${CHART_REGISTRY:-}" ] || missing+=("CHART_REGISTRY (release env)")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required variable(s): ${missing[*]}"
+            exit 1
+          fi
+      - uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2
+
+      # docker/login-action populates ~/.docker/config.json which oras
+      # reads natively. One login per registry covers every subsequent
+      # `oras copy` call against that registry.
+      - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to quay.io
+        env:
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+        if: env.QUAY_TOKEN != ''
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_TOKEN }}
+      - name: Login to docker.io
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        if: env.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to chart OCI registry
+        env:
+          CHART_REGISTRY_USERNAME: ${{ secrets.CHART_REGISTRY_USERNAME }}
+          CHART_REGISTRY_TOKEN: ${{ secrets.CHART_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          host="${CHART_REGISTRY%%/*}"
+          echo "$CHART_REGISTRY_TOKEN" | oras login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v5
+        with:
+          name: publish-manifest
+          path: dist
+
+      # Mirror each image ref (registry,tag) from GHCR to quay.io and
+      # docker.io. `oras copy -r` follows OCI 1.1 referrers, so the
+      # cosign signature, SLSA provenance attestation, and CycloneDX
+      # SBOM attestation all travel along with the image. The same
+      # digest copied under multiple tags (e.g. `:VERSION` and
+      # `:latest` on stable) results in one underlying artifact with
+      # multiple tag pointers; subsequent copies of the same digest
+      # are idempotent (oras reports "Exists" for present blobs).
+      - name: Mirror images to quay.io and docker.io
+        env:
+          GODEBUG: http2client=0
+        run: |
+          set -euo pipefail
+          while read -r src_ref; do
+            # src_ref is "ghcr.io/enix/IMG:tag"
+            tag="${src_ref##*:}"
+            stripped="${src_ref#ghcr.io/}"
+            for dest_registry in quay.io docker.io; do
+              dest_ref="${dest_registry}/${stripped%:*}:${tag}"
+              echo "::group::oras copy -r ${src_ref} → ${dest_ref}"
+              oras copy -r "$src_ref" "$dest_ref"
+              echo "::endgroup::"
+            done
+          done < <(jq -r '.image_ghcr_refs[]' dist/publish-manifest.json)
+
+      # Mirror the chart from GHCR staging to the public chart
+      # registry. The destination path is the canonical user-facing
+      # form (CHART_REGISTRY/CHART_NAME), which is what consumers run
+      # `helm pull` and `cosign verify` against.
+      - name: Mirror chart to CHART_REGISTRY
+        env:
+          GODEBUG: http2client=0
+        run: |
+          set -euo pipefail
+          version=$(jq -r '.version' dist/publish-manifest.json)
+          src_ref=$(jq -r '.chart_ghcr_ref' dist/publish-manifest.json)
+          dest_ref="${CHART_REGISTRY}/${CHART_NAME}:${version}"
+          echo "::group::oras copy -r ${src_ref} → ${dest_ref}"
+          oras copy -r "$src_ref" "$dest_ref"
+          echo "::endgroup::"
+
+  # ─── 3. Classic Helm repository index ────────────────────────────────────
+  # Rebuilt from the chart pulled back from CHART_REGISTRY (so the
+  # download URL points at the artifact users will actually fetch),
+  # then pushed as an OCI artifact to the chart registry, then picked
+  # up by a workflow in enix/helm-charts that serves it at
+  # https://charts.enix.io to keep the legacy `helm repo add` path
+  # working.
+  helm-index:
+    name: Update classic Helm repo index
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
+    env:
+      CHART_NAME: ${{ vars.CHART_NAME }}
+      CHART_REGISTRY: ${{ vars.CHART_REGISTRY }}
+    steps:
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
+        with:
+          version: "4.1.4"
+      - uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2
+      - name: Login to chart OCI registry
+        env:
+          CHART_REGISTRY_USERNAME: ${{ secrets.CHART_REGISTRY_USERNAME }}
+          CHART_REGISTRY_TOKEN: ${{ secrets.CHART_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          host="${CHART_REGISTRY%%/*}"
+          echo "$CHART_REGISTRY_TOKEN" | helm registry login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
+          echo "$CHART_REGISTRY_TOKEN" | oras login -u "$CHART_REGISTRY_USERNAME" --password-stdin "$host"
+      - name: Pull chart from CHART_REGISTRY and rebuild index
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN_PUBLISH_HELM_CHART }}
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          helm pull "oci://${CHART_REGISTRY}/${CHART_NAME}" \
+            --version "$version" \
+            --destination dist/
 
-          # Generate a minimal Helm repo index from the packaged .tgz.
-          # `helm repo index` reads Chart.yaml metadata from the archive
-          # and produces an index.yaml with one entry per chart file found.
           helm repo index dist/
 
-          # Rewrite the download URL from the local path that
-          # `helm repo index` emits to the OCI artifact pushed earlier in
-          # this same job.
           python3 - <<EOF
           import yaml, pathlib
           p = pathlib.Path("dist/index.yaml")
@@ -394,18 +493,33 @@ jobs:
 
           mv dist/index.yaml dist/index-latest.yaml
 
-          # Push the index as an OCI artifact. `oras push` preserves the
-          # directory prefix in the layer path, so cd into dist/ first
-          # so the file is pushed as "index-latest.yaml" at the root,
-          # not "dist/index-latest.yaml".
           (cd dist && oras push "${CHART_REGISTRY}/${CHART_NAME}:index-latest.yaml" \
             --artifact-type application/yaml \
             index-latest.yaml:application/yaml)
 
           # Trigger the publish workflow in the upstream helm-charts repo.
-          # helmchart-publish.yml prepends "quay.io/" to index_path, so
-          # strip that prefix from CHART_REGISTRY if present.
           index_registry="${CHART_REGISTRY#quay.io/}"
           gh workflow run helmchart-publish.yml \
             -f "index_path=${index_registry}/${CHART_NAME}:index-latest.yaml" \
             --repo enix/helm-charts
+
+  # ─── 4. Flip the GitHub Release out of draft ─────────────────────────────
+  # Final step. Up to here the Release has been a draft (goreleaser's
+  # `release.draft: true`). With every artifact mirrored and the helm
+  # index updated, publish it.
+  release-edit:
+    name: Publish GitHub Release
+    needs: helm-index
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Mark release as published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release edit "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false

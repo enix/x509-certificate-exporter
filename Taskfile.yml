@@ -119,7 +119,7 @@ tasks:
   nix:update:
     desc: Update flake.lock to latest inputs
     cmds:
-      - nix flake update
+      - nix --extra-experimental-features 'nix-command flakes' flake update
 
   renovate:plan:
     desc: "Dry-run Renovate against the working tree — lists planned bumps; does NOT modify files"

@@ -47,9 +47,11 @@ secretsExporter:
   configMapKeys:
     - tls.crt
 
-  # Skip the negatively-named namespace (proves namespace name exclusion).
+  # Skip the negatively-named namespace (proves namespace name exclusion)
+  # and every `x509ce-glob-*` namespace (proves glob exclusion).
   excludeNamespaces:
     - x509ce-excl-name
+    - "x509ce-glob-*"
 
   # Skip the negatively-labelled namespace (proves namespace label exclusion).
   excludeNamespaceLabels:

@@ -397,6 +397,30 @@ func build() {
 		Watched: false,
 	})
 
+	// ─── Negative — namespace excluded by glob pattern ─────────────────
+	// dev/values.yaml carries `excludeNamespaces: ["x509ce-glob-*"]`, so
+	// every namespace matching that prefix is filtered client-side. Two
+	// fixtures prove the glob (a) matches the intended namespaces and
+	// (b) doesn't over-match (the `x509ce-fresh` scenarios above keep
+	// emitting).
+	for _, suffix := range []string{"preview", "ephemeral"} {
+		hiddenGlobCert, hiddenGlobKey, err := Selfsigned(CertSpec{
+			CN:        "hidden-by-glob-" + suffix + ".example.test",
+			DNSNames:  []string{"hidden-by-glob-" + suffix + ".example.test"},
+			NotBefore: in(-time.Hour), NotAfter: in(180 * day), Algo: AlgoRSA2048,
+		})
+		must(err)
+		sc = append(sc, Scenario{
+			Namespace: "x509ce-glob-" + suffix, Name: "hidden-by-ns-glob",
+			Kind: "Secret", SecretType: "kubernetes.io/tls",
+			Data: map[string][]byte{
+				"tls.crt": EncodeCertsPEM(hiddenGlobCert),
+				"tls.key": EncodeKeyPEM(hiddenGlobKey),
+			},
+			Watched: false,
+		})
+	}
+
 	// ─── Negative — secret of a watched type but no matching key ───────
 	// Opaque type IS in `secretTypes` (with several known keys). This
 	// fixture's keys deliberately match NONE of them. The exporter

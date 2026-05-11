@@ -43,6 +43,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"path"
 	"regexp"
 	"runtime"
 	"strings"
@@ -120,8 +121,8 @@ type Selectors struct {
 // SecretFilter expresses extra client-side checks not expressible in
 // LabelSelector (name globs, exclude rules).
 type SecretFilter struct {
-	IncludeNames []string // glob-like (currently exact match or "*")
-	ExcludeNames []string
+	IncludeNames []string // shell-glob (`*`, `?`, `[abc]`) or literal
+	ExcludeNames []string // applied after Include, same glob syntax
 }
 
 // NamespaceFilter applies cluster-wide rules: object's namespace must pass
@@ -129,8 +130,8 @@ type SecretFilter struct {
 // When all four lists are empty the filter accepts every namespace and no
 // Namespace informer is started.
 type NamespaceFilter struct {
-	IncludeNames  []string // exact match or "*"
-	ExcludeNames  []string // applied after Include
+	IncludeNames  []string // shell-glob (`*`, `?`, `[abc]`) or literal
+	ExcludeNames  []string // applied after Include, same glob syntax
 	IncludeLabels []string // each entry is "key" (exists) or "key=value"
 	ExcludeLabels []string
 }
@@ -978,11 +979,14 @@ func (s *Source) acceptName(name string, f SecretFilter) bool {
 	return false
 }
 
+// matchGlob matches `s` against a shell-glob `pat` (`*`, `?`, `[abc]`).
+// Patterns without metacharacters reduce to literal equality. Returns
+// false on a malformed pattern — startup-time validation catches those
+// in internal/config.Validate, so a runtime false here only happens if
+// validation is bypassed.
 func matchGlob(pat, s string) bool {
-	if pat == "*" {
-		return true
-	}
-	return pat == s
+	ok, err := path.Match(pat, s)
+	return ok && err == nil
 }
 
 // namespaceAllowed evaluates the configured NamespaceFilter against the

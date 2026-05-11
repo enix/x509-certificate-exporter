@@ -53,6 +53,11 @@ secretsExporter:
     - x509ce-excl-name
     - "x509ce-glob-*"
 
+  # Skip Secrets whose name matches this glob (proves secret name
+  # glob exclusion).
+  excludeSecrets:
+    - "x509ce-skip-*"
+
   # Skip the negatively-labelled namespace (proves namespace label exclusion).
   excludeNamespaceLabels:
     - x509ce-test/ignore=true

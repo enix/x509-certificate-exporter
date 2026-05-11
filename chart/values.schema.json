@@ -827,6 +827,12 @@
           },
           "type": "array"
         },
+        "excludeConfigMaps": {
+          "items": {
+            "required": []
+          },
+          "type": "array"
+        },
         "excludeLabels": {
           "items": {
             "required": []
@@ -840,6 +846,12 @@
           "type": "array"
         },
         "excludeNamespaces": {
+          "items": {
+            "required": []
+          },
+          "type": "array"
+        },
+        "excludeSecrets": {
           "items": {
             "required": []
           },
@@ -875,6 +887,12 @@
           },
           "type": "array"
         },
+        "includeConfigMaps": {
+          "items": {
+            "required": []
+          },
+          "type": "array"
+        },
         "includeLabels": {
           "items": {
             "required": []
@@ -888,6 +906,12 @@
           "type": "array"
         },
         "includeNamespaces": {
+          "items": {
+            "required": []
+          },
+          "type": "array"
+        },
+        "includeSecrets": {
           "items": {
             "required": []
           },
@@ -1082,6 +1106,10 @@
         "excludeNamespaces",
         "includeNamespaceLabels",
         "excludeNamespaceLabels",
+        "includeSecrets",
+        "excludeSecrets",
+        "includeConfigMaps",
+        "excludeConfigMaps",
         "includeLabels",
         "excludeLabels",
         "exposeSecretLabels",

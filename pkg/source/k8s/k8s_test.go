@@ -453,4 +453,79 @@ func TestNameAndAcceptName(t *testing.T) {
 	if !src.acceptName("anything", f) {
 		t.Fail()
 	}
+	// Glob: prefix match.
+	f = SecretFilter{IncludeNames: []string{"tls-*"}}
+	if !src.acceptName("tls-prod", f) || src.acceptName("ca-prod", f) {
+		t.Fail()
+	}
+	// Glob: single-char wildcard + character class.
+	f = SecretFilter{IncludeNames: []string{"tls-?", "ca-[ab]"}}
+	if !src.acceptName("tls-x", f) || !src.acceptName("ca-b", f) || src.acceptName("ca-c", f) {
+		t.Fail()
+	}
+	// Exclude with glob wins over include.
+	f = SecretFilter{
+		IncludeNames: []string{"*"},
+		ExcludeNames: []string{"helm.*"},
+	}
+	if !src.acceptName("tls-prod", f) || src.acceptName("helm.release.v1", f) {
+		t.Fail()
+	}
+}
+
+func TestMatchGlob(t *testing.T) {
+	tests := []struct {
+		pat, s string
+		want   bool
+	}{
+		{"*", "anything", true},
+		{"*", "", true},
+		{"foo", "foo", true},
+		{"foo", "bar", false},
+		{"foo-*", "foo-prod", true},
+		{"foo-*", "foo", false},
+		{"foo-*", "prod-foo", false},
+		{"*-prod", "team-prod", true},
+		{"team-?", "team-a", true},
+		{"team-?", "team-ab", false},
+		{"ns-[abc]", "ns-a", true},
+		{"ns-[abc]", "ns-d", false},
+		// path.Match's separator is '/', K8s names never carry one so this
+		// edge is documented but not user-reachable.
+		{"a/*", "a/b", true},
+		{"a*", "a/b", false},
+		// Malformed pattern → false (no panic, no match).
+		{"[", "anything", false},
+	}
+	for _, tc := range tests {
+		if got := matchGlob(tc.pat, tc.s); got != tc.want {
+			t.Errorf("matchGlob(%q, %q) = %v; want %v", tc.pat, tc.s, got, tc.want)
+		}
+	}
+}
+
+func TestNamespaceAllowedGlob(t *testing.T) {
+	src := New(Options{
+		Name: "x",
+		NamespaceFilter: NamespaceFilter{
+			IncludeNames: []string{"team-*", "shared"},
+			ExcludeNames: []string{"team-banned-*"},
+		},
+	}, nopLogger())
+	cases := []struct {
+		ns   string
+		want bool
+	}{
+		{"team-alpha", true},
+		{"team-beta", true},
+		{"shared", true},
+		{"team-banned-x", false},   // exclude wins over include
+		{"other", false},           // not in include list
+		{"shared-too", false},      // literal "shared" doesn't glob-match
+	}
+	for _, c := range cases {
+		if got := src.namespaceAllowed(c.ns); got != c.want {
+			t.Errorf("namespaceAllowed(%q) = %v; want %v", c.ns, got, c.want)
+		}
+	}
 }

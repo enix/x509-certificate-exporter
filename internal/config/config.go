@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -363,10 +364,47 @@ func validateSource(i int, s Source) error {
 		if s.Secrets == nil && s.ConfigMaps == nil {
 			return fmt.Errorf("%s: kubernetes source must configure secrets or configMaps", prefix)
 		}
+		if s.Namespaces != nil {
+			if err := validateGlobs(prefix+".namespaces.include", s.Namespaces.Include); err != nil {
+				return err
+			}
+			if err := validateGlobs(prefix+".namespaces.exclude", s.Namespaces.Exclude); err != nil {
+				return err
+			}
+		}
+		if s.Secrets != nil {
+			if err := validateGlobs(prefix+".secrets.include", s.Secrets.Include); err != nil {
+				return err
+			}
+			if err := validateGlobs(prefix+".secrets.exclude", s.Secrets.Exclude); err != nil {
+				return err
+			}
+		}
+		if s.ConfigMaps != nil {
+			if err := validateGlobs(prefix+".configMaps.include", s.ConfigMaps.Include); err != nil {
+				return err
+			}
+			if err := validateGlobs(prefix+".configMaps.exclude", s.ConfigMaps.Exclude); err != nil {
+				return err
+			}
+		}
 	case "":
 		return fmt.Errorf("%s.kind: required", prefix)
 	default:
 		return fmt.Errorf("%s.kind: unknown kind %q", prefix, s.Kind)
+	}
+	return nil
+}
+
+// validateGlobs surfaces malformed shell-glob patterns at startup rather
+// than letting them silently match nothing at runtime. `path.Match`
+// returns ErrBadPattern for unclosed brackets, dangling escapes, etc.;
+// it is the same matcher used by pkg/source/k8s at evaluation time.
+func validateGlobs(field string, patterns []string) error {
+	for i, p := range patterns {
+		if _, err := path.Match(p, ""); err != nil {
+			return fmt.Errorf("%s[%d]: invalid shell-glob pattern %q: %w", field, i, p, err)
+		}
 	}
 	return nil
 }

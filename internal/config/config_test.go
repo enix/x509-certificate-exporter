@@ -102,6 +102,47 @@ func TestValidateKubernetesNeedsResources(t *testing.T) {
 	}
 }
 
+func TestValidateKubernetesGlobPatterns(t *testing.T) {
+	mkConfig := func(s Source) Config {
+		c := Default()
+		c.Sources = []Source{s}
+		return c
+	}
+	base := Source{Kind: "kubernetes", Name: "x", Secrets: &SecretsCfg{Include: []string{"*"}}}
+
+	t.Run("namespace include accepts globs", func(t *testing.T) {
+		s := base
+		s.Namespaces = &Namespaces{Include: []string{"team-*", "shared", "ns-?"}}
+		if err := Validate(mkConfig(s)); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	t.Run("namespace exclude rejects malformed pattern", func(t *testing.T) {
+		s := base
+		s.Namespaces = &Namespaces{Exclude: []string{"team-[ab"}}
+		err := Validate(mkConfig(s))
+		if err == nil || !strings.Contains(err.Error(), "namespaces.exclude[0]") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("secrets.include rejects malformed pattern", func(t *testing.T) {
+		s := base
+		s.Secrets = &SecretsCfg{Include: []string{"good", "bad["}}
+		err := Validate(mkConfig(s))
+		if err == nil || !strings.Contains(err.Error(), "secrets.include[1]") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("configMaps.exclude rejects malformed pattern", func(t *testing.T) {
+		s := base
+		s.ConfigMaps = &ConfigMapsCfg{Exclude: []string{"["}}
+		err := Validate(mkConfig(s))
+		if err == nil || !strings.Contains(err.Error(), "configMaps.exclude[0]") {
+			t.Fatalf("got %v", err)
+		}
+	})
+}
+
 func TestApplyCLI(t *testing.T) {
 	c := ApplyCLI(Default(), CLIOverrides{
 		WatchFiles:       []string{"/etc/x.pem"},

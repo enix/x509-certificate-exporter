@@ -305,6 +305,14 @@ secretsExporter:
   includeNamespaceLabels: []
   # -- Exclude namespaces having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   excludeNamespaceLabels: []
+  # -- Only watch Secrets whose name matches one of these entries (all matching Secrets if empty). Each entry is a shell-glob pattern (`*`, `?`, `[abc]`) or a literal name — e.g. `tls-*` matches `tls-prod` and `tls-dev`.
+  includeSecrets: []
+  # -- Exclude Secrets whose name matches one of these entries (evaluated after `includeSecrets`). Same shell-glob syntax as `includeSecrets`.
+  excludeSecrets: []
+  # -- Only watch ConfigMaps whose name matches one of these entries (all matching ConfigMaps if empty). Same shell-glob syntax as `includeSecrets`.
+  includeConfigMaps: []
+  # -- Exclude ConfigMaps whose name matches one of these entries (evaluated after `includeConfigMaps`). Same shell-glob syntax as `includeSecrets`.
+  excludeConfigMaps: []
   # -- Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   includeLabels: []
   # -- Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.

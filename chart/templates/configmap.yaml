@@ -53,8 +53,8 @@ data:
           includeLabels: {{ if .Values.secretsExporter.includeNamespaceLabels }}{{ .Values.secretsExporter.includeNamespaceLabels | toJson }}{{ else }}[]{{ end }}
           excludeLabels: {{ if .Values.secretsExporter.excludeNamespaceLabels }}{{ .Values.secretsExporter.excludeNamespaceLabels | toJson }}{{ else }}[]{{ end }}
         secrets:
-          include: ["*"]
-          exclude: []
+          include: {{ if .Values.secretsExporter.includeSecrets }}{{ .Values.secretsExporter.includeSecrets | toJson }}{{ else }}["*"]{{ end }}
+          exclude: {{ if .Values.secretsExporter.excludeSecrets }}{{ .Values.secretsExporter.excludeSecrets | toJson }}{{ else }}[]{{ end }}
           includeLabels: {{ if .Values.secretsExporter.includeLabels }}{{ .Values.secretsExporter.includeLabels | toJson }}{{ else }}[]{{ end }}
           excludeLabels: {{ if .Values.secretsExporter.excludeLabels }}{{ .Values.secretsExporter.excludeLabels | toJson }}{{ else }}[]{{ end }}
           types:
@@ -74,7 +74,8 @@ data:
           exposeLabels: {{ if .Values.secretsExporter.exposeSecretLabels }}{{ .Values.secretsExporter.exposeSecretLabels | toJson }}{{ else }}[]{{ end }}
         {{- if .Values.secretsExporter.configMapKeys }}
         configMaps:
-          include: ["*"]
+          include: {{ if .Values.secretsExporter.includeConfigMaps }}{{ .Values.secretsExporter.includeConfigMaps | toJson }}{{ else }}["*"]{{ end }}
+          exclude: {{ if .Values.secretsExporter.excludeConfigMaps }}{{ .Values.secretsExporter.excludeConfigMaps | toJson }}{{ else }}[]{{ end }}
           keyPatterns:
             {{- range .Values.secretsExporter.configMapKeys }}
             - "^{{ . | replace "." "\\\\." }}$"

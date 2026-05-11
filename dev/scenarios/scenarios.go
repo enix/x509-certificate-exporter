@@ -421,6 +421,25 @@ func build() {
 		})
 	}
 
+	// ─── Negative — secret excluded by name glob ───────────────────────
+	// dev/values.yaml carries `excludeSecrets: ["x509ce-skip-*"]`, so
+	// every Secret whose name matches that prefix is filtered
+	// client-side regardless of namespace.
+	hiddenByNameGlob, hiddenByNameGlobKey, err := Selfsigned(CertSpec{
+		CN: "hidden-by-secret-glob.example.test", DNSNames: []string{"hidden-by-secret-glob.example.test"},
+		NotBefore: in(-time.Hour), NotAfter: in(180 * day), Algo: AlgoRSA2048,
+	})
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-fresh", Name: "x509ce-skip-by-name",
+		Kind: "Secret", SecretType: "kubernetes.io/tls",
+		Data: map[string][]byte{
+			"tls.crt": EncodeCertsPEM(hiddenByNameGlob),
+			"tls.key": EncodeKeyPEM(hiddenByNameGlobKey),
+		},
+		Watched: false,
+	})
+
 	// ─── Negative — secret of a watched type but no matching key ───────
 	// Opaque type IS in `secretTypes` (with several known keys). This
 	// fixture's keys deliberately match NONE of them. The exporter

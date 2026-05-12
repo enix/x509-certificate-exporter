@@ -1,0 +1,10 @@
+# Empty `image.registry` must render a registry-less reference rather
+# than producing `/<repo>:<tag>` (leading slash → InvalidImageName).
+# The kubelet falls back to its configured default registry
+# (typically docker.io) when no registry is set.
+image:
+  registry: ""
+rbacProxy:
+  enabled: true
+  image:
+    registry: ""

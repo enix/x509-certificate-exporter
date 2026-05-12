@@ -276,6 +276,7 @@
         },
         "repository": {
           "default": "enix/x509-certificate-exporter",
+          "minLength": 1,
           "type": "string"
         },
         "tag": {
@@ -289,7 +290,6 @@
       },
       "required": [
         "registry",
-        "repository",
         "tag",
         "tagSuffix",
         "digest"
@@ -728,6 +728,7 @@
             },
             "repository": {
               "default": "brancz/kube-rbac-proxy",
+              "minLength": 1,
               "type": "string"
             },
             "tag": {
@@ -737,7 +738,6 @@
           },
           "required": [
             "registry",
-            "repository",
             "tag",
             "digest"
           ],

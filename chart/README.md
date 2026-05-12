@@ -250,7 +250,7 @@ exporter-toolkit is the recommended path on new installs.
 | extraDeploy | list | `[]` | Additional objects to deploy with the release |
 | extraDeployVerbatim | list | `[]` | Same as `extraDeploy` but objects won't go through the templating engine |
 | imagePullSecrets | list | `[]` | Specify docker-registry secret names as an array |
-| image.registry | string | `"quay.io"` | Exporter image registry |
+| image.registry | string | `"quay.io"` | Exporter image registry. Empty string opts out of the registry prefix and lets the CRI fall back to its configured default (typically docker.io). |
 | image.repository | string | `"enix/x509-certificate-exporter"` | Exporter image repository |
 | image.tag | string | `""` | Exporter image tag (defaults to Chart appVersion) |
 | image.tagSuffix | string | `""` | Appended to the image tag to select a container flavor. Use `-busybox` for a shell-enabled image |
@@ -407,7 +407,7 @@ exporter-toolkit is the recommended path on new installs.
 | rbac.hostPathsExporter.clusterRoleBindingAnnotations | object | `{}` | Annotations added to the ClusterRoleBinding for the hostPath exporters |
 | rbacProxy.enabled | bool | `false` | Should kube-rbac-proxy be used to expose exporters |
 | rbacProxy.tls.existingSecretName | string | `""` | Pre-provisioned Secret carrying `tls.crt` + `tls.key` for the kube-rbac-proxy serving cert. When empty, the chart auto-generates a self-signed cert at install time and reuses it across upgrades via `lookup`. Set this to a cert-manager-managed Secret (or similar) for a cert with a real chain you can rotate independently. |
-| rbacProxy.image.registry | string | `"quay.io"` | kube-rbac-proxy image registry |
+| rbacProxy.image.registry | string | `"quay.io"` | kube-rbac-proxy image registry. Empty string opts out of the registry prefix and lets the CRI fall back to its configured default (typically docker.io). |
 | rbacProxy.image.repository | string | `"brancz/kube-rbac-proxy"` | kube-rbac-proxy image repository |
 | rbacProxy.image.tag | string | `"v0.22.0"` | kube-rbac-proxy image tag |
 | rbacProxy.image.digest | string | `""` | kube-rbac-proxy image digest. When set, takes precedence over `tag` (immutable reference) |

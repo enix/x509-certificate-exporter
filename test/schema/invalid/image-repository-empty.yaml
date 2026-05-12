@@ -1,0 +1,7 @@
+# Empty `image.repository` would render as `<registry>/:<tag>` which
+# kubelet rejects with ImagePullBackOff:InvalidImageName. The schema
+# must reject it (registry-less is fine — see
+# `valid/image-registry-empty.yaml` — but a repo-less ref makes no
+# sense).
+image:
+  repository: ""

@@ -62,3 +62,17 @@ hostPathsExporter:
         - /var/lib/x509ce-e2e/pki/kubelet-client-current.pem
         - /var/lib/x509ce-e2e/pki/absolute-link.pem
         - /var/lib/x509ce-e2e/pki/escape.pem
+      # Recursive globs under a shared static prefix — exercises the
+      # chart's static-prefix extraction (one HostPath volume covers
+      # both patterns) and the fileglob walker's `**` traversal,
+      # including a literal segment (`tls/`) sitting AFTER `**`.
+      watchDirectories:
+        - /var/lib/x509ce-e2e/recursive-pki/**/*.pem
+        - /var/lib/x509ce-e2e/recursive-pki/**/tls/*.pem
+      # Regression guard: the chart's mountPath for this mode must
+      # bind `<directory>` (not its parent), so the configmap-side
+      # scan path `/mnt/watch/dir-<sha>/<directory>/*.<ext>` actually
+      # contains the host file.
+      watchSpecificExtensionDirectories:
+        - directory: /var/lib/x509ce-e2e/extdir
+          extension: crt

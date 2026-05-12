@@ -16,8 +16,12 @@ extraDeployVerbatim: []
 imagePullSecrets: []
 
 image:
-  # -- Exporter image registry
+  # -- Exporter image registry. Empty string opts out of the registry prefix and lets the CRI fall back to its configured default (typically docker.io).
   registry: quay.io
+  # @schema
+  # type: string
+  # minLength: 1
+  # @schema
   # -- Exporter image repository
   repository: enix/x509-certificate-exporter
   # -- Exporter image tag (defaults to Chart appVersion)
@@ -781,8 +785,12 @@ rbacProxy:
     # similar) for a cert with a real chain you can rotate independently.
     existingSecretName: ""
   image:
-    # -- kube-rbac-proxy image registry
+    # -- kube-rbac-proxy image registry. Empty string opts out of the registry prefix and lets the CRI fall back to its configured default (typically docker.io).
     registry: quay.io
+    # @schema
+    # type: string
+    # minLength: 1
+    # @schema
     # -- kube-rbac-proxy image repository
     repository: brancz/kube-rbac-proxy
     # -- kube-rbac-proxy image tag

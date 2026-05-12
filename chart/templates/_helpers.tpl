@@ -85,6 +85,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Return the x509-certificate-exporter image reference.
 Precedence: digest > tag (+ tagSuffix). global.imageRegistry overrides registry.
 When digest is set the tag is omitted from the reference (digest is immutable).
+An empty registry (e.g. `image.registry: ""`) omits the registry segment
+entirely — the kubelet then falls back to its configured default
+(typically docker.io). Without this branch, the resulting ref would
+start with `/` and trigger ImagePullBackOff:InvalidImageName.
 */}}
 {{- define "x509-certificate-exporter.image" -}}
 {{- $registry := .Values.image.registry -}}
@@ -92,17 +96,20 @@ When digest is set the tag is omitted from the reference (digest is immutable).
   {{- $registry = .Values.global.imageRegistry -}}
 {{- end -}}
 {{- $repo := .Values.image.repository -}}
+{{- $prefix := $repo -}}
+{{- if $registry -}}{{- $prefix = printf "%s/%s" $registry $repo -}}{{- end -}}
 {{- if .Values.image.digest -}}
-  {{- printf "%s/%s@%s" $registry $repo .Values.image.digest -}}
+  {{- printf "%s@%s" $prefix .Values.image.digest -}}
 {{- else -}}
   {{- $tag := printf "%s%s" (default .Chart.AppVersion .Values.image.tag | toString) (default "" .Values.image.tagSuffix | toString) -}}
-  {{- printf "%s/%s:%s" $registry $repo $tag -}}
+  {{- printf "%s:%s" $prefix $tag -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
 Return the kube-rbac-proxy image reference.
 Precedence: digest > tag. global.imageRegistry overrides registry.
+Same empty-registry handling as the main image helper.
 */}}
 {{- define "x509-certificate-exporter.rbacProxy.image" -}}
 {{- $registry := .Values.rbacProxy.image.registry -}}
@@ -110,10 +117,12 @@ Precedence: digest > tag. global.imageRegistry overrides registry.
   {{- $registry = .Values.global.imageRegistry -}}
 {{- end -}}
 {{- $repo := .Values.rbacProxy.image.repository -}}
+{{- $prefix := $repo -}}
+{{- if $registry -}}{{- $prefix = printf "%s/%s" $registry $repo -}}{{- end -}}
 {{- if .Values.rbacProxy.image.digest -}}
-  {{- printf "%s/%s@%s" $registry $repo .Values.rbacProxy.image.digest -}}
+  {{- printf "%s@%s" $prefix .Values.rbacProxy.image.digest -}}
 {{- else -}}
-  {{- printf "%s/%s:%s" $registry $repo (.Values.rbacProxy.image.tag | toString) -}}
+  {{- printf "%s:%s" $prefix (.Values.rbacProxy.image.tag | toString) -}}
 {{- end -}}
 {{- end -}}
 

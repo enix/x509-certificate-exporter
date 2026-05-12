@@ -164,6 +164,64 @@ func buildHostPath() {
 		ExpectReason:  "out_of_scope_symlink",
 	})
 
+	// 5. Recursive subtree — file two levels deep under a separate root.
+	//    test/e2e/values.yaml configures the chart's `watchDirectories`
+	//    with a `**` glob anchored at HostPathRoot/recursive-pki, which
+	//    exercises the static-prefix extraction in the chart template
+	//    (HostPath volume + mountPath bind the smallest containing dir,
+	//    not the wildcard tail) and the fileglob walker.
+	recursiveLeaf := path.Join(HostPathRoot, "recursive-pki", "team-alpha", "service-x", "leaf.pem")
+	sc = append(sc, HostPathScenario{
+		Path:          recursiveLeaf,
+		Watched:       true,
+		FilepathLabel: trimLabel(recursiveLeaf),
+		SubjectCN:     "recursive-leaf.example.test",
+		Cert: HostPathCert{
+			CN: "recursive-leaf.example.test", Algo: AlgoECDSAP256,
+			NotBefore: now.Add(-time.Hour), NotAfter: now.Add(year),
+			Lifecycle: LifecycleValid,
+		},
+	})
+
+	// 6. Recursive subtree with a literal directory segment AFTER `**`
+	//    (`recursive-pki/**/tls/*.pem`). Verifies the walker still
+	//    descends through arbitrary subtrees while requiring the `tls`
+	//    component just above the leaf. Shares the same static prefix
+	//    as scenario 5, so the chart binds a single HostPath volume.
+	recursiveMidLeaf := path.Join(HostPathRoot, "recursive-pki", "team-beta", "service-y", "tls", "inner.pem")
+	sc = append(sc, HostPathScenario{
+		Path:          recursiveMidLeaf,
+		Watched:       true,
+		FilepathLabel: trimLabel(recursiveMidLeaf),
+		SubjectCN:     "recursive-mid-leaf.example.test",
+		Cert: HostPathCert{
+			CN: "recursive-mid-leaf.example.test", Algo: AlgoECDSAP256,
+			NotBefore: now.Add(-time.Hour), NotAfter: now.Add(year),
+			Lifecycle: LifecycleValid,
+		},
+	})
+
+	// 7. watchSpecificExtensionDirectories — file at
+	//    HostPathRoot/extdir/leaf.crt, configured via
+	//    {directory: HostPathRoot/extdir, extension: crt}. Regression
+	//    guard: if the chart's mountPath uses the parent of the
+	//    directory (`.directory | dir`) instead of the directory
+	//    itself, the file ends up at the wrong in-pod path and the
+	//    scan finds nothing. This scenario then has no series, and
+	//    the e2e suite fails the Watched=true assertion.
+	extDirLeaf := path.Join(HostPathRoot, "extdir", "leaf.crt")
+	sc = append(sc, HostPathScenario{
+		Path:          extDirLeaf,
+		Watched:       true,
+		FilepathLabel: trimLabel(extDirLeaf),
+		SubjectCN:     "ext-leaf.example.test",
+		Cert: HostPathCert{
+			CN: "ext-leaf.example.test", Algo: AlgoECDSAP256,
+			NotBefore: now.Add(-time.Hour), NotAfter: now.Add(year),
+			Lifecycle: LifecycleValid,
+		},
+	})
+
 	hostPathCached = sc
 }
 

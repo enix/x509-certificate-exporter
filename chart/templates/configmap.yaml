@@ -135,8 +135,15 @@ data:
         name: host-paths-{{ $dsName }}
         followSymlinks: {{ not (dig "skipSymlinks" $.Values.hostPathsExporter.skipSymlinks $dsDef) }}
         paths:
-          {{- range dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
-          - {{ printf "/mnt/watch/dir-%s/%s/*" (. | clean | sha1sum) (. | clean) | clean }}
+          {{- range $entry := dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
+          {{- $cleaned := $entry | clean }}
+          {{- $prefix := include "x509-certificate-exporter.watchDirStaticPrefix" $entry }}
+          {{- $mountBase := printf "/mnt/watch/dir-%s/%s" ($prefix | sha1sum) $prefix | clean }}
+          {{- if eq $prefix $cleaned }}
+          - {{ printf "%s/*" $mountBase }}
+          {{- else }}
+          - {{ printf "%s%s" $mountBase (trimPrefix $prefix $cleaned) }}
+          {{- end }}
           {{- end }}
           {{- range dig "watchSpecificExtensionDirectories" $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef }}
           - {{ printf "/mnt/watch/dir-%s/%s/*.%s" (.directory | clean | sha1sum) (.directory | clean) (.extension | clean) | clean }}
@@ -150,9 +157,13 @@ data:
         # list also confines symlink resolution to these scopes — anything
         # that escapes raises x509_source_errors_total{reason="out_of_scope_symlink"}.
         pathMappings:
-          {{- range dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
-          - from: {{ . | clean | quote }}
-            to: {{ printf "/mnt/watch/dir-%s/%s" (. | clean | sha1sum) (. | clean) | clean | quote }}
+          {{- $watchDirPrefixes := list }}
+          {{- range $entry := dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
+          {{- $watchDirPrefixes = append $watchDirPrefixes (include "x509-certificate-exporter.watchDirStaticPrefix" $entry) }}
+          {{- end }}
+          {{- range $prefix := $watchDirPrefixes | uniq }}
+          - from: {{ $prefix | quote }}
+            to: {{ printf "/mnt/watch/dir-%s/%s" ($prefix | sha1sum) $prefix | clean | quote }}
           {{- end }}
           {{- range dig "watchSpecificExtensionDirectories" $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef }}
           - from: {{ .directory | clean | quote }}

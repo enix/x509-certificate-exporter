@@ -51,8 +51,12 @@ spec:
   - 'hostPath'
   - 'secret'
   allowedHostPaths:
-  {{- range dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
-  - pathPrefix: "{{ . | clean }}"
+  {{- $watchDirPrefixes := list }}
+  {{- range $entry := dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
+  {{- $watchDirPrefixes = append $watchDirPrefixes (include "x509-certificate-exporter.watchDirStaticPrefix" $entry) }}
+  {{- end }}
+  {{- range $prefix := $watchDirPrefixes | uniq }}
+  - pathPrefix: "{{ $prefix }}"
     readOnly: true
   {{- end }}
   {{- range dig "watchFiles" $.Values.hostPathsExporter.watchFiles $dsDef }}

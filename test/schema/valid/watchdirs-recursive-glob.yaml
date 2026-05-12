@@ -1,0 +1,7 @@
+# `watchDirectories` accepts shell-glob patterns including the `**`
+# recursion token (in addition to literal directory paths).
+hostPathsExporter:
+  watchDirectories:
+    - /etc/kubernetes/pki
+    - /var/lib/kubelet/pods/**/*.crt
+    - /var/lib/kubelet/pods/**/*.pem

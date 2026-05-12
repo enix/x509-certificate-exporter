@@ -99,24 +99,28 @@ spec:
         - name: config
           mountPath: /etc/x509-certificate-exporter
           readOnly: true
-        {{- range dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
-        - name: dir-{{ . | clean | sha1sum }}
-          mountPath: /mnt/watch/dir-{{ . | clean | sha1sum }}/{{ . | clean }}
+        {{- $watchDirPrefixes := list }}
+        {{- range $entry := dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
+        {{- $watchDirPrefixes = append $watchDirPrefixes (include "x509-certificate-exporter.watchDirStaticPrefix" $entry) }}
+        {{- end }}
+        {{- range $prefix := $watchDirPrefixes | uniq }}
+        - name: dir-{{ $prefix | sha1sum }}
+          mountPath: {{ printf "/mnt/watch/dir-%s/%s" ($prefix | sha1sum) $prefix | clean }}
           readOnly: true
         {{- end }}
         {{- range dig "watchSpecificExtensionDirectories" $.Values.hostPathsExporter.watchSpecificExtensionDirectories $dsDef }}
         - name: dir-{{ .directory| clean | sha1sum }}
-          mountPath: /mnt/watch/dir-{{ .directory | clean | sha1sum }}/{{ .directory | clean | dir }}
+          mountPath: {{ printf "/mnt/watch/dir-%s/%s" (.directory | clean | sha1sum) (.directory | clean) | clean }}
           readOnly: true
         {{- end }}
         {{- range dig "watchFiles" $.Values.hostPathsExporter.watchFiles $dsDef }}
         - name: file-{{ . | clean | sha1sum }}
-          mountPath: /mnt/watch/file-{{ . | clean | sha1sum }}{{ . | clean | dir }}
+          mountPath: {{ printf "/mnt/watch/file-%s/%s" (. | clean | sha1sum) (. | clean | dir) | clean }}
           readOnly: true
         {{- end }}
         {{- range dig "watchKubeconfFiles" $.Values.hostPathsExporter.watchKubeconfFiles $dsDef }}
         - name: kube-{{ . | clean | sha1sum }}
-          mountPath: /mnt/watch/kube-{{ . | clean | sha1sum }}{{ . | clean | dir }}
+          mountPath: {{ printf "/mnt/watch/kube-%s/%s" (. | clean | sha1sum) (. | clean | dir) | clean }}
           readOnly: true
         {{- end }}
         {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
@@ -213,10 +217,14 @@ spec:
       {{- if hasKey $dsDef "hostPathVolumeType" }}
         {{- $hostPathType = $dsDef.hostPathVolumeType }}
       {{- end }}
-      {{- range dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
-      - name: dir-{{ . | clean | sha1sum }}
+      {{- $watchDirPrefixes := list }}
+      {{- range $entry := dig "watchDirectories" $.Values.hostPathsExporter.watchDirectories $dsDef }}
+      {{- $watchDirPrefixes = append $watchDirPrefixes (include "x509-certificate-exporter.watchDirStaticPrefix" $entry) }}
+      {{- end }}
+      {{- range $prefix := $watchDirPrefixes | uniq }}
+      - name: dir-{{ $prefix | sha1sum }}
         hostPath:
-          path: {{ . | clean }}
+          path: {{ $prefix }}
           {{- if $hostPathType }}
           type: {{ $hostPathType | quote }}
           {{- end }}

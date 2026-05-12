@@ -190,6 +190,35 @@ the chart-generated one named here.
 {{- end -}}
 
 {{/*
+Static path prefix of a `watchDirectories` entry — i.e. everything
+before the first segment containing a shell-glob meta character (`*`,
+`?`, `[`, or the `**` recursion token). A literal path returns
+unchanged. Used to derive both the HostPath volume on the node and the
+in-pod mount destination from a possibly-glob'd entry, so volumes only
+expose the static subtree even when the watch pattern is recursive.
+
+  literal `/var/lib/foo` returns `/var/lib/foo`
+  trailing `/var/lib/foo/double-star` returns `/var/lib/foo`
+  recursive `/var/lib/foo/double-star/...pem` returns `/var/lib/foo`
+  inline meta `/var/star-foo` returns `/var`
+
+An entry with no static prefix (e.g. leading double-star, or any
+pattern that starts with a glob meta segment) is rejected at render
+time: silently widening to `/` would mount the host root and grant
+the PSP a `pathPrefix: /` allowance. Users must anchor every
+recursive pattern under a concrete directory.
+*/}}
+{{- define "x509-certificate-exporter.watchDirStaticPrefix" -}}
+{{- $cleaned := . | clean -}}
+{{- $stripped := regexReplaceAll "(?:^|/)[^/]*[*?\\[].*$" $cleaned "" -}}
+{{- if eq $stripped "" -}}
+{{- fail (printf "invalid watchDirectories entry %q: must be anchored at a non-glob static prefix (e.g. /var/lib/.../**/*.pem); refusing to widen to /" .) -}}
+{{- else -}}
+{{- $stripped -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 kubectl image for hook jobs.
 Precedence: digest > explicit tag > auto-detected cluster version.
 When digest is set the tag is omitted (digest is immutable).

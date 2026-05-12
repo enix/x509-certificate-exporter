@@ -1,0 +1,3 @@
+invalid watchDirectories entry
+must be anchored at a non-glob static prefix
+refusing to widen to /

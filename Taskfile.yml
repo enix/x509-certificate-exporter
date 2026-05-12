@@ -197,12 +197,13 @@ tasks:
 
   # ─── Tests ───────────────────────────────────────────────────────────────
   test:
-    desc: "Run all tests (unit + fuzz + helm-examples + helm-fixtures + e2e)"
+    desc: "Run all tests (unit + fuzz + helm-examples + helm-fixtures + helm-render + e2e)"
     cmds:
       - task: test:unit
       - task: test:fuzz
       - task: test:helm-examples
       - task: test:helm-fixtures
+      - task: test:helm-render
       - task: test:e2e
 
   test:unit:
@@ -229,6 +230,11 @@ tasks:
     desc: "Schema regression net — every test/schema/{valid,invalid}/*.yaml against the chart, with paired .expect.txt"
     cmds:
       - dagger call test-helm-fixtures
+
+  test:helm-render:
+    desc: "Cross-template alignment — `helm template` the chart with every host-paths watch mode and assert each ConfigMap scan path is reachable from a DaemonSet volumeMount"
+    cmds:
+      - dagger call test-helm-render
 
   test:e2e:
     desc: "End-to-end against a fully isolated throwaway cluster — random names + free port, race-free across parallel runs"

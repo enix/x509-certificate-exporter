@@ -1,0 +1,9 @@
+# A `watchDirectories` entry that starts with a glob meta segment has
+# no static prefix to anchor the HostPath mount; widening to `/` would
+# expose the entire node filesystem. The chart's
+# `watchDirStaticPrefix` helper rejects this at render time.
+hostPathsExporter:
+  daemonSets:
+    t:
+      watchDirectories:
+        - "**/*.pem"

@@ -1,0 +1,33 @@
+# Comprehensive coverage of every host-paths watch mode. Drives
+# TestHelmRender (dagger function) which `helm template`s the chart
+# against this file and asserts cross-template alignment between the
+# rendered ConfigMap's scan paths and the rendered DaemonSet's volume
+# mounts. Each entry below exercises one mode; if a future chart
+# change misaligns any of them, the test fails fast (seconds, no e2e).
+---
+secretsExporter:
+  enabled: false
+
+hostPathsExporter:
+  hostPathVolumeType: DirectoryOrCreate
+  daemonSets:
+    all-modes:
+      # Literal directory (one-level scan).
+      watchDirectories:
+        - /etc/kubernetes/pki
+        # Recursive glob (static prefix = /var/lib/kubelet/pods).
+        - /var/lib/kubelet/pods/**/*.pem
+        # Glob with a literal segment AFTER `**` (static prefix still
+        # = /var/lib/kubelet/pods).
+        - /var/lib/kubelet/pods/**/tls/*.crt
+      # Specific-extension directory — regression guard for the
+      # `mountPath = .directory | dir` bug fixed earlier.
+      watchSpecificExtensionDirectories:
+        - directory: /etc/ssl/certs
+          extension: crt
+      # Single-file watch — mountPath is the parent dir.
+      watchFiles:
+        - /etc/kubernetes/admin-cert.pem
+      # Kubeconfig watch — same shape as watchFiles.
+      watchKubeconfFiles:
+        - /etc/kubernetes/admin.conf

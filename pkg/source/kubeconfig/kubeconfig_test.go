@@ -165,6 +165,57 @@ func TestKubeconfigDeleteOnDisappear(t *testing.T) {
 	}
 }
 
+func TestEmbeddedCertRotationReplacesUpsert(t *testing.T) {
+	// kubelet-rotation pattern: certificate-authority-data is
+	// rewritten in place between two runOnce passes. The source must
+	// emit a fresh Bundle with the SAME SourceRef (path + embedded
+	// kind/key) but the new cert content, and NOT emit a Delete —
+	// the Key (kc/c1/certificate-authority-data) is unchanged.
+	dir := t.TempDir()
+	caV1 := makeCert(t, "ca-v1")
+	caV2 := makeCert(t, "ca-v2")
+	yamlOf := func(b []byte) []byte {
+		return []byte("clusters:\n- name: c1\n  cluster:\n    certificate-authority-data: " +
+			base64.StdEncoding.EncodeToString(b) + "\n")
+	}
+	p := filepath.Join(dir, "kc.yaml")
+	if err := os.WriteFile(p, yamlOf(caV1), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	src := New(Options{Name: "kc", Paths: []string{p}}, nopLogger())
+	sink := &fakeSink{}
+	src.runOnce(context.Background(), sink, true)
+	if len(sink.upsert) != 1 {
+		t.Fatalf("want 1 initial upsert, got %d", len(sink.upsert))
+	}
+	if cn := sink.upsert[0].Items[0].Cert.Subject.CommonName; cn != "ca-v1" {
+		t.Fatalf("initial CN = %q, want ca-v1", cn)
+	}
+	firstRef := sink.upsert[0].Source
+
+	// Rotate the embedded CA in place.
+	if err := os.WriteFile(p, yamlOf(caV2), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	src.runOnce(context.Background(), sink, false)
+
+	if len(sink.upsert) != 2 {
+		t.Fatalf("want 2 upserts after rotation, got %d", len(sink.upsert))
+	}
+	latest := sink.upsert[1]
+	if cn := latest.Items[0].Cert.Subject.CommonName; cn != "ca-v2" {
+		t.Fatalf("rotated CN = %q, want ca-v2", cn)
+	}
+	// Same SourceRef → no Delete should have fired.
+	if latest.Source.String() != firstRef.String() {
+		t.Fatalf("rotation changed SourceRef: %s → %s", firstRef.String(), latest.Source.String())
+	}
+	if len(sink.delete) != 0 {
+		t.Fatalf("rotation must replace, not delete + re-add (got %d deletes)", len(sink.delete))
+	}
+}
+
 func TestNameAndFirstSyncSignal(t *testing.T) {
 	done := make(chan struct{})
 	src := New(Options{Name: "kc", FirstSyncDone: done}, nopLogger())

@@ -564,6 +564,10 @@
           "additionalProperties": true,
           "required": []
         },
+        "alertOnCRLs": {
+          "default": true,
+          "type": "boolean"
+        },
         "alertOnCertificateErrors": {
           "default": true,
           "type": "boolean"
@@ -608,6 +612,29 @@
           "minimum": 0,
           "required": []
         },
+        "crlNeedsRefreshSeverity": {
+          "default": "warning",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
+        },
+        "crlStaleSeverity": {
+          "default": "critical",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
+        },
+        "crlWarningDaysLeft": {
+          "default": "7",
+          "minimum": 0,
+          "required": []
+        },
         "disableBuiltinAlertGroup": {
           "default": false,
           "type": "boolean"
@@ -645,6 +672,7 @@
         "create",
         "alertOnReadErrors",
         "alertOnCertificateErrors",
+        "alertOnCRLs",
         "rulePrefix",
         "disableBuiltinAlertGroup",
         "extraAlertGroups"

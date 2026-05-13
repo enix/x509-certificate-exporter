@@ -79,6 +79,36 @@ spec:
         {{- if .Values.prometheusRules.alertExtraAnnotations }}
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}
+    {{- if .Values.prometheusRules.alertOnCRLs }}
+    - alert: '{{ printf "%s %s" $rulePrefix "CRLNeedsRefresh" | trim }}'
+      expr: (x509_crl_next_update - time()) < ({{ .Values.prometheusRules.crlWarningDaysLeft }} * 86400) and x509_crl_stale == 0
+      for: 15m
+      labels:
+        severity: {{ .Values.prometheusRules.crlNeedsRefreshSeverity }}
+        {{- if .Values.prometheusRules.alertExtraLabels }}
+        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        summary: CRL needs to be refreshed
+        description: CRL issued by "{{ "{{" }} $labels.issuer_CN {{ "}}" }}" reaches its nextUpdate in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+        {{- if .Values.prometheusRules.alertExtraAnnotations }}
+        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
+        {{- end }}
+    - alert: '{{ printf "%s %s" $rulePrefix "CRLStale" | trim }}'
+      expr: x509_crl_stale > 0
+      for: 15m
+      labels:
+        severity: {{ .Values.prometheusRules.crlStaleSeverity }}
+        {{- if .Values.prometheusRules.alertExtraLabels }}
+        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        summary: CRL is stale (past its nextUpdate)
+        description: CRL issued by "{{ "{{" }} $labels.issuer_CN {{ "}}" }}" is past its nextUpdate — clients validating against this CRL are likely to reject the issuer's certs {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+        {{- if .Values.prometheusRules.alertExtraAnnotations }}
+        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
+        {{- end }}
+    {{- end }}
   {{- end }}
 {{- range .Values.prometheusRules.extraAlertGroups }}
   - {{ tpl (toYaml .) $ | indent 4 | trim }}

@@ -31,6 +31,7 @@ import (
 	"github.com/enix/x509-certificate-exporter/v4/internal/server"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
 	derparser "github.com/enix/x509-certificate-exporter/v4/pkg/cert/der"
+	jksparser "github.com/enix/x509-certificate-exporter/v4/pkg/cert/jks"
 	pemparser "github.com/enix/x509-certificate-exporter/v4/pkg/cert/pem"
 	pkcs12parser "github.com/enix/x509-certificate-exporter/v4/pkg/cert/pkcs12"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/fileglob"
@@ -145,6 +146,7 @@ func run() error {
 		ExposeExpired:          cfg.Metrics.ExposeExpired,
 		ExposeDiagnostics:      cfg.Metrics.ExposeDiagnostics,
 		Pkcs12InUse:            pkcs12InUse(cfg),
+		JksInUse:               jksInUse(cfg),
 		SubjectFields:          cfg.Metrics.ExposeSubjectFields,
 		IssuerFields:           cfg.Metrics.ExposeIssuerFields,
 		TrimPathComponents:     cfg.Metrics.TrimPathComponents,
@@ -319,6 +321,30 @@ func pkcs12InUse(cfg config.Config) bool {
 	return false
 }
 
+// jksInUse reports whether any source declares a `jks` format.
+// The result drives whether the registry registers the
+// `x509_jks_passphrase_failures_total` counter.
+func jksInUse(cfg config.Config) bool {
+	for _, s := range cfg.Sources {
+		for _, f := range s.Formats {
+			if f == cert.FormatJKS {
+				return true
+			}
+		}
+		if s.Secrets != nil {
+			for _, t := range s.Secrets.Types {
+				if t.Format == cert.FormatJKS {
+					return true
+				}
+			}
+		}
+		if s.ConfigMaps != nil && s.ConfigMaps.Format == cert.FormatJKS {
+			return true
+		}
+	}
+	return false
+}
+
 func exposedLabelsFromConfig(cfg config.Config) (secrets, configmaps, cabundles []string) {
 	seen := map[string]struct{}{}
 	for _, s := range cfg.Sources {
@@ -406,6 +432,23 @@ func buildFileSource(s config.Source, cfg config.Config, ready func(bool), logge
 			parseOpts.Pkcs12TryEmpty = true
 		}
 	}
+	if s.Jks != nil {
+		if s.Jks.Passphrase != "" {
+			parseOpts.JksPassphrase = s.Jks.Passphrase
+		}
+		if s.Jks.PassphraseFile != "" {
+			data, err := os.ReadFile(s.Jks.PassphraseFile)
+			if err != nil {
+				return nil, fmt.Errorf("read jks passphraseFile: %w", err)
+			}
+			parseOpts.JksPassphrase = trimNewline(string(data))
+		}
+		if s.Jks.TryEmptyPassphrase != nil {
+			parseOpts.JksTryEmpty = *s.Jks.TryEmptyPassphrase
+		} else {
+			parseOpts.JksTryEmpty = true
+		}
+	}
 	for _, f := range s.Formats {
 		switch f {
 		case cert.FormatPEM:
@@ -414,6 +457,8 @@ func buildFileSource(s config.Source, cfg config.Config, ready func(bool), logge
 			parsers = append(parsers, pkcs12parser.New())
 		case cert.FormatDER:
 			parsers = append(parsers, derparser.New())
+		case cert.FormatJKS:
+			parsers = append(parsers, jksparser.New())
 		}
 	}
 	follow := true
@@ -472,6 +517,8 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 				parser = pkcs12parser.New()
 			case cert.FormatDER:
 				parser = derparser.New()
+			case cert.FormatJKS:
+				parser = jksparser.New()
 			default:
 				return nil, fmt.Errorf("secret type %q: unsupported format %q", t.Type, format)
 			}
@@ -493,6 +540,16 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 						rule.ParseOpts.Pkcs12TryEmpty = true
 					}
 				}
+				if t.Jks != nil {
+					if t.Jks.PassphraseKey != "" {
+						rule.JksPassphraseKey = t.Jks.PassphraseKey
+					}
+					if t.Jks.TryEmptyPassphrase != nil {
+						rule.ParseOpts.JksTryEmpty = *t.Jks.TryEmptyPassphrase
+					} else {
+						rule.ParseOpts.JksTryEmpty = true
+					}
+				}
 				rules = append(rules, rule)
 			}
 		}
@@ -511,6 +568,8 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 			parser = pkcs12parser.New()
 		case cert.FormatDER:
 			parser = derparser.New()
+		case cert.FormatJKS:
+			parser = jksparser.New()
 		default:
 			return nil, fmt.Errorf("configMaps format %q unsupported", format)
 		}

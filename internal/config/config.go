@@ -109,6 +109,7 @@ type Source struct {
 	RefreshInterval   time.Duration `yaml:"refreshInterval,omitempty"`
 	Formats           []string      `yaml:"formats,omitempty"`
 	Pkcs12            *Pkcs12       `yaml:"pkcs12,omitempty"`
+	Jks               *Jks          `yaml:"jks,omitempty"`
 
 	// PathMappings declares foreign↔local path-prefix translations applied
 	// when resolving symlinks (and the scope within which their targets must
@@ -149,6 +150,13 @@ type Pkcs12 struct {
 	TryEmptyPassphrase   *bool      `yaml:"tryEmptyPassphrase,omitempty"`
 }
 
+type Jks struct {
+	Passphrase         string `yaml:"passphrase,omitempty"`
+	PassphraseFile     string `yaml:"passphraseFile,omitempty"`
+	PassphraseKey      string `yaml:"passphraseKey,omitempty"`
+	TryEmptyPassphrase *bool  `yaml:"tryEmptyPassphrase,omitempty"`
+}
+
 type SecretRef struct {
 	Namespace string `yaml:"namespace"`
 	Name      string `yaml:"name"`
@@ -181,6 +189,7 @@ type SecretTypeCfg struct {
 	KeyPatterns []string `yaml:"keyPatterns"`
 	Format      string   `yaml:"format"`
 	Pkcs12      *Pkcs12  `yaml:"pkcs12,omitempty"`
+	Jks         *Jks     `yaml:"jks,omitempty"`
 }
 
 type ConfigMapsCfg struct {
@@ -381,9 +390,9 @@ func validateSource(i int, s Source) error {
 		}
 		for _, f := range s.Formats {
 			switch f {
-			case cert.FormatPEM, cert.FormatPKCS12, cert.FormatDER:
+			case cert.FormatPEM, cert.FormatPKCS12, cert.FormatDER, cert.FormatJKS:
 			default:
-				return fmt.Errorf("%s.formats: unsupported format %q (must be pem|pkcs12|der)", prefix, f)
+				return fmt.Errorf("%s.formats: unsupported format %q (must be pem|pkcs12|der|jks)", prefix, f)
 			}
 		}
 	case KindKubeconfig:

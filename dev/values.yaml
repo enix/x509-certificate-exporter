@@ -42,6 +42,15 @@ secretsExporter:
       format: pkcs12
       pkcs12:
         tryEmptyPassphrase: true
+    # Raw DER — single cert or CRL blob (the CDP-style `.crl` pattern).
+    # Both branches of the DER parser are exercised via two distinct
+    # data keys.
+    - type: Opaque
+      key: cert.der
+      format: der
+    - type: Opaque
+      key: revocation.crl
+      format: der
 
   # Watch ConfigMaps holding a tls.crt key.
   configMapKeys:

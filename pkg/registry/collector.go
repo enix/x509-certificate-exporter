@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"math/big"
 	"strings"
 	"time"
 
@@ -17,6 +18,15 @@ type descTable struct {
 	notBefore, notAfter, expired *prometheus.Desc
 	expiresIn, validSince        *prometheus.Desc
 	certError                    *prometheus.Desc
+	// CRL family — emitted whenever a Bundle carries RevocationItems.
+	// `stale` mirrors `expired` (gated by ExposeExpired); `staleIn` and
+	// `freshSince` are the relative counterparts gated by ExposeRelative.
+	// `crlNumber` is unconditional when the CRL carries the cRLNumber
+	// extension. `crlThisUpdate` and `crlNextUpdate` are always emitted
+	// for a parsed CRL.
+	crlNextUpdate, crlThisUpdate        *prometheus.Desc
+	crlNumber                           *prometheus.Desc
+	crlStale, crlStaleIn, crlFreshSince *prometheus.Desc
 }
 
 func newDescTable(cfg Config) descTable {
@@ -42,6 +52,16 @@ func newDescTable(cfg Config) descTable {
 	if cfg.ExposePerCertError {
 		t.certError = prometheus.NewDesc("x509_cert_error", "1 if the corresponding bundle item failed to parse, 0 otherwise.", s.names, nil)
 	}
+	t.crlNextUpdate = prometheus.NewDesc("x509_crl_next_update", "Unix timestamp of the CRL's nextUpdate (RFC 5280 §5.1.2.5).", s.names, nil)
+	t.crlThisUpdate = prometheus.NewDesc("x509_crl_this_update", "Unix timestamp of the CRL's thisUpdate (RFC 5280 §5.1.2.4).", s.names, nil)
+	t.crlNumber = prometheus.NewDesc("x509_crl_number", "Value of the CRL's cRLNumber extension (RFC 5280 §5.2.3); 0 if absent.", s.names, nil)
+	if cfg.ExposeExpired {
+		t.crlStale = prometheus.NewDesc("x509_crl_stale", "1 if the current time is past the CRL's nextUpdate, 0 otherwise.", s.names, nil)
+	}
+	if cfg.ExposeRelative {
+		t.crlStaleIn = prometheus.NewDesc("x509_crl_stale_in_seconds", "Seconds until the CRL's nextUpdate (negative once stale).", s.names, nil)
+		t.crlFreshSince = prometheus.NewDesc("x509_crl_fresh_since_seconds", "Seconds since the CRL's thisUpdate.", s.names, nil)
+	}
 	return t
 }
 
@@ -61,6 +81,18 @@ func (t descTable) describe(ch chan<- *prometheus.Desc) {
 	}
 	if t.certError != nil {
 		ch <- t.certError
+	}
+	ch <- t.crlNextUpdate
+	ch <- t.crlThisUpdate
+	ch <- t.crlNumber
+	if t.crlStale != nil {
+		ch <- t.crlStale
+	}
+	if t.crlStaleIn != nil {
+		ch <- t.crlStaleIn
+	}
+	if t.crlFreshSince != nil {
+		ch <- t.crlFreshSince
 	}
 }
 
@@ -129,6 +161,7 @@ func (r *Registry) Collect(ch chan<- prometheus.Metric) {
 
 	bundles := r.snapshot()
 	r.emitCertMetrics(ch, bundles)
+	r.emitCRLMetrics(ch, bundles)
 }
 
 type keyedItem struct {
@@ -222,6 +255,51 @@ func (r *Registry) emitItem(ch chan<- prometheus.Metric, ki keyedItem, withDisc 
 	emit(r.descs.expiresIn, c.NotAfter.Sub(now).Seconds())
 	emit(r.descs.validSince, now.Sub(c.NotBefore).Seconds())
 	emit(r.descs.certError, 0)
+}
+
+// emitCRLMetrics walks every Bundle's RevocationItems and emits the
+// x509_crl_* family. Unlike emitCertMetrics, CRLs skip collision
+// resolution: a CRL is identified by (sourceRef + index), which already
+// disambiguates files holding multiple CRLs.
+func (r *Registry) emitCRLMetrics(ch chan<- prometheus.Metric, bundles []cert.Bundle) {
+	opts := LabelOptions{
+		SubjectFields:      r.cfg.SubjectFields,
+		IssuerFields:       r.cfg.IssuerFields,
+		TrimPathComponents: r.cfg.TrimPathComponents,
+	}
+	now := time.Now()
+	emit := func(vals []string, d *prometheus.Desc, v float64) {
+		if d == nil {
+			return
+		}
+		ch <- prometheus.MustNewConstMetric(d, prometheus.GaugeValue, v, vals...)
+	}
+	for _, b := range bundles {
+		for _, ri := range b.RevocationItems {
+			if ri.CRL == nil {
+				continue
+			}
+			vals := r.descs.schema.crlValues(b, ri, opts)
+			emit(vals, r.descs.crlNextUpdate, float64(ri.CRL.NextUpdate.Unix()))
+			emit(vals, r.descs.crlThisUpdate, float64(ri.CRL.ThisUpdate.Unix()))
+			var num float64
+			if ri.CRL.Number != nil {
+				// CRL numbers fit in float64 for any realistic value (issuers
+				// typically use small counters); large numbers lose precision
+				// past 2^53 but the label `crl_number` preserves the exact
+				// value as a string.
+				num, _ = new(big.Float).SetInt(ri.CRL.Number).Float64()
+			}
+			emit(vals, r.descs.crlNumber, num)
+			stale := 0.0
+			if now.After(ri.CRL.NextUpdate) {
+				stale = 1
+			}
+			emit(vals, r.descs.crlStale, stale)
+			emit(vals, r.descs.crlStaleIn, ri.CRL.NextUpdate.Sub(now).Seconds())
+			emit(vals, r.descs.crlFreshSince, now.Sub(ri.CRL.ThisUpdate).Seconds())
+		}
+	}
 }
 
 func (r *Registry) emitItemErrors(ch chan<- prometheus.Metric, b cert.Bundle, opts LabelOptions) {

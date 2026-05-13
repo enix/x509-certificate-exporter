@@ -56,6 +56,7 @@ type Config struct {
 	DiscriminatorLength    int
 	ExposedSecretLabels    []string
 	ExposedConfigMapLabels []string
+	ExposedCABundleLabels  []string
 	EnableStats            bool
 }
 

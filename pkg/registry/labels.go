@@ -153,26 +153,29 @@ type schema struct {
 	subFields            []string
 	exposedSecretLabels  []string
 	exposedCfgmapLabels  []string
+	exposedCABundleLabels []string
 	includeDiscriminator bool
 	// indexes used during values-getter
-	idxFilename, idxFilepath                 int
-	idxEmbeddedKind, idxEmbeddedKey          int
-	idxSecretNS, idxSecretName, idxSecretKey int
-	idxCMNS, idxCMName, idxCMKey             int
-	idxSerial                                int
-	idxIssuerStart, idxSubjectStart          int
-	idxSecretLabelStart, idxCMLabelStart     int
-	idxDiscriminator                         int
+	idxFilename, idxFilepath                                              int
+	idxEmbeddedKind, idxEmbeddedKey                                       int
+	idxSecretNS, idxSecretName, idxSecretKey                              int
+	idxCMNS, idxCMName, idxCMKey                                          int
+	idxCABundleResource, idxCABundleName, idxCABundleEntry                int
+	idxSerial                                                             int
+	idxIssuerStart, idxSubjectStart                                       int
+	idxSecretLabelStart, idxCMLabelStart, idxCABundleLabelStart           int
+	idxDiscriminator                                                      int
 }
 
 // newSchema builds the unified label schema with a deterministic order.
-func newSchema(opts LabelOptions, exposedSecretLabels, exposedCfgmapLabels []string, includeDisc bool) *schema {
+func newSchema(opts LabelOptions, exposedSecretLabels, exposedCfgmapLabels, exposedCABundleLabels []string, includeDisc bool) *schema {
 	s := &schema{
-		issFields:            dnFields(opts.IssuerFields),
-		subFields:            dnFields(opts.SubjectFields),
-		exposedSecretLabels:  exposedSecretLabels,
-		exposedCfgmapLabels:  exposedCfgmapLabels,
-		includeDiscriminator: includeDisc,
+		issFields:             dnFields(opts.IssuerFields),
+		subFields:             dnFields(opts.SubjectFields),
+		exposedSecretLabels:   exposedSecretLabels,
+		exposedCfgmapLabels:   exposedCfgmapLabels,
+		exposedCABundleLabels: exposedCABundleLabels,
+		includeDiscriminator:  includeDisc,
 	}
 	add := func(n string) int {
 		s.names = append(s.names, n)
@@ -188,6 +191,14 @@ func newSchema(opts LabelOptions, exposedSecretLabels, exposedCfgmapLabels []str
 	s.idxCMNS = add("configmap_namespace")
 	s.idxCMName = add("configmap_name")
 	s.idxCMKey = add("configmap_key")
+	// `cabundle_resource_kind` carries the K8s Kind ("MutatingWebhookConfiguration",
+	// "APIService", etc.), `cabundle_resource_name` the cluster-scoped resource
+	// name, and `cabundle_entry` the per-webhook entry name when the resource
+	// holds multiple caBundles (MutatingWebhookConfiguration /
+	// ValidatingWebhookConfiguration); empty for single-caBundle resources.
+	s.idxCABundleResource = add("cabundle_resource_kind")
+	s.idxCABundleName = add("cabundle_resource_name")
+	s.idxCABundleEntry = add("cabundle_entry")
 	s.idxSerial = add("serial_number")
 	s.idxIssuerStart = len(s.names)
 	for _, f := range s.issFields {
@@ -204,6 +215,10 @@ func newSchema(opts LabelOptions, exposedSecretLabels, exposedCfgmapLabels []str
 	s.idxCMLabelStart = len(s.names)
 	for _, l := range exposedCfgmapLabels {
 		add("configmap_label_" + sanitiseLabel(l))
+	}
+	s.idxCABundleLabelStart = len(s.names)
+	for _, l := range exposedCABundleLabels {
+		add("cabundle_label_" + sanitiseLabel(l))
 	}
 	if includeDisc {
 		s.idxDiscriminator = add("discriminator")
@@ -236,6 +251,15 @@ func (s *schema) values(b cert.Bundle, it cert.Item, opts LabelOptions) []string
 		v[s.idxCMNS] = ns
 		v[s.idxCMName] = name
 		v[s.idxCMKey] = b.Source.Key
+	case cert.KindKubeCABundle:
+		// Location holds the Kubernetes resource Kind + name in the
+		// form "<Kind>/<name>" since caBundle resources are cluster-
+		// scoped (no namespace prefix). Key carries the per-webhook
+		// entry name when applicable (MWC/VWC), empty otherwise.
+		kind, name := splitNS(b.Source.Location)
+		v[s.idxCABundleResource] = kind
+		v[s.idxCABundleName] = name
+		v[s.idxCABundleEntry] = b.Source.Key
 	}
 	v[s.idxSerial] = serialString(it)
 	if it.Cert != nil {
@@ -254,6 +278,11 @@ func (s *schema) values(b cert.Bundle, it cert.Item, opts LabelOptions) []string
 	if b.Source.Kind == cert.KindKubeConfigMap {
 		for i, l := range s.exposedCfgmapLabels {
 			v[s.idxCMLabelStart+i] = b.Source.Attributes[cert.AttrConfigMapLabelPrefix+l]
+		}
+	}
+	if b.Source.Kind == cert.KindKubeCABundle {
+		for i, l := range s.exposedCABundleLabels {
+			v[s.idxCABundleLabelStart+i] = b.Source.Attributes[cert.AttrCABundleLabelPrefix+l]
 		}
 	}
 	return v

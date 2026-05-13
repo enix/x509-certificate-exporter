@@ -34,6 +34,7 @@ const (
 	KindFile       = "file"
 	KindKubeconfig = "kubeconfig"
 	KindKubernetes = "kubernetes"
+	KindCABundle   = "cabundle"
 )
 
 // Built-in defaults applied by Default() and re-applied by mergeDefaults()
@@ -125,6 +126,9 @@ type Source struct {
 	ConfigMaps *ConfigMapsCfg `yaml:"configMaps,omitempty"`
 	Workers    int            `yaml:"workers,omitempty"`
 
+	// cabundle-only
+	CABundles *CABundlesCfg `yaml:"cabundles,omitempty"`
+
 	// ListPageSize caps the number of objects returned per LIST API call
 	// during the initial sync and on resync. The exporter pages through
 	// the API and processes each page inline before fetching the next,
@@ -185,6 +189,31 @@ type ConfigMapsCfg struct {
 	KeyPatterns  []string `yaml:"keyPatterns"`
 	Format       string   `yaml:"format"`
 	ExposeLabels []string `yaml:"exposeLabels,omitempty"`
+}
+
+// CABundlesCfg drives the `cabundle` source: it watches cluster-scoped
+// admission and API-aggregation resources and extracts inline PEM
+// `caBundle` fields. Each Resources flag is an opt-in so the chart can
+// scope its ClusterRole to the kinds the user enables.
+type CABundlesCfg struct {
+	// Resources toggles which K8s resource kinds to watch.
+	Resources CABundleResources `yaml:"resources"`
+	// Include / Exclude are shell-glob patterns on metadata.name.
+	Include []string `yaml:"include,omitempty"`
+	Exclude []string `yaml:"exclude,omitempty"`
+	// IncludeLabels is forwarded as a server-side LabelSelector. Same
+	// shape as SecretsCfg.IncludeLabels: "key" or "key=value".
+	IncludeLabels []string `yaml:"includeLabels,omitempty"`
+	ExcludeLabels []string `yaml:"excludeLabels,omitempty"`
+	// ExposeLabels surfaces K8s labels of matched resources as
+	// Prometheus labels (prefix `cabundle_label_`).
+	ExposeLabels []string `yaml:"exposeLabels,omitempty"`
+}
+
+// CABundleResources is the per-kind opt-in.
+type CABundleResources struct {
+	Mutating   bool `yaml:"mutating"`
+	Validating bool `yaml:"validating"`
 }
 
 type Metrics struct {
@@ -387,6 +416,19 @@ func validateSource(i int, s Source) error {
 			if err := validateGlobs(prefix+".configMaps.exclude", s.ConfigMaps.Exclude); err != nil {
 				return err
 			}
+		}
+	case KindCABundle:
+		if s.CABundles == nil {
+			return fmt.Errorf("%s: cabundle source must configure cabundles", prefix)
+		}
+		if !s.CABundles.Resources.Mutating && !s.CABundles.Resources.Validating {
+			return fmt.Errorf("%s.cabundles.resources: at least one resource kind must be enabled", prefix)
+		}
+		if err := validateGlobs(prefix+".cabundles.include", s.CABundles.Include); err != nil {
+			return err
+		}
+		if err := validateGlobs(prefix+".cabundles.exclude", s.CABundles.Exclude); err != nil {
+			return err
 		}
 	case "":
 		return fmt.Errorf("%s.kind: required", prefix)

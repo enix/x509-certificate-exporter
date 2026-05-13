@@ -120,6 +120,9 @@ func (r *Registry) Describe(ch chan<- *prometheus.Desc) {
 	if r.pkcs12PassphraseFailures != nil {
 		r.pkcs12PassphraseFailures.Describe(ch)
 	}
+	if r.jksPassphraseFailures != nil {
+		r.jksPassphraseFailures.Describe(ch)
+	}
 	ch <- r.buildInfo.Desc()
 	r.descs.describe(ch)
 }
@@ -156,6 +159,9 @@ func (r *Registry) Collect(ch chan<- prometheus.Metric) {
 	}
 	if r.pkcs12PassphraseFailures != nil {
 		r.pkcs12PassphraseFailures.Collect(ch)
+	}
+	if r.jksPassphraseFailures != nil {
+		r.jksPassphraseFailures.Collect(ch)
 	}
 	ch <- r.buildInfo
 

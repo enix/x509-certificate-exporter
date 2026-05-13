@@ -49,6 +49,9 @@ type Config struct {
 	// shows up in `/metrics` when at least one source actually parses
 	// PKCS#12 material.
 	Pkcs12InUse            bool
+	// JksInUse mirrors Pkcs12InUse for the JKS / JCEKS parser. When
+	// true, the registry exposes `x509_jks_passphrase_failures_total`.
+	JksInUse               bool
 	SubjectFields          []string
 	IssuerFields           []string
 	TrimPathComponents     int
@@ -95,6 +98,7 @@ type Registry struct {
 	informerQueueDepth       *prometheus.GaugeVec
 	watchResyncs             *prometheus.CounterVec
 	pkcs12PassphraseFailures *prometheus.CounterVec
+	jksPassphraseFailures    *prometheus.CounterVec
 	kubeRequestDuration      *prometheus.HistogramVec
 	buildInfo                prometheus.Gauge
 
@@ -170,6 +174,11 @@ func (r *Registry) initSelfMetrics() {
 	if r.cfg.Pkcs12InUse {
 		r.pkcs12PassphraseFailures = prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "x509_pkcs12_passphrase_failures_total", Help: "PKCS#12 decoding attempts failed because of a wrong passphrase.",
+		}, []string{"source_name"})
+	}
+	if r.cfg.JksInUse {
+		r.jksPassphraseFailures = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "x509_jks_passphrase_failures_total", Help: "JKS / JCEKS decoding attempts failed because of a wrong passphrase.",
 		}, []string{"source_name"})
 	}
 	variadicBuildInfo := product.VariadicBuildInfo()
@@ -275,8 +284,22 @@ func (r *Registry) Delete(ref cert.SourceRef) {
 func (r *Registry) recordBundleErrors(b cert.Bundle) {
 	for _, e := range b.Errors {
 		r.MarkSourceError(b.Source.Kind, b.Source.SourceName, e.Reason)
-		if e.Reason == cert.ReasonBadPassphrase && r.pkcs12PassphraseFailures != nil {
-			r.pkcs12PassphraseFailures.WithLabelValues(b.Source.SourceName).Inc()
+		if e.Reason == cert.ReasonBadPassphrase {
+			// Route to the per-format counter when one is registered.
+			// Format is set on the SourceRef by every parser-aware
+			// emit path (file source, k8s source's secretTypes,
+			// configMaps rule), so dispatching here keeps the two
+			// counters faithful to which decoder actually failed.
+			switch b.Source.Format {
+			case cert.FormatPKCS12:
+				if r.pkcs12PassphraseFailures != nil {
+					r.pkcs12PassphraseFailures.WithLabelValues(b.Source.SourceName).Inc()
+				}
+			case cert.FormatJKS:
+				if r.jksPassphraseFailures != nil {
+					r.jksPassphraseFailures.WithLabelValues(b.Source.SourceName).Inc()
+				}
+			}
 		}
 	}
 }

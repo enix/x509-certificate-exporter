@@ -109,6 +109,7 @@ type SecretTypeRule struct {
 	Parser              cert.FormatParser
 	ParseOpts           cert.ParseOptions
 	PassphraseKey       string          // when format is pkcs12
+	JksPassphraseKey    string          // when format is jks
 	PassphraseSecretRef *cert.SourceRef // optional cross-secret passphrase ref
 }
 
@@ -823,6 +824,11 @@ func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
 			if rule.PassphraseKey != "" {
 				if pp, ok := sec.Data[rule.PassphraseKey]; ok {
 					po.Pkcs12Passphrase = strings.TrimSpace(string(pp))
+				}
+			}
+			if rule.JksPassphraseKey != "" {
+				if pp, ok := sec.Data[rule.JksPassphraseKey]; ok {
+					po.JksPassphrase = strings.TrimSpace(string(pp))
 				}
 			}
 			b := rule.Parser.Parse(v, ref, po)

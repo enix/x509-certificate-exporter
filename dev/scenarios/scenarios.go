@@ -72,6 +72,20 @@ type ExpectCert struct {
 	ExposedLabels map[string]string
 }
 
+// ExpectCRL is one expected CRL series — i.e. one row in the scraped
+// `x509_crl_*` metric output for the parent Scenario.
+type ExpectCRL struct {
+	Key      string // matches the secret_key / configmap_key label
+	IssuerCN string // matches the issuer_CN label
+	Number   int64  // matches the crl_number label/value
+	// NextUpdate is informational. The e2e cannot compare it strictly
+	// because the seed and the e2e are separate processes that each
+	// generate their own CRL via time.Now() — values drift by however
+	// long the cluster bootstrap takes between the two runs.
+	NextUpdate time.Time
+	Stale      bool // expected x509_crl_stale (1 if past NextUpdate)
+}
+
 // Scenario is one Kubernetes object the seed will materialise.
 type Scenario struct {
 	Namespace string
@@ -104,6 +118,11 @@ type Scenario struct {
 	// Expect holds the per-cert-row attestations for the e2e test.
 	// Empty when Watched=false.
 	Expect []ExpectCert
+
+	// ExpectCRLs holds the per-CRL-row attestations for the e2e test.
+	// Independent of Expect — a single Secret can hold both certs and
+	// CRLs under different keys.
+	ExpectCRLs []ExpectCRL
 }
 
 var (
@@ -472,6 +491,81 @@ func build() {
 			"x509ce-test/ignore": "true",
 		},
 		Watched: false,
+	})
+
+	// ─── CRLs — fresh, stale, and bundled alongside a cert ─────────────
+	// PEM CRLs land in an Opaque Secret under a key that's already
+	// watched by `secretTypes` in dev/values.yaml (`ca.crt`). The PEM
+	// parser surfaces X509 CRL blocks as RevocationItems regardless of
+	// the key name, so no chart config change is required for the
+	// feature to work.
+	freshCRL, err := MakeCRL(CRLSpec{
+		IssuerCN: "Dev Seed CRL Issuer (fresh)", Number: 7,
+		ThisUpdate: in(-time.Hour), NextUpdate: in(180 * day),
+	})
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-crl", Name: "fresh",
+		Kind: "Secret", SecretType: "Opaque",
+		Data:    map[string][]byte{"ca.crt": EncodeCRLPEM(freshCRL)},
+		Watched: true,
+		ExpectCRLs: []ExpectCRL{{
+			Key:        "ca.crt",
+			IssuerCN:   "Dev Seed CRL Issuer (fresh)",
+			Number:     7,
+			NextUpdate: freshCRL.NextUpdate,
+			Stale:      false,
+		}},
+	})
+
+	staleCRL, err := MakeCRL(CRLSpec{
+		IssuerCN: "Dev Seed CRL Issuer (stale)", Number: 42,
+		ThisUpdate: in(-7 * day), NextUpdate: in(-time.Hour),
+	})
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-crl", Name: "stale",
+		Kind: "Secret", SecretType: "Opaque",
+		Data:    map[string][]byte{"ca.crt": EncodeCRLPEM(staleCRL)},
+		Watched: true,
+		ExpectCRLs: []ExpectCRL{{
+			Key:        "ca.crt",
+			IssuerCN:   "Dev Seed CRL Issuer (stale)",
+			Number:     42,
+			NextUpdate: staleCRL.NextUpdate,
+			Stale:      true,
+		}},
+	})
+
+	// CRL concatenated with a leaf cert in the same PEM blob: parser
+	// must surface both a cert series and a CRL series for this Secret.
+	bundleLeaf, _, err := Selfsigned(CertSpec{
+		CN: "crl-bundle.example.test", DNSNames: []string{"crl-bundle.example.test"},
+		NotBefore: in(-time.Hour), NotAfter: in(180 * day), Algo: AlgoECDSAP256,
+	})
+	must(err)
+	bundleCRL, err := MakeCRL(CRLSpec{
+		IssuerCN: "Dev Seed CRL Issuer (bundled)", Number: 1,
+		ThisUpdate: in(-time.Hour), NextUpdate: in(90 * day),
+	})
+	must(err)
+	mixed := append(EncodeCertsPEM(bundleLeaf), EncodeCRLPEM(bundleCRL)...)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-crl", Name: "with-cert",
+		Kind: "Secret", SecretType: "Opaque",
+		Data:    map[string][]byte{"ca.crt": mixed},
+		Watched: true,
+		Expect: []ExpectCert{{
+			Key: "ca.crt", SubjectCN: "crl-bundle.example.test",
+			Lifecycle: LifecycleValid,
+		}},
+		ExpectCRLs: []ExpectCRL{{
+			Key:        "ca.crt",
+			IssuerCN:   "Dev Seed CRL Issuer (bundled)",
+			Number:     1,
+			NextUpdate: bundleCRL.NextUpdate,
+			Stale:      false,
+		}},
 	})
 
 	cached = sc

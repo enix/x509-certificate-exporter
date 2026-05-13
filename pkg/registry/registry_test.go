@@ -307,20 +307,35 @@ func TestCollisionNeverDedups(t *testing.T) {
 }
 
 func TestRecordBundleErrorsBumpsCounters(t *testing.T) {
-	r := New(Config{Pkcs12InUse: true}, nopLogger())
-	b := cert.Bundle{
-		Source: cert.SourceRef{Kind: "file", Location: "/x.pem", SourceName: "files"},
+	r := New(Config{Pkcs12InUse: true, JksInUse: true}, nopLogger())
+	// PKCS#12 bundle with a bad-passphrase error: routes to
+	// pkcs12PassphraseFailures (not jksPassphraseFailures).
+	r.Upsert(cert.Bundle{
+		Source: cert.SourceRef{Kind: "file", Location: "/x.p12", SourceName: "files", Format: cert.FormatPKCS12},
 		Errors: []cert.ItemError{
 			{Index: -1, Reason: cert.ReasonBadPEM, Err: errors.New("nope")},
 			{Index: -1, Reason: cert.ReasonBadPassphrase, Err: errors.New("nope")},
 		},
-	}
-	r.Upsert(b)
+	})
 	if got := testutil.ToFloat64(r.sourceErrors.WithLabelValues("file", "files", "bad_pem")); got != 1 {
 		t.Errorf("bad_pem counter = %v", got)
 	}
 	if got := testutil.ToFloat64(r.pkcs12PassphraseFailures.WithLabelValues("files")); got != 1 {
 		t.Errorf("pkcs12 passphrase counter = %v", got)
+	}
+	if got := testutil.ToFloat64(r.jksPassphraseFailures.WithLabelValues("files")); got != 0 {
+		t.Errorf("jks passphrase counter must not increment on pkcs12 bundle, got %v", got)
+	}
+	// JKS bundle with a bad-passphrase error: routes to
+	// jksPassphraseFailures.
+	r.Upsert(cert.Bundle{
+		Source: cert.SourceRef{Kind: "file", Location: "/x.jks", SourceName: "files", Format: cert.FormatJKS},
+		Errors: []cert.ItemError{
+			{Index: -1, Reason: cert.ReasonBadPassphrase, Err: errors.New("nope")},
+		},
+	})
+	if got := testutil.ToFloat64(r.jksPassphraseFailures.WithLabelValues("files")); got != 1 {
+		t.Errorf("jks passphrase counter = %v, want 1", got)
 	}
 }
 

@@ -41,6 +41,7 @@ cluster it observes, but equally happy as a standalone binary.
 - **Memory-safe Kubernetes watch** — RAM stays flat instead of spiking; on Secret-heavy clusters, memory limits drop ~10×.
 - **Richer PKCS#12 wiring** — full keystore + truststore coverage, flexible passphrase sourcing.
 - **DER consumption** — raw cert / CRL blobs as served by HTTP CRL Distribution Points are now first-class inputs.
+- **JKS / JCEKS support** — Java KeyStore and JCEKS stores.
 - **CRL freshness monitoring** — Certificate Revocation Lists are tracked alongside certs, with alerts before they go stale.
 - **Surface workload metadata** — lift watched resource labels onto emitted certificate series.
 - **Supply-chain hardened** — SLSA Build L3 provenance, cosign-signed binaries, images and chart, SBOM attestations.
@@ -55,6 +56,9 @@ cluster it observes, but equally happy as a standalone binary.
 - **PKCS#12** keystores and truststores, with passphrase pulled from a
   sibling key in the same Secret, an external file, a cross-namespace
   Secret reference, or none (`tryEmptyPassphrase`).
+- **JKS / JCEKS** keystores and truststores — magic-byte auto-detection
+  between JKS and JCEKS; passphrase from a sibling key, external file,
+  or `tryEmptyPassphrase`.
 - **Certificate Revocation Lists** — `X509 CRL` PEM blocks (intermixed
   freely with `CERTIFICATE` blocks) and raw DER `*.crl` files
   (`format: der`) are parsed into the dedicated `x509_crl_*` family so

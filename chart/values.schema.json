@@ -1188,6 +1188,25 @@
                 ],
                 "required": []
               },
+              "jks": {
+                "additionalProperties": false,
+                "properties": {
+                  "passphrase": {
+                    "type": "string"
+                  },
+                  "passphraseFile": {
+                    "type": "string"
+                  },
+                  "passphraseKey": {
+                    "type": "string"
+                  },
+                  "tryEmptyPassphrase": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
               "key": {
                 "type": "string"
               },
@@ -1227,25 +1246,6 @@
                       "key"
                     ],
                     "type": "object"
-                  },
-                  "tryEmptyPassphrase": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [],
-                "type": "object"
-              },
-              "jks": {
-                "additionalProperties": false,
-                "properties": {
-                  "passphrase": {
-                    "type": "string"
-                  },
-                  "passphraseFile": {
-                    "type": "string"
-                  },
-                  "passphraseKey": {
-                    "type": "string"
                   },
                   "tryEmptyPassphrase": {
                     "type": "boolean"

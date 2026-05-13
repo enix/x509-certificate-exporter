@@ -37,6 +37,7 @@ The exporter splits its output into four families:
 | Per-source | `x509_source_errors_total` | counter | always |
 | Per-source | `x509_kube_watch_resyncs_total` | counter | Kubernetes sources only |
 | Per-source | `x509_pkcs12_passphrase_failures_total` | counter | auto: when any source declares `format: pkcs12` |
+| Per-source | `x509_jks_passphrase_failures_total` | counter | auto: when any source declares `format: jks` |
 | Per-source | `x509_cert_collision_total` | counter | always |
 | Diagnostic | `x509_parse_duration_seconds` | histogram | `metrics.exposeDiagnostics: true` |
 | Diagnostic | `x509_kube_request_duration_seconds` | histogram | `metrics.exposeDiagnostics: true`, Kubernetes sources only |
@@ -410,6 +411,21 @@ was wrong.
 A spike usually means a Secret was rotated but the sibling passphrase
 key wasn't, or a `passphraseFile` was stale.
 
+### `x509_jks_passphrase_failures_total`
+
+JKS / JCEKS keystore decoding attempts that failed because the passphrase
+was wrong.
+
+- **Type**: counter
+- **Labels**: `source_name`
+- **Auto-gated**: registered only when at least one source declares
+  `format: jks` (file source `formats:`, kubernetes source
+  `secrets.types[].format`, or `configMaps.format`). Deployments
+  without JKS don't see the metric in `/metrics` at all.
+
+A spike usually means a Secret was rotated but the sibling passphrase
+key wasn't, or a `passphraseFile` was stale.
+
 ### `x509_cert_collision_total`
 
 Number of times the registry detected two distinct certificates that
@@ -512,9 +528,9 @@ etc.) into the internal certificate representation.
 - **Buckets**: `0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5` seconds
 - **Emitted only when `metrics.exposeDiagnostics` is `true`.**
 
-`format` takes one of `pem` or `pkcs12`. PKCS#12 is meaningfully slower
-because of the KDF — expect millisecond-range parse times on PEM and
-double-digit-millisecond on PKCS#12.
+`format` takes one of `pem`, `pkcs12`, `der`, or `jks`. PKCS#12 and JKS are
+meaningfully slower because of their KDF — expect millisecond-range parse
+times on PEM/DER and double-digit-millisecond on PKCS#12/JKS.
 
 ### `x509_kube_request_duration_seconds`
 
@@ -604,7 +620,8 @@ metrics provider with the synthetic `source_kind="kubernetes"`,
 | `bad_pem` | any source running the PEM parser (file, kubeconfig, kube-secret with `format: pem`, kube-configmap) | PEM block present but malformed |
 | `no_certificate_found` | same | The bundle decoded successfully but contained no `CERTIFICATE` block |
 | `bad_pkcs12` | any source running the PKCS#12 parser (file with `formats: [pkcs12]`, kube-secret / kube-configmap with `format: pkcs12`) | PKCS#12 archive malformed or uses an unsupported algorithm |
-| `bad_passphrase` | same | PKCS#12 archive structurally valid but the configured passphrase was wrong |
+| `bad_jks` | any source running the JKS parser (file with `formats: [jks]`, kube-secret / kube-configmap with `format: jks`) | JKS / JCEKS archive malformed or magic bytes not recognised |
+| `bad_passphrase` | PKCS#12 or JKS parser | Archive structurally valid but the configured passphrase was wrong |
 | `read_failed` | `file`, `kubeconfig` | Generic I/O error opening or reading a file |
 | `permission_denied` | `file` | EACCES on a watched path |
 | `not_found` | `file` | Path disappeared between announcement and read |

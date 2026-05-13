@@ -45,6 +45,13 @@ const (
 	// The wire format has no self-framing so concatenated DER is not
 	// supported — one DER object per source bytes.
 	FormatDER = "der"
+	// FormatJKS consumes a Java KeyStore (JKS) or Java Cryptography
+	// Extension KeyStore (JCEKS). Both variants are auto-detected via
+	// their leading magic bytes (`0xFEEDFEED` for JKS, `0xCECECECE` for
+	// JCEKS). Truststore and keystore entries are both surfaced; only
+	// the cert chain attached to each entry is read — private keys are
+	// never decrypted.
+	FormatJKS = "jks"
 )
 
 // SourceRef identifies where a Bundle was found. It is the unit of identity
@@ -138,6 +145,11 @@ type ParseOptions struct {
 	Pkcs12Passphrase string
 	// Pkcs12TryEmpty, if true and Pkcs12Passphrase fails, retries with "".
 	Pkcs12TryEmpty bool
+	// JksPassphrase is the passphrase to use for JKS / JCEKS decoding.
+	// Empty string is a valid passphrase for unprotected keystores.
+	JksPassphrase string
+	// JksTryEmpty, if true and JksPassphrase fails, retries with "".
+	JksTryEmpty bool
 }
 
 // Sink receives Bundles from Sources and forwards them to the registry.

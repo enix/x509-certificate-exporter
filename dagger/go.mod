@@ -2,6 +2,8 @@ module dagger/x-509-ce
 
 go 1.26.2
 
+toolchain go1.26.3
+
 require (
 	dagger.io/dagger v0.20.8
 	github.com/Khan/genqlient v0.8.1

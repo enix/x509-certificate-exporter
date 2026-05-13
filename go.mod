@@ -2,6 +2,8 @@ module github.com/enix/x509-certificate-exporter/v4
 
 go 1.26.2
 
+toolchain go1.26.3
+
 require (
 	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/alecthomas/kong v1.15.0

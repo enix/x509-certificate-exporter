@@ -165,6 +165,25 @@ func TestSkipUnchanged(t *testing.T) {
 	if len(sink2.upsert) != 0 {
 		t.Fatalf("second run with no change should skip: %d", len(sink2.upsert))
 	}
+
+	// Rewrite the file with a fresh certificate; the (mtime, size) cache key
+	// must invalidate and the bundle must be re-emitted. On filesystems that
+	// round mtime to 1 s the back-to-back rewrite can collide with the stamp
+	// captured during sink1 — sleep past the second boundary to guarantee a
+	// distinct mtime there. Size may or may not differ across two random
+	// ECDSA-P256 PEMs, so mtime is the only branch we can rely on here.
+	if !fsHasSubSecondMtime(t, dir) {
+		time.Sleep(1100 * time.Millisecond)
+	}
+	writePEM(t, a, "a2")
+	sink3 := &fakeSink{}
+	src.runOnce(context.Background(), sink3, false)
+	if len(sink3.upsert) != 1 {
+		t.Fatalf("third run after edit should re-parse: %d", len(sink3.upsert))
+	}
+	if cn := sink3.upsert[0].Items[0].Cert.Subject.CommonName; cn != "a2" {
+		t.Fatalf("re-parsed CN = %q, want a2", cn)
+	}
 }
 
 func TestFirstSyncSignal(t *testing.T) {

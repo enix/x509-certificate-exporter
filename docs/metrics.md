@@ -186,15 +186,23 @@ specific cert failed to parse" pill next to the rest of its labels.
 
 ## Per-CRL metrics
 
-The PEM parser emits `x509_crl_*` series for every `X509 CRL` block it
-encounters, alongside the regular `x509_cert_*` series for any
-`CERTIFICATE` blocks in the same input. No opt-in is required — point
-any source (file, Secret data key, ConfigMap data key) at PEM content
-that contains a CRL block and the metrics appear. The same source-kind
-labels (`filename`/`filepath` for files, `secret_*` for Secrets, etc.)
-are reused; CRL-specific fields land in `issuer_*` (the CRL issuer)
-and `crl_number` (the cRLNumber extension). The `subject_*` and
-`serial_number` columns are empty on CRL series (CRLs have neither).
+`x509_crl_*` series are emitted for every CRL surfaced by a parser,
+alongside the regular `x509_cert_*` series for any certificates in
+the same input.
+
+- The **PEM parser** picks up `X509 CRL` blocks freely intermixed with
+  `CERTIFICATE` blocks.
+- The **DER parser** (`format: der`) consumes a single raw ASN.1
+  blob and dispatches it as either a cert or a CRL — this is the
+  format produced by HTTP CRL Distribution Points (`*.crl` files).
+
+No opt-in flag is required — point any source (file, Secret data key,
+ConfigMap data key) at content that contains a CRL and the metrics
+appear. The same source-kind labels (`filename`/`filepath` for files,
+`secret_*` for Secrets, etc.) are reused; CRL-specific fields land in
+`issuer_*` (the CRL issuer) and `crl_number` (the cRLNumber extension).
+The `subject_*` and `serial_number` columns are empty on CRL series
+(CRLs have neither).
 
 CRLs go stale at `nextUpdate`. Once that horizon is passed, clients
 validating against the CRL must refuse to trust the issuer's certs —

@@ -1,5 +1,5 @@
 {{- if .Values.rbac.create }}
-{{- if .Values.secretsExporter.enabled }}
+{{- if or .Values.secretsExporter.enabled .Values.cabundlesExporter.enabled }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -12,6 +12,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 rules:
+{{- if .Values.secretsExporter.enabled }}
 - apiGroups:
   - ""
   resources:
@@ -37,6 +38,29 @@ rules:
   - get
   - watch
   - list
+{{- end }}
+{{- end }}
+{{- if .Values.cabundlesExporter.enabled }}
+{{- if .Values.cabundlesExporter.resources.mutating }}
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - watch
+  - list
+{{- end }}
+{{- if .Values.cabundlesExporter.resources.validating }}
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - get
+  - watch
+  - list
+{{- end }}
 {{- end }}
 {{- if .Values.rbacProxy.enabled }}
 - apiGroups:

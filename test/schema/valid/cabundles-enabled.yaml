@@ -1,0 +1,23 @@
+# Opt into the cluster-scoped cabundle exporter. Locks down the
+# happy-path values + per-resource toggles + filter/expose-labels
+# fields. Pair with `secretsExporter.enabled: false` to verify the
+# Deployment / ConfigMap / ClusterRole templates render correctly
+# when only the cabundle source is active.
+secretsExporter:
+  enabled: false
+cabundlesExporter:
+  enabled: true
+  resources:
+    mutating: true
+    validating: false
+  includeNames:
+    - "cert-manager-*"
+    - "linkerd-*"
+  excludeNames:
+    - "test-*"
+  includeLabels:
+    - app.kubernetes.io/managed-by=cert-manager
+  excludeLabels:
+    - x509ce-test/ignore=true
+  exposeLabels:
+    - app.kubernetes.io/managed-by

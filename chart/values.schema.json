@@ -2,6 +2,86 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "properties": {
+    "cabundlesExporter": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "excludeLabels": {
+          "items": {
+            "type": "string"
+          },
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "excludeNames": {
+          "items": {
+            "type": "string"
+          },
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "exposeLabels": {
+          "items": {
+            "type": "string"
+          },
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "includeLabels": {
+          "items": {
+            "type": "string"
+          },
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "includeNames": {
+          "items": {
+            "type": "string"
+          },
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "resources": {
+          "additionalProperties": false,
+          "properties": {
+            "mutating": {
+              "default": true,
+              "type": "boolean"
+            },
+            "validating": {
+              "default": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "mutating",
+            "validating"
+          ]
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    },
     "exposeDiagnosticMetrics": {
       "default": false,
       "type": "boolean"
@@ -1227,6 +1307,7 @@
     "exposeDiagnosticMetrics",
     "grafana",
     "secretsExporter",
+    "cabundlesExporter",
     "hostPathsExporter",
     "hostNetwork",
     "web",

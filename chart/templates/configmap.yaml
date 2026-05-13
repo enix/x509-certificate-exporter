@@ -1,4 +1,4 @@
-{{- if .Values.secretsExporter.enabled }}
+{{- if or .Values.secretsExporter.enabled .Values.cabundlesExporter.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -37,6 +37,7 @@ data:
       {{- end }}
 
     sources:
+      {{- if .Values.secretsExporter.enabled }}
       - kind: kubernetes
         name: cluster-secrets
         {{- if .Values.secretsExporter.kubeApiRateLimits.enabled }}
@@ -83,6 +84,20 @@ data:
           format: pem
           exposeLabels: {{ if .Values.secretsExporter.exposeConfigMapLabels }}{{ .Values.secretsExporter.exposeConfigMapLabels | toJson }}{{ else }}[]{{ end }}
         {{- end }}
+      {{- end }}
+      {{- if .Values.cabundlesExporter.enabled }}
+      - kind: cabundle
+        name: cluster-cabundles
+        cabundles:
+          resources:
+            mutating: {{ .Values.cabundlesExporter.resources.mutating | default false }}
+            validating: {{ .Values.cabundlesExporter.resources.validating | default false }}
+          include: {{ if .Values.cabundlesExporter.includeNames }}{{ .Values.cabundlesExporter.includeNames | toJson }}{{ else }}["*"]{{ end }}
+          exclude: {{ if .Values.cabundlesExporter.excludeNames }}{{ .Values.cabundlesExporter.excludeNames | toJson }}{{ else }}[]{{ end }}
+          includeLabels: {{ if .Values.cabundlesExporter.includeLabels }}{{ .Values.cabundlesExporter.includeLabels | toJson }}{{ else }}[]{{ end }}
+          excludeLabels: {{ if .Values.cabundlesExporter.excludeLabels }}{{ .Values.cabundlesExporter.excludeLabels | toJson }}{{ else }}[]{{ end }}
+          exposeLabels: {{ if .Values.cabundlesExporter.exposeLabels }}{{ .Values.cabundlesExporter.exposeLabels | toJson }}{{ else }}[]{{ end }}
+      {{- end }}
 {{- end }}
 {{- range $dsName, $dsDef := .Values.hostPathsExporter.daemonSets }}
 ---

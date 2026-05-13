@@ -1,0 +1,8 @@
+# `cabundlesExporter.resources` is a closed object (additionalProperties
+# false) so any unknown resource key must be rejected. Catches typos
+# like `mutate: true` instead of `mutating: true`.
+cabundlesExporter:
+  enabled: true
+  resources:
+    mutating: true
+    mutate: true

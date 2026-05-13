@@ -50,6 +50,7 @@ cluster it observes, but equally happy as a standalone binary.
 - **Memory-safe Kubernetes watch** — RAM stays flat instead of spiking; on Secret-heavy clusters, memory limits drop ~10×.
 - **Richer PKCS#12 wiring** — full keystore + truststore coverage, flexible passphrase sourcing.
 - **DER consumption** — raw cert / CRL blobs as served by HTTP CRL Distribution Points are now first-class inputs.
+- **JKS / JCEKS support** — Java KeyStore and JCEKS stores.
 - **CRL freshness monitoring** — Certificate Revocation Lists are tracked alongside certs, with alerts before they go stale.
 - **Surface workload metadata** — lift watched resource labels onto emitted certificate series.
 - **Supply-chain hardened** — SLSA Build L3 provenance, cosign-signed binaries, images and chart, SBOM attestations.
@@ -64,6 +65,9 @@ cluster it observes, but equally happy as a standalone binary.
 - **PKCS#12** keystores and truststores, with passphrase pulled from a
   sibling key in the same Secret, an external file, a cross-namespace
   Secret reference, or none (`tryEmptyPassphrase`).
+- **JKS / JCEKS** keystores and truststores — magic-byte auto-detection
+  between JKS and JCEKS; passphrase from a sibling key, external file,
+  or `tryEmptyPassphrase`.
 - **Certificate Revocation Lists** — `X509 CRL` PEM blocks (intermixed
   freely with `CERTIFICATE` blocks) and raw DER `*.crl` files
   (`format: der`) are parsed into the dedicated `x509_crl_*` family so
@@ -165,15 +169,14 @@ The default install runs a single Deployment watching
 `kubernetes.io/tls` Secrets across all namespaces — disable with
 `secretsExporter.enabled: false`.
 
-### Multiple Secret types, PKCS#12, and JKS
+### Multiple Secret types and PKCS#12
 
 `secretsExporter.secretTypes` accepts any mix of types and keys: a
 literal `key` (regex `^<key>$` is built for you) or a `keyPatterns`
 list for full regex control, with optional `format: pkcs12` plus a
-`pkcs12:` block, or `format: jks` plus a `jks:` block. Passphrases
-are pulled from a sibling Secret key (`pkcs12.passphraseKey` /
-`jks.passphraseKey`), an external file, a cross-namespace Secret ref
-(pkcs12 only), or skipped entirely with `tryEmptyPassphrase: true` for
+`pkcs12:` block. Passphrases are pulled from a sibling Secret key
+(`pkcs12.passphraseKey`), an external file, a cross-namespace Secret
+ref, or skipped entirely with `tryEmptyPassphrase: true` for
 passwordless keystores.
 
 ### Watching ConfigMaps

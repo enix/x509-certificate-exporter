@@ -204,6 +204,9 @@ func TestExporterCoversAllScenarios(t *testing.T) {
 	notBefore := fams["x509_cert_not_before"]
 	certError := fams["x509_cert_error"]
 	srcErrors := fams["x509_source_errors_total"]
+	crlNextUpdate := fams["x509_crl_next_update"]
+	crlStale := fams["x509_crl_stale"]
+	crlNumber := fams["x509_crl_number"]
 	if notAfter == nil || expired == nil {
 		t.Fatalf("missing core x509_cert_* metric families (have %d families)", len(fams))
 	}
@@ -221,6 +224,9 @@ func TestExporterCoversAllScenarios(t *testing.T) {
 					continue
 				}
 				assertCertSeries(t, notAfter, expired, notBefore, sc, e)
+			}
+			for _, e := range sc.ExpectCRLs {
+				assertCRLSeries(t, crlNextUpdate, crlStale, crlNumber, sc, e)
 			}
 		})
 	}
@@ -480,6 +486,58 @@ func assertNoCABundleSeries(t *testing.T, notAfter *dto.MetricFamily, sc scenari
 	for _, m := range notAfter.GetMetric() {
 		if labelEq(m, "cabundle_resource_kind", string(sc.Kind)) && labelEq(m, "cabundle_resource_name", sc.Name) {
 			t.Fatalf("unexpected x509_cert_not_after series for excluded cabundle %s/%s: %+v", sc.Kind, sc.Name, m.GetLabel())
+		}
+	}
+}
+
+func assertCRLSeries(t *testing.T, crlNextUpdate, crlStale, crlNumber *dto.MetricFamily, sc scenarios.Scenario, e scenarios.ExpectCRL) {
+	t.Helper()
+	if crlNextUpdate == nil {
+		t.Fatalf("x509_crl_next_update missing — exporter built without CRL support?")
+	}
+	nsLabel, nameLabel, keyLabel := sourceLabels(sc.Kind)
+	want := map[string]string{
+		nsLabel:     sc.Namespace,
+		nameLabel:   sc.Name,
+		keyLabel:    e.Key,
+		"issuer_CN": e.IssuerCN,
+	}
+	nu := find(crlNextUpdate, want)
+	if nu == nil {
+		t.Fatalf("no x509_crl_next_update series with %v", want)
+	}
+	// We don't compare the raw Unix value to ExpectCRL.NextUpdate
+	// because the seed and the e2e test are separate processes that
+	// both call scenarios.All() at slightly different `time.Now()`
+	// instants. Each run re-generates its own CRL with a fresh
+	// NextUpdate, so the exporter exposes the seed's value and the
+	// test's expectation drifts seconds (sometimes minutes) ahead.
+	// What actually matters here — that the series is present, that
+	// it correctly maps to (issuer, number), and that stale reflects
+	// the right side of now — is asserted below.
+	if crlStale != nil {
+		stale := find(crlStale, want)
+		if stale == nil {
+			t.Fatalf("no x509_crl_stale series with %v", want)
+		}
+		got := stale.GetGauge().GetValue()
+		exp := 0.0
+		if e.Stale {
+			exp = 1
+		}
+		if got != exp {
+			t.Fatalf("x509_crl_stale for %s/%s key=%s: got %v, want %v",
+				sc.Namespace, sc.Name, e.Key, got, exp)
+		}
+	}
+	if crlNumber != nil {
+		num := find(crlNumber, want)
+		if num == nil {
+			t.Fatalf("no x509_crl_number series with %v", want)
+		}
+		if got := int64(num.GetGauge().GetValue()); got != e.Number {
+			t.Fatalf("x509_crl_number for %s/%s key=%s: got %d, want %d",
+				sc.Namespace, sc.Name, e.Key, got, e.Number)
 		}
 	}
 }

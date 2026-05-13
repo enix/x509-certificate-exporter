@@ -44,6 +44,7 @@ cluster it observes, but equally happy as a standalone binary.
 - **Supply-chain hardened** — SLSA Build L3 provenance, cosign-signed binaries, images and chart, SBOM attestations.
 - **Multi-cluster from a single instance** — fan-in metrics from any number of clusters via distinct kubeconfigs.
 - **Per-source observability** — granular health and triage signals, not just a global error counter.
+- **CRL freshness monitoring** — `x509_crl_*` metric family surfaces `nextUpdate` / `thisUpdate` / `cRLNumber` for every Certificate Revocation List parsed from a watched location, with ready-made `CRLNeedsRefresh` and `CRLStale` alerts.
 
 ## 🔍️ What it watches
 

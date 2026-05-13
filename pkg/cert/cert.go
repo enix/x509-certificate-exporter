@@ -78,6 +78,15 @@ type Item struct {
 	Role  Role
 }
 
+// RevocationItem is one parsed Certificate Revocation List within a Bundle.
+// CRLs flow through the same Bundle pipeline as certificates but emit a
+// separate Prometheus metric family (x509_crl_*) keyed on the CRL's
+// nextUpdate horizon rather than a certificate's notAfter.
+type RevocationItem struct {
+	Index int                   // position within the Bundle's revocation items, 0-based
+	CRL   *x509.RevocationList  // never nil for a successfully parsed RevocationItem
+}
+
 // ItemError captures a partial failure in a Bundle. Index == -1 means the
 // failure applies to the whole Bundle (e.g., bad_pkcs12, no_certificate_found).
 type ItemError struct {
@@ -88,9 +97,10 @@ type ItemError struct {
 
 // Bundle is the unit of work flowing from sources to the registry.
 type Bundle struct {
-	Source SourceRef
-	Items  []Item
-	Errors []ItemError
+	Source           SourceRef
+	Items            []Item
+	RevocationItems  []RevocationItem
+	Errors           []ItemError
 }
 
 // HasFatalError returns true if the bundle has a Bundle-level error

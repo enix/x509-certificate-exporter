@@ -2,13 +2,14 @@
 //
 // Behaviour:
 //   - iterate every PEM block;
-//   - keep only "CERTIFICATE" / "TRUSTED CERTIFICATE" blocks;
-//   - silently ignore non-cert blocks (private keys, DH params, etc.);
-//   - a malformed CERTIFICATE block becomes an ItemError, the bundle keeps
+//   - keep "CERTIFICATE" / "TRUSTED CERTIFICATE" blocks as Items, and
+//     "X509 CRL" blocks as RevocationItems;
+//   - silently ignore other block types (private keys, DH params, etc.);
+//   - a malformed block of a known kind becomes an ItemError, the bundle keeps
 //     processing the next blocks;
-//   - a file with zero CERTIFICATE blocks produces a Bundle-level error
-//     with Index == -1 and reason "no_certificate_found";
-//   - all good certs are exposed as separate Items, no aggregation.
+//   - a file with zero parsed Items and zero RevocationItems produces a
+//     Bundle-level error with Index == -1 and reason "no_certificate_found";
+//   - all good certs and CRLs are exposed as separate entries, no aggregation.
 package pem
 
 import (
@@ -45,35 +46,54 @@ func (Parser) Parse(data []byte, ref cert.SourceRef, _ cert.ParseOptions) cert.B
 
 	rest := data
 	idx := 0
+	crlIdx := 0
 	for {
 		var block *encpem.Block
 		block, rest = encpem.Decode(rest)
 		if block == nil {
 			break
 		}
-		if block.Type != "CERTIFICATE" && block.Type != "TRUSTED CERTIFICATE" {
-			// Not a cert: silently ignore (keys, DH params, etc.).
-			continue
-		}
-		x, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			b.Errors = append(b.Errors, cert.ItemError{
-				Index:  idx,
-				Reason: cert.ReasonBadPEM,
-				Err:    err,
+		switch block.Type {
+		case "CERTIFICATE", "TRUSTED CERTIFICATE":
+			x, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				b.Errors = append(b.Errors, cert.ItemError{
+					Index:  idx,
+					Reason: cert.ReasonBadPEM,
+					Err:    err,
+				})
+				idx++
+				continue
+			}
+			b.Items = append(b.Items, cert.Item{
+				Index: idx,
+				Cert:  x,
+				Role:  classify(x, idx),
 			})
 			idx++
+		case "X509 CRL":
+			crl, err := x509.ParseRevocationList(block.Bytes)
+			if err != nil {
+				b.Errors = append(b.Errors, cert.ItemError{
+					Index:  crlIdx,
+					Reason: cert.ReasonBadCRL,
+					Err:    err,
+				})
+				crlIdx++
+				continue
+			}
+			b.RevocationItems = append(b.RevocationItems, cert.RevocationItem{
+				Index: crlIdx,
+				CRL:   crl,
+			})
+			crlIdx++
+		default:
+			// Not a cert or CRL: silently ignore (keys, DH params, etc.).
 			continue
 		}
-		b.Items = append(b.Items, cert.Item{
-			Index: idx,
-			Cert:  x,
-			Role:  classify(x, idx),
-		})
-		idx++
 	}
 
-	if len(b.Items) == 0 && len(b.Errors) == 0 {
+	if len(b.Items) == 0 && len(b.RevocationItems) == 0 && len(b.Errors) == 0 {
 		// No PEM blocks at all (or only non-cert blocks). Distinguish
 		// "garbage" from "valid PEM with no cert blocks":
 		// pem.Decode returned nil from the first call when data has no

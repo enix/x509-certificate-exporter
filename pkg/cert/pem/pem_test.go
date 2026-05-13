@@ -166,6 +166,88 @@ func TestClassifyIntermediate(t *testing.T) {
 	_ = intCert
 }
 
+func genCRL(t *testing.T, issuerCN string, number int64, nextUpdate time.Time) []byte {
+	t.Helper()
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	caTpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: issuerCN},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		BasicConstraintsValid: true, IsCA: true,
+		KeyUsage: x509.KeyUsageCRLSign,
+	}
+	caDER, _ := x509.CreateCertificate(rand.Reader, caTpl, caTpl, &key.PublicKey, key)
+	caCert, _ := x509.ParseCertificate(caDER)
+	tpl := &x509.RevocationList{
+		Number:     big.NewInt(number),
+		ThisUpdate: time.Now().Add(-time.Hour),
+		NextUpdate: nextUpdate,
+	}
+	der, err := x509.CreateRevocationList(rand.Reader, tpl, caCert, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return encpem.EncodeToMemory(&encpem.Block{Type: "X509 CRL", Bytes: der})
+}
+
+func TestParseCRL(t *testing.T) {
+	crlPEM := genCRL(t, "issuer-cn", 42, time.Now().Add(48*time.Hour))
+	b := New().Parse(crlPEM, cert.SourceRef{Kind: "file"}, cert.ParseOptions{})
+	if len(b.Items) != 0 {
+		t.Fatalf("CRL-only input should produce no cert items, got %d", len(b.Items))
+	}
+	if len(b.RevocationItems) != 1 {
+		t.Fatalf("want 1 RevocationItem got %d", len(b.RevocationItems))
+	}
+	if len(b.Errors) != 0 {
+		t.Fatalf("unexpected errors: %v", b.Errors)
+	}
+	got := b.RevocationItems[0].CRL
+	if got.Issuer.CommonName != "issuer-cn" {
+		t.Fatalf("issuer CN = %q, want issuer-cn", got.Issuer.CommonName)
+	}
+	if got.Number.Int64() != 42 {
+		t.Fatalf("CRL number = %v, want 42", got.Number)
+	}
+}
+
+func TestParseCertAndCRLTogether(t *testing.T) {
+	_, leaf := gen(t, "leaf", false)
+	crl := genCRL(t, "issuer", 1, time.Now().Add(time.Hour))
+	combined := append([]byte{}, leaf...)
+	combined = append(combined, crl...)
+	b := New().Parse(combined, cert.SourceRef{Kind: "file"}, cert.ParseOptions{})
+	if len(b.Items) != 1 || len(b.RevocationItems) != 1 {
+		t.Fatalf("want 1 cert + 1 crl, got %d certs %d crls", len(b.Items), len(b.RevocationItems))
+	}
+	if len(b.Errors) != 0 {
+		t.Fatalf("unexpected errors: %v", b.Errors)
+	}
+}
+
+func TestParseBadCRLBlock(t *testing.T) {
+	bad := encpem.EncodeToMemory(&encpem.Block{Type: "X509 CRL", Bytes: []byte("not asn.1")})
+	b := New().Parse(bad, cert.SourceRef{Kind: "file"}, cert.ParseOptions{})
+	if len(b.RevocationItems) != 0 {
+		t.Fatalf("bad CRL must not produce a RevocationItem")
+	}
+	if len(b.Errors) != 1 || b.Errors[0].Reason != cert.ReasonBadCRL {
+		t.Fatalf("want one bad_crl error, got %v", b.Errors)
+	}
+}
+
+func TestParseOnlyCRLAvoidsNoCertFoundFatal(t *testing.T) {
+	// A file containing only a valid CRL must NOT be reported as
+	// no_certificate_found — that bundle-level fatal would mask the
+	// CRL the user explicitly asked us to monitor.
+	crlPEM := genCRL(t, "issuer", 1, time.Now().Add(time.Hour))
+	b := New().Parse(crlPEM, cert.SourceRef{Kind: "file"}, cert.ParseOptions{})
+	if b.HasFatalError() {
+		t.Fatalf("CRL-only bundle must not have a fatal error: %v", b.Errors)
+	}
+}
+
 func TestTrustedCertificateBlock(t *testing.T) {
 	_, leafPEM := gen(t, "leaf", false)
 	// Replace block type CERTIFICATE -> TRUSTED CERTIFICATE

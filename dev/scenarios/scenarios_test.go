@@ -6,6 +6,7 @@ import (
 
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert/der"
+	"github.com/enix/x509-certificate-exporter/v4/pkg/cert/jks"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert/pem"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert/pkcs12"
 )
@@ -19,6 +20,7 @@ func TestAllParseWithExporter(t *testing.T) {
 	pemP := pem.New()
 	p12P := pkcs12.New()
 	derP := der.New()
+	jksP := jks.New()
 
 	for _, sc := range All() {
 		sc := sc
@@ -42,6 +44,12 @@ func TestAllParseWithExporter(t *testing.T) {
 					}
 					tryEmpty := key == "keystore-empty.p12"
 					b = p12P.Parse(blob, ref, cert.ParseOptions{Pkcs12Passphrase: pp, Pkcs12TryEmpty: tryEmpty})
+				case isJKSKey(key):
+					pp := JKSPassphrase
+					if other, ok := sc.Data[JKSPassphraseKey]; ok {
+						pp = string(other)
+					}
+					b = jksP.Parse(blob, ref, cert.ParseOptions{JksPassphrase: pp})
 				case isDERKey(key):
 					b = derP.Parse(blob, ref, cert.ParseOptions{})
 				default:
@@ -55,6 +63,11 @@ func TestAllParseWithExporter(t *testing.T) {
 
 func isPKCS12Key(k string) bool {
 	return k == "keystore.p12" || k == "keystore-empty.p12" || k == "truststore.p12"
+}
+
+// isJKSKey reflects the dev/values.yaml secretTypes routing.
+func isJKSKey(k string) bool {
+	return strings.HasSuffix(k, ".jks")
 }
 
 // isDERKey reflects the dev/values.yaml secretTypes routing: any key

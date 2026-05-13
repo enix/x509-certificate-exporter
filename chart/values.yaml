@@ -301,28 +301,76 @@ secretsExporter:
   # @default -- see `values.yaml`
   configMapKeys: []
 
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty). Each entry is a shell-glob pattern (`*`, `?`, `[abc]`) or a literal name — e.g. `team-*` matches `team-alpha` and `team-beta`.
   includeNamespaces: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`). Same shell-glob syntax as `includeNamespaces`.
   excludeNamespaces: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Only watch namespaces having these labels (all namespaces if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   includeNamespaceLabels: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Exclude namespaces having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   excludeNamespaceLabels: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Only watch Secrets whose name matches one of these entries (all matching Secrets if empty). Each entry is a shell-glob pattern (`*`, `?`, `[abc]`) or a literal name — e.g. `tls-*` matches `tls-prod` and `tls-dev`.
   includeSecrets: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Exclude Secrets whose name matches one of these entries (evaluated after `includeSecrets`). Same shell-glob syntax as `includeSecrets`.
   excludeSecrets: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Only watch ConfigMaps whose name matches one of these entries (all matching ConfigMaps if empty). Same shell-glob syntax as `includeSecrets`.
   includeConfigMaps: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Exclude ConfigMaps whose name matches one of these entries (evaluated after `includeConfigMaps`). Same shell-glob syntax as `includeSecrets`.
   excludeConfigMaps: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Only watch TLS Secrets having these labels (all secrets if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   includeLabels: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Exclude TLS Secrets having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
   excludeLabels: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Expose selected labels from Kubernetes Secrets as Prometheus labels. **Beware of high-cardinality labels** (e.g. `pod-template-hash`, `controller-revision-hash`, build/git SHAs, timestamps, request IDs): each unique value adds a fresh series for every certificate metric, which can quickly explode the Prometheus index. Stick to slow-changing identifiers (app, team, environment, owner).
   exposeSecretLabels: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
   # -- Expose selected labels from Kubernetes ConfigMaps as Prometheus labels. Same caveat as `exposeSecretLabels` — keep the list to slow-changing identifiers and avoid high-cardinality values.
   exposeConfigMapLabels: []
   # -- Additional arguments to append to the exporter command line. E.g.: `--watch-file="/extra-cert/tls.crt"`.

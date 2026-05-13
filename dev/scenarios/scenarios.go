@@ -568,6 +568,45 @@ func build() {
 		}},
 	})
 
+	// ─── DER — raw single-blob cert and CRL ─────────────────────────────
+	// dev/values.yaml registers `cert.der` (DER cert) and
+	// `revocation.crl` (DER CRL) under format=der on Opaque Secrets.
+	// Both branches of the DER parser's auto-detect are exercised.
+	derLeaf, _, err := Selfsigned(CertSpec{
+		CN: "der-leaf.example.test", DNSNames: []string{"der-leaf.example.test"},
+		NotBefore: in(-time.Hour), NotAfter: in(180 * day), Algo: AlgoECDSAP256,
+	})
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-der", Name: "leaf",
+		Kind: "Secret", SecretType: "Opaque",
+		Data:    map[string][]byte{"cert.der": derLeaf.Raw},
+		Watched: true,
+		Expect: []ExpectCert{{
+			Key: "cert.der", SubjectCN: "der-leaf.example.test",
+			Lifecycle: LifecycleValid,
+		}},
+	})
+
+	derCRL, err := MakeCRL(CRLSpec{
+		IssuerCN: "Dev Seed CRL Issuer (DER)", Number: 99,
+		ThisUpdate: in(-time.Hour), NextUpdate: in(60 * day),
+	})
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-der", Name: "crl",
+		Kind: "Secret", SecretType: "Opaque",
+		Data:    map[string][]byte{"revocation.crl": EncodeCRLDER(derCRL)},
+		Watched: true,
+		ExpectCRLs: []ExpectCRL{{
+			Key:        "revocation.crl",
+			IssuerCN:   "Dev Seed CRL Issuer (DER)",
+			Number:     99,
+			NextUpdate: derCRL.NextUpdate,
+			Stale:      false,
+		}},
+	})
+
 	cached = sc
 }
 

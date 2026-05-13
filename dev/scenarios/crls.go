@@ -19,6 +19,14 @@ func EncodeCRLPEM(crl *x509.RevocationList) []byte {
 	return pem.EncodeToMemory(&pem.Block{Type: "X509 CRL", Bytes: crl.Raw})
 }
 
+// EncodeCRLDER returns the CRL's raw ASN.1 DER bytes (the wire format
+// served by CRL Distribution Points over HTTP).
+func EncodeCRLDER(crl *x509.RevocationList) []byte {
+	out := make([]byte, len(crl.Raw))
+	copy(out, crl.Raw)
+	return out
+}
+
 // CRLSpec describes one CRL fixture.
 type CRLSpec struct {
 	IssuerCN   string

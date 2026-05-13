@@ -34,7 +34,7 @@ vars:
   # Shared by `renovate:plan` and `renovate:patch`. Renovate-tracked
   # (custom regex manager in renovate.json5) and kept in lockstep with
   # `renovateImage` in dagger/base.go.
-  RENOVATE_IMAGE: renovate/renovate:43.176.5
+  RENOVATE_IMAGE: renovate/renovate:43.177.7
 
 tasks:
   default:

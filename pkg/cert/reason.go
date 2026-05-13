@@ -6,6 +6,7 @@ const (
 	ReasonBadPEM             = "bad_pem"
 	ReasonBadCRL             = "bad_crl"
 	ReasonBadDER             = "bad_der"
+	ReasonBadJKS             = "bad_jks"
 	ReasonNoCertificateFound = "no_certificate_found"
 	ReasonBadPKCS12          = "bad_pkcs12"
 	ReasonBadPassphrase      = "bad_passphrase"

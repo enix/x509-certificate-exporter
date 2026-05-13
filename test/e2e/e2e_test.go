@@ -251,7 +251,7 @@ func TestExporterCoversAllScenarios(t *testing.T) {
 				return
 			}
 			for _, w := range sc.Webhooks {
-				assertCABundleEntry(t, notAfter, sc, w)
+				assertCABundleEntry(t, notAfter, expired, sc, w)
 			}
 		})
 	}
@@ -443,7 +443,7 @@ func assertHostPathCert(t *testing.T, notAfter, expired *dto.MetricFamily, sc sc
 	}
 }
 
-func assertCABundleEntry(t *testing.T, notAfter *dto.MetricFamily, sc scenarios.CABundleScenario, w scenarios.CABundleWebhook) {
+func assertCABundleEntry(t *testing.T, notAfter, expired *dto.MetricFamily, sc scenarios.CABundleScenario, w scenarios.CABundleWebhook) {
 	t.Helper()
 	want := map[string]string{
 		"cabundle_resource_kind": string(sc.Kind),
@@ -451,8 +451,27 @@ func assertCABundleEntry(t *testing.T, notAfter *dto.MetricFamily, sc scenarios.
 		"cabundle_entry":         w.Name,
 		"subject_CN":             w.CN,
 	}
-	if find(notAfter, want) == nil {
+	notAfterMetric := find(notAfter, want)
+	if notAfterMetric == nil {
 		t.Fatalf("no x509_cert_not_after series with %v", want)
+	}
+	// The seed fabricates 180-day certs (see scenarios.CABundleNotAfter)
+	// so the series must report `expired=0`. Catches a regression
+	// where the chart somehow misroutes the cabundle source through
+	// a parser that fails to read NotAfter.
+	if exp := find(expired, want); exp == nil {
+		t.Fatalf("no x509_cert_expired series with %v", want)
+	} else if got := exp.GetGauge().GetValue(); got != 0 {
+		t.Fatalf("cabundle %s/%s entry %q: expected expired=0, got %v", sc.Kind, sc.Name, w.Name, got)
+	}
+	// The chart's test/e2e/values.yaml sets `exposeLabels:
+	// [app.kubernetes.io/managed-by]` and each scenario carries that
+	// resource-level label set to "x509ce-e2e". The matching
+	// Prometheus label must surface on the series.
+	const labelName = "cabundle_label_app_kubernetes_io_managed_by"
+	if !labelEq(notAfterMetric, labelName, "x509ce-e2e") {
+		t.Fatalf("cabundle %s/%s entry %q: expected %s=x509ce-e2e, labels=%+v",
+			sc.Kind, sc.Name, w.Name, labelName, notAfterMetric.GetLabel())
 	}
 }
 

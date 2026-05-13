@@ -829,45 +829,73 @@
         },
         "excludeConfigMaps": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "excludeLabels": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "excludeNamespaceLabels": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "excludeNamespaces": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "excludeSecrets": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "exposeConfigMapLabels": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "exposeSecretLabels": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "extraArgs": {
           "items": {
@@ -889,33 +917,53 @@
         },
         "includeConfigMaps": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "includeLabels": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "includeNamespaceLabels": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "includeNamespaces": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "includeSecrets": {
           "items": {
-            "required": []
+            "type": "string"
           },
-          "type": "array"
+          "required": [],
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "kubeApiRateLimits": {
           "additionalProperties": false,
@@ -1102,18 +1150,6 @@
         "extraVolumes",
         "extraVolumeMounts",
         "configMapKeys",
-        "includeNamespaces",
-        "excludeNamespaces",
-        "includeNamespaceLabels",
-        "excludeNamespaceLabels",
-        "includeSecrets",
-        "excludeSecrets",
-        "includeConfigMaps",
-        "excludeConfigMaps",
-        "includeLabels",
-        "excludeLabels",
-        "exposeSecretLabels",
-        "exposeConfigMapLabels",
         "extraArgs",
         "cache",
         "kubeApiRateLimits",

@@ -4,6 +4,7 @@ package cert
 // of x509_source_errors_total, so they form a stable contract.
 const (
 	ReasonBadPEM             = "bad_pem"
+	ReasonBadCRL             = "bad_crl"
 	ReasonNoCertificateFound = "no_certificate_found"
 	ReasonBadPKCS12          = "bad_pkcs12"
 	ReasonBadPassphrase      = "bad_passphrase"

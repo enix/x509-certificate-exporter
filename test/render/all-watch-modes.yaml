@@ -8,6 +8,17 @@
 secretsExporter:
   enabled: false
 
+# Cluster-scoped cabundle source — exercises the configmap.yaml branch
+# that emits `kind: cabundle`. No host-path mounts to align (cluster
+# resources, not file watches), so the alignment check ignores it
+# naturally (TestHelmRender only inspects `kind: file` / `kubeconfig`
+# sources for path/mount cross-checks).
+cabundlesExporter:
+  enabled: true
+  resources:
+    mutating: true
+    validating: true
+
 hostPathsExporter:
   hostPathVolumeType: DirectoryOrCreate
   daemonSets:

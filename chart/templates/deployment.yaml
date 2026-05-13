@@ -1,6 +1,6 @@
 {{- $extraVolumes := concat .Values.secretsExporter.extraVolumes .Values.extraVolumes }}
 {{- $extraVolumeMounts := concat .Values.secretsExporter.extraVolumeMounts .Values.extraVolumeMounts }}
-{{- if .Values.secretsExporter.enabled }}
+{{- if or .Values.secretsExporter.enabled .Values.cabundlesExporter.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

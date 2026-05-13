@@ -417,6 +417,49 @@ secretsExporter:
   # - name: GOMAXPROCS
   #   value: "1"
 
+cabundlesExporter:
+  # -- Should the cluster-wide caBundle exporter be active. Watches inline `caBundle` PEM fields of admission resources (and other API discovery resources) cluster-wide and emits one series per (resource, webhook entry). Opt-in because it requires cluster-scoped get+list+watch on the corresponding API groups.
+  enabled: false
+  # @schema
+  # additionalProperties: false
+  # @schema
+  # -- Per-resource opt-in. Each true flag adds the corresponding rule to the ClusterRole and starts the matching informer. Toggle off the resource kinds you don't use to keep the RBAC scope minimal.
+  resources:
+    # -- Watch `MutatingWebhookConfiguration` resources (admissionregistration.k8s.io/v1).
+    mutating: true
+    # -- Watch `ValidatingWebhookConfiguration` resources (admissionregistration.k8s.io/v1).
+    validating: true
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
+  # -- Only watch caBundle-bearing resources whose name matches one of these entries (all matching if empty). Each entry is a shell-glob pattern (`*`, `?`, `[abc]`) or a literal name.
+  includeNames: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
+  # -- Exclude caBundle-bearing resources whose name matches one of these entries (evaluated after `includeNames`). Same shell-glob syntax as `includeNames`.
+  excludeNames: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
+  # -- Only watch caBundle-bearing resources having these labels (all if empty). Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
+  includeLabels: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
+  # -- Exclude caBundle-bearing resources having these labels. Items can be keys such as `my-label` or also require a value with syntax `my-label=my-value`.
+  excludeLabels: []
+  # @schema
+  # type: [array, 'null']
+  # items: {type: string}
+  # @schema
+  # -- Expose selected labels from caBundle-bearing resources as Prometheus labels (prefix `cabundle_label_`). Same caveat as `exposeSecretLabels` — keep the list to slow-changing identifiers and avoid high-cardinality values.
+  exposeLabels: []
+
 hostPathsExporter:
   # @schema
   # additionalProperties: true

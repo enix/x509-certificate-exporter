@@ -45,6 +45,8 @@ cabundlesExporter:
   resources:
     mutating: true
     validating: true
+    apiservice: true
+    crdConversion: true
   # The seed creates an `x509ce-e2e-*-ignored` resource that this
   # excludeNames pattern must filter out — the e2e test asserts no
   # x509_cert_* series for the matching resource name.

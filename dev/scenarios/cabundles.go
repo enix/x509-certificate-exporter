@@ -15,6 +15,8 @@ type CABundleResourceKind string
 const (
 	CABundleKindMutating   CABundleResourceKind = "MutatingWebhookConfiguration"
 	CABundleKindValidating CABundleResourceKind = "ValidatingWebhookConfiguration"
+	CABundleKindAPIService CABundleResourceKind = "APIService"
+	CABundleKindCRD        CABundleResourceKind = "CustomResourceDefinition"
 )
 
 // CABundleScenario describes one cluster-scoped resource the seed
@@ -90,6 +92,33 @@ func buildCABundles() {
 			Watched: false,
 			Webhooks: []CABundleWebhook{
 				{Name: "ignored.mwc.x509ce-e2e", CN: "mwc-ignored.example.test"},
+			},
+		},
+		// 4. APIService — single caBundle (no per-entry concept).
+		//    Empty entry name reflects the chart's `cabundle_entry`
+		//    label semantics for single-caBundle resources.
+		{
+			Kind: CABundleKindAPIService,
+			Name: "v1.x509ce-e2e.example.com",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "x509ce-e2e",
+			},
+			Watched: true,
+			Webhooks: []CABundleWebhook{
+				{Name: "", CN: "apiservice.example.test"},
+			},
+		},
+		// 5. CRD with conversion webhook — same single-caBundle shape
+		//    as APIService.
+		{
+			Kind: CABundleKindCRD,
+			Name: "x509cetenants.x509ce-e2e.example.com",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "x509ce-e2e",
+			},
+			Watched: true,
+			Webhooks: []CABundleWebhook{
+				{Name: "", CN: "crd-conversion.example.test"},
 			},
 		},
 	}

@@ -16,8 +16,12 @@ import (
 	"time"
 
 	admissionv1 "k8s.io/api/admissionregistration/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	aggregatorfake "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/fake"
 
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
 )
@@ -279,5 +283,159 @@ func TestNoResourcesErrors(t *testing.T) {
 	defer cancel()
 	if err := src.Run(ctx, &fakeSink{}); err == nil {
 		t.Fatal("want error when no resources enabled, got nil")
+	}
+}
+
+func TestAPIServiceEmits(t *testing.T) {
+	ca := makeCertPEM(t)
+	as := &apiregistrationv1.APIService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "v1beta1.metrics.k8s.io",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "metrics-server"},
+		},
+		Spec: apiregistrationv1.APIServiceSpec{
+			CABundle: ca,
+			Group:    "metrics.k8s.io",
+			Version:  "v1beta1",
+		},
+	}
+	src := New(Options{
+		Name:             "cabundles",
+		Client:           fake.NewSimpleClientset(),
+		AggregatorClient: aggregatorfake.NewSimpleClientset(as),
+		Resources:        Resources{APIService: true},
+		ResyncEvery:      10 * time.Minute,
+		ExposedLabels:    []string{"app.kubernetes.io/managed-by"},
+	}, nopLogger())
+	sink := &fakeSink{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = src.Run(ctx, sink) }()
+
+	waitFor(t, func() bool {
+		sink.mu.Lock()
+		defer sink.mu.Unlock()
+		return len(sink.upsert) >= 1
+	}, "APIService upsert")
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	b := sink.upsert[0]
+	if b.Source.Kind != cert.KindKubeCABundle {
+		t.Errorf("kind %q != %q", b.Source.Kind, cert.KindKubeCABundle)
+	}
+	if b.Source.Location != "APIService/v1beta1.metrics.k8s.io" {
+		t.Errorf("location %q", b.Source.Location)
+	}
+	if b.Source.Key != "" {
+		t.Errorf("APIService entry key should be empty, got %q", b.Source.Key)
+	}
+	if b.Source.Attributes[cert.AttrCABundleLabelPrefix+"app.kubernetes.io/managed-by"] != "metrics-server" {
+		t.Errorf("exposed label missing: %v", b.Source.Attributes)
+	}
+}
+
+func TestAPIServiceEmptyCABundleSkipped(t *testing.T) {
+	// `insecureSkipTLSVerify: true` APIServices have no caBundle.
+	// The source must skip them silently — no upsert, no error.
+	as := &apiregistrationv1.APIService{
+		ObjectMeta: metav1.ObjectMeta{Name: "insecure.example.test"},
+		Spec: apiregistrationv1.APIServiceSpec{
+			InsecureSkipTLSVerify: true,
+			Group:                 "example.test",
+			Version:               "v1",
+		},
+	}
+	src := New(Options{
+		Name:             "cabundles",
+		Client:           fake.NewSimpleClientset(),
+		AggregatorClient: aggregatorfake.NewSimpleClientset(as),
+		Resources:        Resources{APIService: true},
+		ResyncEvery:      10 * time.Minute,
+	}, nopLogger())
+	sink := &fakeSink{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = src.Run(ctx, sink) }()
+
+	time.Sleep(200 * time.Millisecond)
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	if len(sink.upsert) != 0 {
+		t.Fatalf("want no upserts, got %d (insecureSkipTLSVerify means no caBundle)", len(sink.upsert))
+	}
+}
+
+func TestCRDConversionWebhookEmits(t *testing.T) {
+	ca := makeCertPEM(t)
+	crd := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{Name: "tenants.platform.example.com"},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "platform.example.com",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{Plural: "tenants", Kind: "Tenant"},
+			Scope: apiextensionsv1.NamespaceScoped,
+			Conversion: &apiextensionsv1.CustomResourceConversion{
+				Strategy: apiextensionsv1.WebhookConverter,
+				Webhook: &apiextensionsv1.WebhookConversion{
+					ConversionReviewVersions: []string{"v1"},
+					ClientConfig:             &apiextensionsv1.WebhookClientConfig{CABundle: ca},
+				},
+			},
+		},
+	}
+	src := New(Options{
+		Name:                "cabundles",
+		Client:              fake.NewSimpleClientset(),
+		APIExtensionsClient: apiextfake.NewSimpleClientset(crd),
+		Resources:           Resources{CRDConversion: true},
+		ResyncEvery:         10 * time.Minute,
+	}, nopLogger())
+	sink := &fakeSink{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = src.Run(ctx, sink) }()
+
+	waitFor(t, func() bool {
+		sink.mu.Lock()
+		defer sink.mu.Unlock()
+		return len(sink.upsert) >= 1
+	}, "CRD upsert")
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	b := sink.upsert[0]
+	if b.Source.Location != "CustomResourceDefinition/tenants.platform.example.com" {
+		t.Errorf("location %q", b.Source.Location)
+	}
+}
+
+func TestCRDWithoutConversionSkipped(t *testing.T) {
+	// strategy: None — no conversion webhook, no caBundle, no series.
+	crd := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{Name: "tenants.platform.example.com"},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group:      "platform.example.com",
+			Names:      apiextensionsv1.CustomResourceDefinitionNames{Plural: "tenants", Kind: "Tenant"},
+			Scope:      apiextensionsv1.NamespaceScoped,
+			Conversion: &apiextensionsv1.CustomResourceConversion{Strategy: apiextensionsv1.NoneConverter},
+		},
+	}
+	src := New(Options{
+		Name:                "cabundles",
+		Client:              fake.NewSimpleClientset(),
+		APIExtensionsClient: apiextfake.NewSimpleClientset(crd),
+		Resources:           Resources{CRDConversion: true},
+		ResyncEvery:         10 * time.Minute,
+	}, nopLogger())
+	sink := &fakeSink{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = src.Run(ctx, sink) }()
+
+	time.Sleep(200 * time.Millisecond)
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	if len(sink.upsert) != 0 {
+		t.Fatalf("want no upserts (strategy=None), got %d", len(sink.upsert))
 	}
 }

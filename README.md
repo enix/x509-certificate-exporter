@@ -50,11 +50,12 @@ cluster it observes, but equally happy as a standalone binary.
 - **TLS Secrets** of any type — `kubernetes.io/tls`, opaque PEM bundles,
   full chains — across all namespaces or a curated subset.
 - **ConfigMaps** holding PEM material (`ca.crt`, custom keys).
-- **Admission webhook caBundles** — inline `caBundle` PEM fields on
-  cluster-scoped `MutatingWebhookConfiguration` and
-  `ValidatingWebhookConfiguration` resources, surfaced with their
-  resource name + per-webhook entry name so cert-manager-injected CAs
-  alert before the webhook starts failing.
+- **Admission and API-discovery caBundles** — inline `caBundle` PEM
+  fields on cluster-scoped admission resources
+  (`MutatingWebhookConfiguration`, `ValidatingWebhookConfiguration`),
+  the API-aggregation layer (`APIService`), and CRDs with a
+  conversion webhook (`CustomResourceDefinition`). Each kind is
+  independently opt-in so the RBAC scope stays minimal.
 - **PKCS#12** keystores and truststores, with passphrase pulled from a
   sibling key in the same Secret, an external file, a cross-namespace
   Secret reference, or none (`tryEmptyPassphrase`).

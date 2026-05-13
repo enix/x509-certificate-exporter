@@ -92,6 +92,8 @@ data:
           resources:
             mutating: {{ .Values.cabundlesExporter.resources.mutating | default false }}
             validating: {{ .Values.cabundlesExporter.resources.validating | default false }}
+            apiservice: {{ .Values.cabundlesExporter.resources.apiservice | default false }}
+            crdConversion: {{ .Values.cabundlesExporter.resources.crdConversion | default false }}
           include: {{ if .Values.cabundlesExporter.includeNames }}{{ .Values.cabundlesExporter.includeNames | toJson }}{{ else }}["*"]{{ end }}
           exclude: {{ if .Values.cabundlesExporter.excludeNames }}{{ .Values.cabundlesExporter.excludeNames | toJson }}{{ else }}[]{{ end }}
           includeLabels: {{ if .Values.cabundlesExporter.includeLabels }}{{ .Values.cabundlesExporter.includeLabels | toJson }}{{ else }}[]{{ end }}

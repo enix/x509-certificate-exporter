@@ -212,8 +212,10 @@ type CABundlesCfg struct {
 
 // CABundleResources is the per-kind opt-in.
 type CABundleResources struct {
-	Mutating   bool `yaml:"mutating"`
-	Validating bool `yaml:"validating"`
+	Mutating      bool `yaml:"mutating"`
+	Validating    bool `yaml:"validating"`
+	APIService    bool `yaml:"apiservice"`
+	CRDConversion bool `yaml:"crdConversion"`
 }
 
 type Metrics struct {
@@ -421,7 +423,8 @@ func validateSource(i int, s Source) error {
 		if s.CABundles == nil {
 			return fmt.Errorf("%s: cabundle source must configure cabundles", prefix)
 		}
-		if !s.CABundles.Resources.Mutating && !s.CABundles.Resources.Validating {
+		r := s.CABundles.Resources
+		if !r.Mutating && !r.Validating && !r.APIService && !r.CRDConversion {
 			return fmt.Errorf("%s.cabundles.resources: at least one resource kind must be enabled", prefix)
 		}
 		if err := validateGlobs(prefix+".cabundles.include", s.CABundles.Include); err != nil {

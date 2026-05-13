@@ -49,12 +49,14 @@ func (s *fakeSink) Delete(r cert.SourceRef) {
 	s.delete = append(s.delete, r)
 }
 
-func makeCertPEM(t *testing.T) []byte {
+func makeCertPEM(t *testing.T) []byte { return makeCertPEMCN(t, "leaf") }
+
+func makeCertPEMCN(t *testing.T, cn string) []byte {
 	t.Helper()
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "leaf"},
+		Subject:      pkix.Name{CommonName: cn},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(24 * time.Hour),
 	}
@@ -146,6 +148,121 @@ func TestSecretsWatchHandlesDelete(t *testing.T) {
 		defer sink.mu.Unlock()
 		return len(sink.delete) >= 1
 	}, "delete event")
+}
+
+func TestSecretRotationReplacesUpsert(t *testing.T) {
+	// cert-manager rotation pattern: tls.crt is rewritten in place,
+	// same Secret name+namespace. The source must emit a fresh Bundle
+	// (same SourceRef, new cert content) with no Delete in between
+	// — otherwise metrics silently report the OLD cert's expiry
+	// until the next non-trivial Update.
+	pemV1 := makeCertPEMCN(t, "leaf-v1")
+	pemV2 := makeCertPEMCN(t, "leaf-v2")
+	sec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "tls-prod", Namespace: "ns"},
+		Type:       corev1.SecretTypeTLS,
+		Data:       map[string][]byte{"tls.crt": pemV1},
+	}
+	client := fake.NewSimpleClientset(sec)
+	src := New(Options{
+		Name: "k", Client: client, ResyncEvery: 10 * time.Minute,
+		SecretRules: []SecretTypeRule{{
+			Type: "kubernetes.io/tls", KeyRe: regexp.MustCompile(`^tls\.crt$`), Parser: pem.New(),
+		}},
+	}, nopLogger())
+	sink := &fakeSink{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = src.Run(ctx, sink) }()
+
+	waitFor(t, func() bool {
+		sink.mu.Lock()
+		defer sink.mu.Unlock()
+		return len(sink.upsert) >= 1
+	}, "initial upsert with v1")
+
+	sink.mu.Lock()
+	if got := sink.upsert[0].Items[0].Cert.Subject.CommonName; got != "leaf-v1" {
+		t.Fatalf("initial Bundle CN = %q, want leaf-v1", got)
+	}
+	initialRef := sink.upsert[0].Source
+	initialN := len(sink.upsert)
+	sink.mu.Unlock()
+
+	// Rotate in place.
+	sec.Data["tls.crt"] = pemV2
+	if _, err := client.CoreV1().Secrets("ns").Update(ctx, sec, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("update secret: %v", err)
+	}
+
+	waitFor(t, func() bool {
+		sink.mu.Lock()
+		defer sink.mu.Unlock()
+		if len(sink.upsert) <= initialN {
+			return false
+		}
+		latest := sink.upsert[len(sink.upsert)-1]
+		return len(latest.Items) == 1 && latest.Items[0].Cert.Subject.CommonName == "leaf-v2"
+	}, "rotation upsert with leaf-v2")
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	if rotatedRef := sink.upsert[len(sink.upsert)-1].Source; rotatedRef.String() != initialRef.String() {
+		t.Fatalf("rotation changed SourceRef: %s → %s", initialRef.String(), rotatedRef.String())
+	}
+	if len(sink.delete) != 0 {
+		t.Fatalf("rotation must replace, not delete + re-add (got %d deletes)", len(sink.delete))
+	}
+}
+
+func TestSecretAndConfigMapSameNameDisambiguated(t *testing.T) {
+	// A Secret and a ConfigMap can legitimately share metadata.name
+	// inside the same namespace (the K8s API keys are independent).
+	// They must surface as two distinct refs in the registry — keyed
+	// by SourceRef.Kind, not by (namespace, name) alone.
+	const shared = "trust-bundle"
+	pemS := makeCertPEMCN(t, "secret-leaf")
+	pemC := makeCertPEMCN(t, "configmap-leaf")
+	sec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: shared, Namespace: "ns"},
+		Type:       corev1.SecretTypeTLS,
+		Data:       map[string][]byte{"tls.crt": pemS},
+	}
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: shared, Namespace: "ns"},
+		Data:       map[string]string{"ca.crt": string(pemC)},
+	}
+	client := fake.NewSimpleClientset(sec, cm)
+	src := New(Options{
+		Name: "k", Client: client, ResyncEvery: 10 * time.Minute,
+		SecretRules: []SecretTypeRule{{
+			Type: "kubernetes.io/tls", KeyRe: regexp.MustCompile(`^tls\.crt$`), Parser: pem.New(),
+		}},
+		ConfigMapRules: []SecretTypeRule{{KeyRe: regexp.MustCompile(`\.crt$`), Parser: pem.New()}},
+	}, nopLogger())
+	sink := &fakeSink{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = src.Run(ctx, sink) }()
+
+	waitFor(t, func() bool {
+		sink.mu.Lock()
+		defer sink.mu.Unlock()
+		return len(sink.upsert) >= 2
+	}, "secret + configmap upserts")
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	kinds := map[string]string{}
+	for _, b := range sink.upsert {
+		kinds[b.Source.Kind] = b.Items[0].Cert.Subject.CommonName
+	}
+	if cn := kinds["kube-secret"]; cn != "secret-leaf" {
+		t.Errorf("kube-secret CN = %q, want secret-leaf", cn)
+	}
+	if cn := kinds["kube-configmap"]; cn != "configmap-leaf" {
+		t.Errorf("kube-configmap CN = %q, want configmap-leaf", cn)
+	}
 }
 
 func TestConfigMapsWatchEmits(t *testing.T) {

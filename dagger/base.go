@@ -9,8 +9,8 @@ import (
 const (
 	golangImage = "golang:1.26.3-alpine@sha256:91eda9776261207ea25fd06b5b7fed8d397dd2c0a283e77f2ab6e91bfa71079d"
 	alpineImage = "alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11"
-	helmImage = "alpine/helm:4.1.4@sha256:4b0bdd2cf18ff6bca12aba0b2c5671384dab5035c19c57f0c58b854a0baf65be"
-	renovateImage = "renovate/renovate:43.173.5@sha256:98fb72f2602def4c75a86a282f6fb18fda46a8fac73f7479689cf13b0ac50815"
+	helmImage = "alpine/helm:4.1.4@sha256:8edcaedab4d9864886b7f443d55731be87d4b5ec7dca714c24551455707a8aac"
+	renovateImage = "renovate/renovate:43.176.5@sha256:0853e61cfca633cbb5de10ca8c2049d2deb430f109635c82a167c228c6d615b8"
 	helmDocsImage = "jnorwood/helm-docs:v1.14.2@sha256:7e562b49ab6b1dbc50c3da8f2dd6ffa8a5c6bba327b1c6335cc15ce29267979c"
 	helmSchemaImage = "ghcr.io/dadav/helm-schema:0.23.2@sha256:4807d868cb489e8160e0cece1aba51d2101a9c307b76bdda4f88929c75bd5c29"
 	markdownlintImage = "davidanson/markdownlint-cli2:v0.22.1@sha256:0ed9a5f4c77ef447da2a2ac6e67caf74b214a7f80288819565e8b7d2ac148fe5"

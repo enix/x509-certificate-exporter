@@ -15,10 +15,11 @@ import (
 // exposed Prometheus labels (`source_kind`), so they are part of the
 // public contract — do not change the literal values.
 const (
-	KindFile         = "file"          // local filesystem entry (single file or glob match)
-	KindKubeconfig   = "kubeconfig"    // certs embedded in a kubeconfig file
-	KindKubeSecret   = "kube-secret"   // Kubernetes Secret resource
+	KindFile          = "file"           // local filesystem entry (single file or glob match)
+	KindKubeconfig    = "kubeconfig"     // certs embedded in a kubeconfig file
+	KindKubeSecret    = "kube-secret"    // Kubernetes Secret resource
 	KindKubeConfigMap = "kube-configmap" // Kubernetes ConfigMap resource
+	KindKubeCABundle  = "kube-cabundle"  // inline caBundle field of an admission/aggregation resource
 )
 
 // Canonical attribute key prefixes used in SourceRef.Attributes for
@@ -29,6 +30,7 @@ const (
 const (
 	AttrSecretLabelPrefix    = "secret_label/"
 	AttrConfigMapLabelPrefix = "configmap_label/"
+	AttrCABundleLabelPrefix  = "cabundle_label/"
 )
 
 // Canonical values for SourceRef.Format and FormatParser.Format(). Used

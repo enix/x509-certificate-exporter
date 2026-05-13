@@ -26,7 +26,7 @@ func newDescTable(cfg Config) descTable {
 		IssuerFields:       cfg.IssuerFields,
 		TrimPathComponents: cfg.TrimPathComponents,
 	}
-	s := newSchema(opts, cfg.ExposedSecretLabels, cfg.ExposedConfigMapLabels, includeDisc)
+	s := newSchema(opts, cfg.ExposedSecretLabels, cfg.ExposedConfigMapLabels, cfg.ExposedCABundleLabels, includeDisc)
 	t := descTable{cfg: cfg, schema: s}
 	t.notAfter = prometheus.NewDesc("x509_cert_not_after", "Unix timestamp of the certificate's NotAfter.", s.names, nil)
 	if cfg.ExposeNotBefore {

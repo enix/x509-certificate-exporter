@@ -34,6 +34,7 @@ import (
 	pkcs12parser "github.com/enix/x509-certificate-exporter/v4/pkg/cert/pkcs12"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/fileglob"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/registry"
+	cabundlesource "github.com/enix/x509-certificate-exporter/v4/pkg/source/cabundle"
 	filesource "github.com/enix/x509-certificate-exporter/v4/pkg/source/file"
 	k8ssource "github.com/enix/x509-certificate-exporter/v4/pkg/source/k8s"
 	kcsource "github.com/enix/x509-certificate-exporter/v4/pkg/source/kubeconfig"
@@ -135,7 +136,7 @@ func run() error {
 	case "never":
 		collisionPolicy = registry.CollisionNever
 	}
-	exposedSecretLabels, exposedCMLabels := exposedLabelsFromConfig(cfg)
+	exposedSecretLabels, exposedCMLabels, exposedCABundleLabels := exposedLabelsFromConfig(cfg)
 	reg := registry.New(registry.Config{
 		ExposeRelative:         cfg.Metrics.ExposeRelative,
 		ExposePerCertError:     cfg.Metrics.ExposePerCertError,
@@ -150,6 +151,7 @@ func run() error {
 		DiscriminatorLength:    cfg.Metrics.CollisionDiscriminatorLength,
 		ExposedSecretLabels:    exposedSecretLabels,
 		ExposedConfigMapLabels: exposedCMLabels,
+		ExposedCABundleLabels:  exposedCABundleLabels,
 		EnableStats:            cfg.Web.EnableStats,
 	}, logger)
 
@@ -316,15 +318,15 @@ func pkcs12InUse(cfg config.Config) bool {
 	return false
 }
 
-func exposedLabelsFromConfig(cfg config.Config) (secrets, configmaps []string) {
+func exposedLabelsFromConfig(cfg config.Config) (secrets, configmaps, cabundles []string) {
 	seen := map[string]struct{}{}
 	for _, s := range cfg.Sources {
 		if s.Secrets != nil {
 			for _, l := range s.Secrets.ExposeLabels {
-				if _, dup := seen[l]; dup {
+				if _, dup := seen["s/"+l]; dup {
 					continue
 				}
-				seen[l] = struct{}{}
+				seen["s/"+l] = struct{}{}
 				secrets = append(secrets, l)
 			}
 		}
@@ -335,6 +337,15 @@ func exposedLabelsFromConfig(cfg config.Config) (secrets, configmaps []string) {
 				}
 				seen["cm/"+l] = struct{}{}
 				configmaps = append(configmaps, l)
+			}
+		}
+		if s.CABundles != nil {
+			for _, l := range s.CABundles.ExposeLabels {
+				if _, dup := seen["cb/"+l]; dup {
+					continue
+				}
+				seen["cb/"+l] = struct{}{}
+				cabundles = append(cabundles, l)
 			}
 		}
 	}
@@ -352,6 +363,8 @@ func buildSource(ctx context.Context, s config.Source, cfg config.Config, ready 
 		}, logger), nil
 	case config.KindKubernetes:
 		return buildKubeSource(ctx, s, ready, reg, logger)
+	case config.KindCABundle:
+		return buildCABundleSource(s, ready, logger)
 	}
 	return nil, fmt.Errorf("unknown kind %q", s.Kind)
 }
@@ -573,6 +586,43 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 		ExposedConfigMapLabels: exposedCMLabels,
 		OnReady:                ready,
 	}, logger), nil
+}
+
+// buildCABundleSource constructs a cabundle Source — watches cluster-
+// scoped admission resources and emits one cert ref per (resource,
+// webhook entry). Shares the kube client construction logic with
+// buildKubeSource; consider extracting if a third K8s-based source is
+// added.
+func buildCABundleSource(s config.Source, ready func(bool), logger *slog.Logger) (cert.Source, error) {
+	cfg, err := buildKubeClientConfig(s.Kubeconfig, logger)
+	if err != nil {
+		return nil, err
+	}
+	if s.RateLimit != nil {
+		cfg.QPS = float32(s.RateLimit.QPS)
+		cfg.Burst = s.RateLimit.Burst
+	}
+	cli, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	cb := s.CABundles
+	opts := cabundlesource.Options{
+		Name:   s.Name,
+		Client: cli,
+		Resources: cabundlesource.Resources{
+			Mutating:   cb.Resources.Mutating,
+			Validating: cb.Resources.Validating,
+		},
+		ResyncEvery:   refreshOrDefault(s.RefreshInterval, 30*time.Minute),
+		IncludeNames:  nonWildcard(cb.Include),
+		ExcludeNames:  cb.Exclude,
+		LabelSelector: buildLabelSelector(cb.IncludeLabels, cb.ExcludeLabels),
+		ExposedLabels: cb.ExposeLabels,
+		OnReady:       ready,
+	}
+	return cabundlesource.New(opts, logger), nil
 }
 
 func namespaceFilterFromConfig(n *config.Namespaces) k8ssource.NamespaceFilter {

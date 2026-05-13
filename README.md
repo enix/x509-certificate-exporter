@@ -40,35 +40,40 @@ cluster it observes, but equally happy as a standalone binary.
 - **Full rewrite** around a YAML config file and a pluggable architecture — clean foundations for the project to grow on.
 - **Memory-safe Kubernetes watch** — RAM stays flat instead of spiking; on Secret-heavy clusters, memory limits drop ~10×.
 - **Richer PKCS#12 wiring** — full keystore + truststore coverage, flexible passphrase sourcing.
+- **DER consumption** — raw cert / CRL blobs as served by HTTP CRL Distribution Points are now first-class inputs.
+- **CRL freshness monitoring** — Certificate Revocation Lists are tracked alongside certs, with alerts before they go stale.
 - **Surface workload metadata** — lift watched resource labels onto emitted certificate series.
 - **Supply-chain hardened** — SLSA Build L3 provenance, cosign-signed binaries, images and chart, SBOM attestations.
 - **Multi-cluster from a single instance** — fan-in metrics from any number of clusters via distinct kubeconfigs.
 - **Per-source observability** — granular health and triage signals, not just a global error counter.
-- **CRL freshness monitoring** — `x509_crl_*` metric family surfaces `nextUpdate` / `thisUpdate` / `cRLNumber` for every Certificate Revocation List parsed from a watched location, with ready-made `CRLNeedsRefresh` and `CRLStale` alerts.
 
 ## 🔍️ What it watches
 
-- **TLS Secrets** of any type — `kubernetes.io/tls`, opaque PEM bundles,
+- **TLS Secrets** of any type — `kubernetes.io/tls`, Opaque bundles,
   full chains — across all namespaces or a curated subset.
-- **ConfigMaps** holding PEM material (`ca.crt`, custom keys).
+- **ConfigMaps** holding cert or CRL data under any key you point at.
+- **PKCS#12** keystores and truststores, with passphrase pulled from a
+  sibling key in the same Secret, an external file, a cross-namespace
+  Secret reference, or none (`tryEmptyPassphrase`).
+- **Certificate Revocation Lists** — `X509 CRL` PEM blocks (intermixed
+  freely with `CERTIFICATE` blocks) and raw DER `*.crl` files
+  (`format: der`) are parsed into the dedicated `x509_crl_*` family so
+  a stale CRL pages on-call before its consumers start rejecting the
+  issuer's certs.
 - **Admission and API-discovery caBundles** — inline `caBundle` PEM
   fields on cluster-scoped admission resources
   (`MutatingWebhookConfiguration`, `ValidatingWebhookConfiguration`),
   the API-aggregation layer (`APIService`), and CRDs with a
-  conversion webhook (`CustomResourceDefinition`). Each kind is
-  independently opt-in so the RBAC scope stays minimal.
-- **PKCS#12** keystores and truststores, with passphrase pulled from a
-  sibling key in the same Secret, an external file, a cross-namespace
-  Secret reference, or none (`tryEmptyPassphrase`).
+  conversion webhook (`CustomResourceDefinition`).
+- **PEM chains** — every certificate in a multi-cert bundle becomes its own
+  series, so intermediate CAs and trust roots appear alongside leaf certs
+  with no extra configuration.
 - **Kubeconfigs** with embedded base64 certificates or PEM file references —
   every `cluster` and `user` block exposed as its own series.
 - **Files on disk** — glob patterns (`*`, `**`, `?`), atomic symlink swaps
   detected on the next poll (certbot renewals, kubelet projected `..data/`
   mounts), and dual deployment: inside the exporter pod **or** as a
   node-local DaemonSet for cluster PKI (kubelet, etcd, kube-apiserver).
-- **PEM chains** — every certificate in a multi-cert bundle becomes its own
-  series, so intermediate CAs and trust roots appear alongside leaf certs
-  with no extra configuration.
 
 ## 📖 Documentation
 
@@ -149,12 +154,14 @@ stack you already have.
    automatically. On clusters without the operator, the standard
    `prometheus.io/scrape` Pod annotations work just as well.
 
-3. **Alert.** A `PrometheusRule` ships with four batteries-included
+3. **Alert.** A `PrometheusRule` ships with six batteries-included
    alerts: read-errors canary (RBAC / parsing / missing files),
    per-certificate error, renewal warning (28 days out by default),
-   expiration critical (14 days out). Alertmanager routes them like any
-   other rule — Slack, PagerDuty, email, webhooks — and the thresholds
-   plus individual alerts are tunable per install.
+   expiration critical (14 days out), plus the two CRL-freshness rules
+   `CRLNeedsRefresh` (7 days before `nextUpdate`) and `CRLStale`
+   (the moment `nextUpdate` is crossed). Alertmanager routes them like
+   any other rule — Slack, PagerDuty, email, webhooks — and the
+   thresholds plus individual alerts are tunable per install.
 
 4. **Visualize.** A ready-to-import [Grafana dashboard][dash] lists every
    certificate the exporter sees, sorted by time remaining, sliced by

@@ -26,6 +26,12 @@ The exporter splits its output into four families:
 | Per-certificate | `x509_cert_expires_in_seconds` | gauge | `metrics.exposeRelative: true` |
 | Per-certificate | `x509_cert_valid_since_seconds` | gauge | `metrics.exposeRelative: true` |
 | Per-certificate | `x509_cert_error` | gauge | `metrics.exposePerCertError: true` |
+| Per-CRL | `x509_crl_next_update` | gauge | always (when a CRL is parsed) |
+| Per-CRL | `x509_crl_this_update` | gauge | always (when a CRL is parsed) |
+| Per-CRL | `x509_crl_number` | gauge | always (when a CRL is parsed) |
+| Per-CRL | `x509_crl_stale` | gauge | `metrics.exposeExpired: true` (**on by default**) |
+| Per-CRL | `x509_crl_stale_in_seconds` | gauge | `metrics.exposeRelative: true` |
+| Per-CRL | `x509_crl_fresh_since_seconds` | gauge | `metrics.exposeRelative: true` |
 | Per-source | `x509_source_up` | gauge | always |
 | Per-source | `x509_source_bundles` | gauge | always |
 | Per-source | `x509_source_errors_total` | counter | always |
@@ -175,6 +181,85 @@ This series gives you per-item error visibility, which is usually too
 granular for alerting (use [`x509_source_errors_total`](#x509_source_errors_total)
 instead). The intended use is per-cert dashboards where you want a "this
 specific cert failed to parse" pill next to the rest of its labels.
+
+---
+
+## Per-CRL metrics
+
+The PEM parser emits `x509_crl_*` series for every `X509 CRL` block it
+encounters, alongside the regular `x509_cert_*` series for any
+`CERTIFICATE` blocks in the same input. No opt-in is required — point
+any source (file, Secret data key, ConfigMap data key) at PEM content
+that contains a CRL block and the metrics appear. The same source-kind
+labels (`filename`/`filepath` for files, `secret_*` for Secrets, etc.)
+are reused; CRL-specific fields land in `issuer_*` (the CRL issuer)
+and `crl_number` (the cRLNumber extension). The `subject_*` and
+`serial_number` columns are empty on CRL series (CRLs have neither).
+
+CRLs go stale at `nextUpdate`. Once that horizon is passed, clients
+validating against the CRL must refuse to trust the issuer's certs —
+so the alerting story mirrors `x509_cert_not_after` exactly:
+
+```promql
+# CRLs whose nextUpdate is less than 14 days away
+(x509_crl_next_update - time()) / 86400 < 14
+```
+
+### `x509_crl_next_update`
+
+Unix timestamp of the CRL's `nextUpdate` field (RFC 5280 §5.1.2.5).
+The main horizon to alert on.
+
+- **Type**: gauge
+- **Labels**: source-kind labels + `issuer_*` + `crl_number`
+
+### `x509_crl_this_update`
+
+Unix timestamp of the CRL's `thisUpdate` field (RFC 5280 §5.1.2.4).
+Useful for detecting CRLs that never get refreshed.
+
+- **Type**: gauge
+- **Labels**: same as `x509_crl_next_update`
+
+### `x509_crl_number`
+
+Value of the `cRLNumber` X.509 extension (RFC 5280 §5.2.3), exposed as
+a gauge. Issuers increment this on every CRL publish, so an alert on
+"crl_number stuck for N days" catches a CRL publisher that has stopped
+generating updates without yet having gone stale. The exact integer
+value is also carried in the `crl_number` label (the gauge loses
+precision past 2^53).
+
+- **Type**: gauge
+- **Labels**: same as `x509_crl_next_update`
+
+### `x509_crl_stale`
+
+`1` if the current time is past `nextUpdate`, `0` otherwise. Mirrors
+[`x509_cert_expired`](#x509_cert_expired) — strictly speaking a CRL
+doesn't "expire", but the operational consequence (validation failures
+downstream) is identical, so the metric uses the same gate
+(`metrics.exposeExpired`).
+
+- **Type**: gauge
+- **Labels**: same as `x509_crl_next_update`
+- **Emitted only when `metrics.exposeExpired` is `true`** (on by default).
+
+### `x509_crl_stale_in_seconds`
+
+Seconds until `nextUpdate` (negative once stale). Pendant of
+[`x509_cert_expires_in_seconds`](#x509_cert_expires_in_seconds).
+
+- **Type**: gauge
+- **Emitted only when `metrics.exposeRelative` is `true`.**
+
+### `x509_crl_fresh_since_seconds`
+
+Seconds since `thisUpdate`. Pendant of
+[`x509_cert_valid_since_seconds`](#x509_cert_valid_since_seconds).
+
+- **Type**: gauge
+- **Emitted only when `metrics.exposeRelative` is `true`.**
 
 ---
 

@@ -56,8 +56,11 @@ PromQL aggregation across heterogeneous source kinds remains valid.
 | `embedded_kind`, `embedded_key` | `kubeconfig` only | Whether the cert came from a `cluster` or `user` block, plus the YAML key. Empty for other source kinds |
 | `secret_namespace`, `secret_name`, `secret_key` | `kube-secret` only | Identifies the Secret and the data key within it |
 | `configmap_namespace`, `configmap_name`, `configmap_key` | `kube-configmap` only | Same, for ConfigMaps |
+| `cabundle_resource_kind`, `cabundle_resource_name` | `kube-cabundle` only | Kubernetes resource Kind (e.g. `MutatingWebhookConfiguration`) and cluster-scoped resource name. caBundle resources are not namespaced — there is no `cabundle_namespace`. |
+| `cabundle_entry` | `kube-cabundle` only | Per-webhook entry name (`.webhooks[].name`) for `MutatingWebhookConfiguration` / `ValidatingWebhookConfiguration`. Empty for single-caBundle resources. |
 | `secret_label_<name>` | `kube-secret`, optional | One label per entry in `sources[].secrets.exposeLabels` (chart: `secretsExporter.exposeSecretLabels`). Names are sanitised: any non-alnum/underscore char becomes `_`, leading digit gets a `_` prefix |
 | `configmap_label_<name>` | `kube-configmap`, optional | One label per entry in `sources[].configMaps.exposeLabels`. Same sanitisation rule. Not currently exposed by the Helm chart |
+| `cabundle_label_<name>` | `kube-cabundle`, optional | One label per entry in `sources[].cabundles.exposeLabels` (chart: `cabundlesExporter.exposeLabels`). Same sanitisation rule. |
 | `discriminator` | conditional | Slot exists when `metrics.collisionDiscriminator` is `auto` (default) or `always`; absent under `never`. Populated with a per-cert SHA-256 prefix in `always` mode unconditionally and in `auto` mode only when a label collision was detected (see [`x509_cert_collision_total`](#x509_cert_collision_total)) |
 
 The discriminator slot, when absent (`never` mode), is genuinely
@@ -188,6 +191,7 @@ config) and a `source_kind` label.
 | `kubeconfig` | `kind: kubeconfig` source |
 | `kube-secret` | `kind: kubernetes` watching Secrets |
 | `kube-configmap` | `kind: kubernetes` watching ConfigMaps |
+| `kube-cabundle` | `kind: cabundle` watching admission resources' inline `caBundle` fields |
 
 ### `x509_source_up`
 
@@ -537,6 +541,7 @@ configured — one synthetic series per reason code observed.
 | `kubeconfig` | `kubeconfig` | One or more kubeconfig YAML documents | All metrics carrying `source_kind` |
 | `kube-secret` | `kubernetes` (Secret rules) | Kubernetes Secrets | All metrics carrying `source_kind` |
 | `kube-configmap` | `kubernetes` (ConfigMap rules) | Kubernetes ConfigMaps | All metrics carrying `source_kind` |
+| `kube-cabundle` | `cabundle` | Inline `caBundle` fields on admission, API-aggregation and CRD conversion webhook resources | All metrics carrying `source_kind` |
 | `kubernetes` | (none — synthetic) | Transport layer (client-go HTTP round-trips) | Only `x509_source_errors_total` (with `source_name="kube-api"`, see [transport-level reasons](#transport-level-kubernetes-api)) |
 
 ### Cardinality budget

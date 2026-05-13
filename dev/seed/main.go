@@ -12,7 +12,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,6 +77,7 @@ func main() {
 		fmt.Printf("[seed] %s %s/%s — keys=%v watched=%v\n", s.Kind, s.Namespace, s.Name, keys(s.Data), s.Watched)
 	}
 	seedAuxiliary(ctx, cs)
+	seedCABundles(ctx, cs)
 	fmt.Printf("[seed] %d scenarios applied across %d namespace(s)\n", len(all), len(seenNS))
 }
 
@@ -181,3 +184,88 @@ func keys(m map[string][]byte) []string {
 	}
 	return out
 }
+
+// seedCABundles applies the cluster-scoped cabundle scenarios. The
+// resources are MutatingWebhookConfiguration / ValidatingWebhookConfiguration
+// with inline caBundle PEM fields generated from a self-signed cert
+// per webhook entry. URLs are deliberately bogus — the webhooks never
+// actually fire in the e2e cluster, the chart's cabundle source only
+// reads `caBundle` and the resource's metadata.
+func seedCABundles(ctx context.Context, cs *kubernetes.Clientset) {
+	for _, sc := range scenarios.AllCABundles() {
+		labels := map[string]string{managedByLabel: managedByValue}
+		for k, v := range sc.Labels {
+			labels[k] = v
+		}
+		switch sc.Kind {
+		case scenarios.CABundleKindMutating:
+			webhooks := make([]admissionv1.MutatingWebhook, 0, len(sc.Webhooks))
+			for _, w := range sc.Webhooks {
+				webhooks = append(webhooks, admissionv1.MutatingWebhook{
+					Name:                    w.Name,
+					ClientConfig:            admissionv1.WebhookClientConfig{URL: ptrString("https://x509ce-e2e.invalid/hook"), CABundle: makeCABundlePEM(w.CN)},
+					SideEffects:             ptrSideEffectClass(admissionv1.SideEffectClassNone),
+					AdmissionReviewVersions: []string{"v1"},
+					Rules:                   []admissionv1.RuleWithOperations{{Operations: []admissionv1.OperationType{admissionv1.Create}, Rule: admissionv1.Rule{APIGroups: []string{"x509ce-e2e.example.com"}, APIVersions: []string{"v1"}, Resources: []string{"ignored"}}}},
+				})
+			}
+			obj := &admissionv1.MutatingWebhookConfiguration{
+				ObjectMeta: metav1.ObjectMeta{Name: sc.Name, Labels: labels},
+				Webhooks:   webhooks,
+			}
+			if _, err := cs.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
+				if !apierrors.IsNotFound(err) {
+					log.Fatalf("mwc %s: %v", sc.Name, err)
+				}
+				if _, err := cs.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+					log.Fatalf("mwc %s: %v", sc.Name, err)
+				}
+			}
+		case scenarios.CABundleKindValidating:
+			webhooks := make([]admissionv1.ValidatingWebhook, 0, len(sc.Webhooks))
+			for _, w := range sc.Webhooks {
+				webhooks = append(webhooks, admissionv1.ValidatingWebhook{
+					Name:                    w.Name,
+					ClientConfig:            admissionv1.WebhookClientConfig{URL: ptrString("https://x509ce-e2e.invalid/hook"), CABundle: makeCABundlePEM(w.CN)},
+					SideEffects:             ptrSideEffectClass(admissionv1.SideEffectClassNone),
+					AdmissionReviewVersions: []string{"v1"},
+					Rules:                   []admissionv1.RuleWithOperations{{Operations: []admissionv1.OperationType{admissionv1.Create}, Rule: admissionv1.Rule{APIGroups: []string{"x509ce-e2e.example.com"}, APIVersions: []string{"v1"}, Resources: []string{"ignored"}}}},
+				})
+			}
+			obj := &admissionv1.ValidatingWebhookConfiguration{
+				ObjectMeta: metav1.ObjectMeta{Name: sc.Name, Labels: labels},
+				Webhooks:   webhooks,
+			}
+			if _, err := cs.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
+				if !apierrors.IsNotFound(err) {
+					log.Fatalf("vwc %s: %v", sc.Name, err)
+				}
+				if _, err := cs.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+					log.Fatalf("vwc %s: %v", sc.Name, err)
+				}
+			}
+		}
+		fmt.Printf("[seed] %s %s — entries=%d watched=%v\n", sc.Kind, sc.Name, len(sc.Webhooks), sc.Watched)
+	}
+}
+
+// makeCABundlePEM generates a self-signed PEM-encoded certificate
+// with the given CN, predictable lifetime so the e2e never sees an
+// expired cert. Uses the same self-signing helper as the namespace-
+// scoped scenarios so the resulting series are visually consistent.
+func makeCABundlePEM(cn string) []byte {
+	c, _, err := scenarios.Selfsigned(scenarios.CertSpec{
+		CN:        cn,
+		NotBefore: time.Now().Add(-time.Hour),
+		NotAfter:  scenarios.CABundleNotAfter,
+		Algo:      scenarios.AlgoECDSAP256,
+	})
+	if err != nil {
+		log.Fatalf("selfsigned %s: %v", cn, err)
+	}
+	return scenarios.EncodeCertsPEM(c)
+}
+
+func ptrSideEffectClass(v admissionv1.SideEffectClass) *admissionv1.SideEffectClass { return &v }
+
+func ptrString(v string) *string { return &v }

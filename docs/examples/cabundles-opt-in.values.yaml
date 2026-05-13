@@ -1,0 +1,39 @@
+# Cabundles exporter — opt-in example.
+#
+# Monitors `caBundle` PEM expiry on cluster-scoped admission resources
+# (MutatingWebhookConfiguration / ValidatingWebhookConfiguration). The
+# typical motivation: cert-manager's CA injector silently renews these
+# caBundles, and a stale injector or a misconfigured Issuer leads to
+# admission webhooks failing cluster-wide. This source surfaces the
+# expiry of the CA actually inlined on each webhook config, so you
+# alert on the bundle the kube-apiserver will use, not on the source
+# Secret upstream.
+#
+# Required cluster-scoped RBAC (auto-rendered by the chart when
+# enabled + each resource toggle):
+#   admissionregistration.k8s.io / mutatingwebhookconfigurations
+#   admissionregistration.k8s.io / validatingwebhookconfigurations
+#
+# Pair with the standard `secretsExporter:` if you also want to
+# monitor TLS Secrets in the same release — they share one Deployment.
+cabundlesExporter:
+  enabled: true
+  resources:
+    mutating: true
+    validating: true
+
+  # Limit to the webhook configs you actually own. Glob patterns
+  # (shell glob: `*`, `?`, `[abc]`) keep the cluster-wide scan from
+  # alerting on third-party CRDs you don't manage.
+  includeNames:
+    - "cert-manager-*"
+    - "linkerd-*"
+
+  # Surface a useful label so dashboards can split by owner.
+  exposeLabels:
+    - app.kubernetes.io/managed-by
+
+# A typical PrometheusRule augmentation that re-uses the existing
+# alerts (chart's `prometheusRules.create: true`). The default alert
+# expressions match any `x509_cert_*` series, so the cabundle ones are
+# already covered — no extra rule needed, you just gain new rows.

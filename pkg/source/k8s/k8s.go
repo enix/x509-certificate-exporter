@@ -823,12 +823,12 @@ func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
 			po := rule.ParseOpts
 			if rule.PassphraseKey != "" {
 				if pp, ok := sec.Data[rule.PassphraseKey]; ok {
-					po.Pkcs12Passphrase = strings.TrimSpace(string(pp))
+					po.Pkcs12Passphrase = strings.TrimRight(string(pp), "\r\n")
 				}
 			}
 			if rule.JksPassphraseKey != "" {
 				if pp, ok := sec.Data[rule.JksPassphraseKey]; ok {
-					po.JksPassphrase = strings.TrimSpace(string(pp))
+					po.JksPassphrase = strings.TrimRight(string(pp), "\r\n")
 				}
 			}
 			b := rule.Parser.Parse(v, ref, po)

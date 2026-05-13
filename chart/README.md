@@ -394,6 +394,10 @@ exporter-toolkit is the recommended path on new installs.
 | prometheusRules.certificateExpirationsSeverity | string | `"critical"` | Severity for the CertificateExpiration alerting rule |
 | prometheusRules.warningDaysLeft | int | `28` | Raise a warning alert when fewer than this many days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29) |
 | prometheusRules.criticalDaysLeft | int | `14` | Raise a critical alert when fewer than this many days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue) |
+| prometheusRules.alertOnCRLs | bool | `true` | Should the CRLNeedsRefresh and CRLStale alerting rules be created to notify when a watched CRL approaches or has passed its nextUpdate horizon. Safe to leave on even without CRLs — the alerts only fire when the exporter actually sees an `x509_crl_*` series. |
+| prometheusRules.crlWarningDaysLeft | int | `7` | Raise a warning alert when fewer than this many days are left before a CRL reaches its nextUpdate. CRLs are typically refreshed daily to weekly; 7 days gives a comfortable margin for a publisher running on a weekly cadence. |
+| prometheusRules.crlNeedsRefreshSeverity | string | `"warning"` | Severity for the CRLNeedsRefresh alerting rule |
+| prometheusRules.crlStaleSeverity | string | `"critical"` | Severity for the CRLStale alerting rule (fires once `x509_crl_stale > 0`, i.e. the CRL's nextUpdate is in the past) |
 | prometheusRules.extraLabels | object | `{}` | Additional labels to add to PrometheusRule objects |
 | prometheusRules.alertExtraLabels | object | `{}` | Additional labels to add to PrometheusRule rules |
 | prometheusRules.alertExtraAnnotations | object | `{}` | Additional annotations to add to PrometheusRule rules |

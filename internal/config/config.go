@@ -381,9 +381,9 @@ func validateSource(i int, s Source) error {
 		}
 		for _, f := range s.Formats {
 			switch f {
-			case cert.FormatPEM, cert.FormatPKCS12:
+			case cert.FormatPEM, cert.FormatPKCS12, cert.FormatDER:
 			default:
-				return fmt.Errorf("%s.formats: unsupported format %q (must be pem|pkcs12)", prefix, f)
+				return fmt.Errorf("%s.formats: unsupported format %q (must be pem|pkcs12|der)", prefix, f)
 			}
 		}
 	case KindKubeconfig:

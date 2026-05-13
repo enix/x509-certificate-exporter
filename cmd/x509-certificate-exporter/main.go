@@ -30,6 +30,7 @@ import (
 	"github.com/enix/x509-certificate-exporter/v4/internal/product"
 	"github.com/enix/x509-certificate-exporter/v4/internal/server"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
+	derparser "github.com/enix/x509-certificate-exporter/v4/pkg/cert/der"
 	pemparser "github.com/enix/x509-certificate-exporter/v4/pkg/cert/pem"
 	pkcs12parser "github.com/enix/x509-certificate-exporter/v4/pkg/cert/pkcs12"
 	"github.com/enix/x509-certificate-exporter/v4/pkg/fileglob"
@@ -411,6 +412,8 @@ func buildFileSource(s config.Source, cfg config.Config, ready func(bool), logge
 			parsers = append(parsers, pemparser.New())
 		case cert.FormatPKCS12:
 			parsers = append(parsers, pkcs12parser.New())
+		case cert.FormatDER:
+			parsers = append(parsers, derparser.New())
 		}
 	}
 	follow := true
@@ -467,6 +470,8 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 				parser = pemparser.New()
 			case cert.FormatPKCS12:
 				parser = pkcs12parser.New()
+			case cert.FormatDER:
+				parser = derparser.New()
 			default:
 				return nil, fmt.Errorf("secret type %q: unsupported format %q", t.Type, format)
 			}
@@ -504,6 +509,8 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 			parser = pemparser.New()
 		case cert.FormatPKCS12:
 			parser = pkcs12parser.New()
+		case cert.FormatDER:
+			parser = derparser.New()
 		default:
 			return nil, fmt.Errorf("configMaps format %q unsupported", format)
 		}

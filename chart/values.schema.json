@@ -1182,7 +1182,8 @@
               "format": {
                 "enum": [
                   "pem",
-                  "pkcs12"
+                  "pkcs12",
+                  "der"
                 ],
                 "required": []
               },

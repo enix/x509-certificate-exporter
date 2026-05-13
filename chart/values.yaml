@@ -265,7 +265,7 @@ secretsExporter:
   #     keyPatterns:
   #       type: array
   #       items: {type: string}
-  #     format: {enum: [pem, pkcs12]}
+  #     format: {enum: [pem, pkcs12, der]}
   #     pkcs12:
   #       type: object
   #       additionalProperties: false
@@ -289,9 +289,11 @@ secretsExporter:
   # -- Which type of Secrets should be watched. Each entry takes either `key`
   # (a single Secret data key — the matching regex `^<key>$` is built for
   # you) or `keyPatterns` (a list of regexes, full control). Optional
-  # `format` is "pem" (default) or "pkcs12"; `pkcs12` block accepts
-  # `passphrase`, `passphraseKey` (read passphrase from a sibling key in the
-  # same Secret), `passphraseFile`, `passphraseSecretRef`, `tryEmptyPassphrase`.
+  # `format` is `pem` (default), `pkcs12`, or `der` (single raw cert or
+  # CRL blob, the format produced by CRL Distribution Points); `pkcs12`
+  # block accepts `passphrase`, `passphraseKey` (read passphrase from a
+  # sibling key in the same Secret), `passphraseFile`,
+  # `passphraseSecretRef`, `tryEmptyPassphrase`.
   # @default -- see `values.yaml`
   secretTypes:
     - type: kubernetes.io/tls

@@ -162,6 +162,7 @@ type schema struct {
 	idxCMNS, idxCMName, idxCMKey                                          int
 	idxCABundleResource, idxCABundleName, idxCABundleEntry                int
 	idxSerial                                                             int
+	idxCRLNumber                                                          int
 	idxIssuerStart, idxSubjectStart                                       int
 	idxSecretLabelStart, idxCMLabelStart, idxCABundleLabelStart           int
 	idxDiscriminator                                                      int
@@ -200,6 +201,7 @@ func newSchema(opts LabelOptions, exposedSecretLabels, exposedCfgmapLabels, expo
 	s.idxCABundleName = add("cabundle_resource_name")
 	s.idxCABundleEntry = add("cabundle_entry")
 	s.idxSerial = add("serial_number")
+	s.idxCRLNumber = add("crl_number")
 	s.idxIssuerStart = len(s.names)
 	for _, f := range s.issFields {
 		add("issuer_" + f)
@@ -228,10 +230,18 @@ func newSchema(opts LabelOptions, exposedSecretLabels, exposedCfgmapLabels, expo
 	return s
 }
 
-// values builds the values slice for a single Item in a Bundle. The
-// caller fills in the discriminator after collision-resolution.
-func (s *schema) values(b cert.Bundle, it cert.Item, opts LabelOptions) []string {
-	v := make([]string, len(s.names))
+// fillLocationLabels populates the source-kind-specific location
+// columns (filename/filepath, secret_*, configmap_*, cabundle_*) on a
+// values slice. Shared between values() and crlValues() so the two
+// paths cannot drift: any new source kind added here surfaces on both
+// the x509_cert_* and x509_crl_* families with a single edit.
+//
+// Note: caBundle resources hold trust-anchor PEM chains, but the
+// upstream Kubernetes API only validates "is PEM", so a misconfigured
+// resource could in principle carry an `X509 CRL` block. Including
+// KindKubeCABundle here makes such a CRL surface with consistent
+// labels rather than as a series with all source-kind columns empty.
+func (s *schema) fillLocationLabels(v []string, b cert.Bundle, opts LabelOptions) {
 	switch b.Source.Kind {
 	case cert.KindFile:
 		v[s.idxFilename] = filepath.Base(b.Source.Location)
@@ -261,6 +271,13 @@ func (s *schema) values(b cert.Bundle, it cert.Item, opts LabelOptions) []string
 		v[s.idxCABundleName] = name
 		v[s.idxCABundleEntry] = b.Source.Key
 	}
+}
+
+// values builds the values slice for a single Item in a Bundle. The
+// caller fills in the discriminator after collision-resolution.
+func (s *schema) values(b cert.Bundle, it cert.Item, opts LabelOptions) []string {
+	v := make([]string, len(s.names))
+	s.fillLocationLabels(v, b, opts)
 	v[s.idxSerial] = serialString(it)
 	if it.Cert != nil {
 		for i, f := range s.issFields {
@@ -270,20 +287,48 @@ func (s *schema) values(b cert.Bundle, it cert.Item, opts LabelOptions) []string
 			v[s.idxSubjectStart+i] = dnValue(it.Cert.Subject, f)
 		}
 	}
-	if b.Source.Kind == cert.KindKubeSecret {
+	s.fillExposedLabels(v, b)
+	return v
+}
+
+// fillExposedLabels populates the per-source-kind `*_label_<name>`
+// columns from Bundle.Source.Attributes. Shared between values() and
+// crlValues() for the same drift-prevention reason as
+// fillLocationLabels: a new exposed-label family added to one path
+// must surface on the other without a separate edit.
+func (s *schema) fillExposedLabels(v []string, b cert.Bundle) {
+	switch b.Source.Kind {
+	case cert.KindKubeSecret:
 		for i, l := range s.exposedSecretLabels {
 			v[s.idxSecretLabelStart+i] = b.Source.Attributes[cert.AttrSecretLabelPrefix+l]
 		}
-	}
-	if b.Source.Kind == cert.KindKubeConfigMap {
+	case cert.KindKubeConfigMap:
 		for i, l := range s.exposedCfgmapLabels {
 			v[s.idxCMLabelStart+i] = b.Source.Attributes[cert.AttrConfigMapLabelPrefix+l]
 		}
-	}
-	if b.Source.Kind == cert.KindKubeCABundle {
+	case cert.KindKubeCABundle:
 		for i, l := range s.exposedCABundleLabels {
 			v[s.idxCABundleLabelStart+i] = b.Source.Attributes[cert.AttrCABundleLabelPrefix+l]
 		}
 	}
+}
+
+// crlValues builds the values slice for a single RevocationItem. Same
+// label schema as values() — source-kind dispatch fills the location
+// columns identically; serial_number / subject_* stay empty (CRLs have
+// no subject and no per-cert serial); crl_number holds the cRLNumber
+// extension (RFC 5280 §5.2.3); issuer_* mirrors the CRL's issuer.
+func (s *schema) crlValues(b cert.Bundle, ri cert.RevocationItem, opts LabelOptions) []string {
+	v := make([]string, len(s.names))
+	s.fillLocationLabels(v, b, opts)
+	if ri.CRL != nil {
+		if ri.CRL.Number != nil {
+			v[s.idxCRLNumber] = ri.CRL.Number.String()
+		}
+		for i, f := range s.issFields {
+			v[s.idxIssuerStart+i] = dnValue(ri.CRL.Issuer, f)
+		}
+	}
+	s.fillExposedLabels(v, b)
 	return v
 }

@@ -94,6 +94,132 @@ func TestEmitsCertMetrics(t *testing.T) {
 	}
 }
 
+func mkCRL(t *testing.T, issuerCN string, number int64, nextUpdate time.Time) *x509.RevocationList {
+	t.Helper()
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	caTpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: issuerCN},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		BasicConstraintsValid: true, IsCA: true,
+		KeyUsage: x509.KeyUsageCRLSign,
+	}
+	caDER, _ := x509.CreateCertificate(rand.Reader, caTpl, caTpl, &key.PublicKey, key)
+	caCert, _ := x509.ParseCertificate(caDER)
+	thisUpdate := time.Now().Add(-time.Hour)
+	if !nextUpdate.After(thisUpdate) {
+		// nextUpdate must be strictly after thisUpdate per RFC 5280; for
+		// "past nextUpdate" test cases, slide thisUpdate earlier.
+		thisUpdate = nextUpdate.Add(-time.Hour)
+	}
+	tpl := &x509.RevocationList{
+		Number:     big.NewInt(number),
+		ThisUpdate: thisUpdate,
+		NextUpdate: nextUpdate,
+	}
+	der, err := x509.CreateRevocationList(rand.Reader, tpl, caCert, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	crl, err := x509.ParseRevocationList(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return crl
+}
+
+func TestEmitsCRLMetrics(t *testing.T) {
+	r := New(Config{
+		ExposeRelative: true,
+		ExposeExpired:  true,
+	}, nopLogger())
+	crl := mkCRL(t, "ca-issuer", 7, time.Now().Add(48*time.Hour))
+	b := cert.Bundle{
+		Source:          cert.SourceRef{Kind: "file", Location: "/etc/x.crl", Format: "pem", SourceName: "files"},
+		RevocationItems: []cert.RevocationItem{{Index: 0, CRL: crl}},
+	}
+	r.Upsert(b)
+
+	reg := prometheus.NewRegistry()
+	if err := reg.Register(r); err != nil {
+		t.Fatal(err)
+	}
+	mfs, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := map[string]float64{}
+	for _, mf := range mfs {
+		for _, m := range mf.Metric {
+			if m.Gauge != nil {
+				byName[*mf.Name] = *m.Gauge.Value
+			}
+		}
+	}
+	for _, want := range []string{
+		"x509_crl_next_update",
+		"x509_crl_this_update",
+		"x509_crl_number",
+		"x509_crl_stale",
+		"x509_crl_stale_in_seconds",
+		"x509_crl_fresh_since_seconds",
+	} {
+		if _, ok := byName[want]; !ok {
+			t.Errorf("missing metric %s", want)
+		}
+	}
+	if got := byName["x509_crl_next_update"]; got != float64(crl.NextUpdate.Unix()) {
+		t.Errorf("next_update = %v, want %v", got, crl.NextUpdate.Unix())
+	}
+	if got := byName["x509_crl_number"]; got != 7 {
+		t.Errorf("crl_number = %v, want 7", got)
+	}
+	if got := byName["x509_crl_stale"]; got != 0 {
+		t.Errorf("stale = %v, want 0 (CRL has not yet reached nextUpdate)", got)
+	}
+}
+
+func TestEmitsCRLMetricsStaleWhenPastNextUpdate(t *testing.T) {
+	r := New(Config{ExposeExpired: true}, nopLogger())
+	crl := mkCRL(t, "ca", 1, time.Now().Add(-time.Hour))
+	b := cert.Bundle{
+		Source:          cert.SourceRef{Kind: "file", Location: "/etc/old.crl", Format: "pem", SourceName: "files"},
+		RevocationItems: []cert.RevocationItem{{Index: 0, CRL: crl}},
+	}
+	r.Upsert(b)
+
+	reg := prometheus.NewRegistry()
+	if err := reg.Register(r); err != nil {
+		t.Fatal(err)
+	}
+	mfs, _ := reg.Gather()
+	for _, mf := range mfs {
+		if *mf.Name == "x509_crl_stale" {
+			if got := *mf.Metric[0].Gauge.Value; got != 1 {
+				t.Errorf("stale = %v, want 1 for past-nextUpdate CRL", got)
+			}
+			return
+		}
+	}
+	t.Fatal("x509_crl_stale not emitted")
+}
+
+func TestCRLMetricsAbsentWhenNoCRLItems(t *testing.T) {
+	r := New(Config{ExposeExpired: true, ExposeRelative: true}, nopLogger())
+	r.Upsert(bundleFile(mkCert(t, "leaf", 1), "/etc/leaf.pem"))
+	reg := prometheus.NewRegistry()
+	if err := reg.Register(r); err != nil {
+		t.Fatal(err)
+	}
+	mfs, _ := reg.Gather()
+	for _, mf := range mfs {
+		if strings.HasPrefix(*mf.Name, "x509_crl_") && len(mf.Metric) > 0 {
+			t.Errorf("expected no x509_crl_* series, found %s with %d entries", *mf.Name, len(mf.Metric))
+		}
+	}
+}
+
 func TestCollisionAuto(t *testing.T) {
 	r := New(Config{Collision: CollisionAuto}, nopLogger())
 	c := mkCert(t, "shared", 1)

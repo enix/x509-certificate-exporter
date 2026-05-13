@@ -61,6 +61,26 @@ rules:
   - watch
   - list
 {{- end }}
+{{- if .Values.cabundlesExporter.resources.apiservice }}
+- apiGroups:
+  - apiregistration.k8s.io
+  resources:
+  - apiservices
+  verbs:
+  - get
+  - watch
+  - list
+{{- end }}
+{{- if .Values.cabundlesExporter.resources.crdConversion }}
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - watch
+  - list
+{{- end }}
 {{- end }}
 {{- if .Values.rbacProxy.enabled }}
 - apiGroups:

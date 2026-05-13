@@ -56,8 +56,8 @@ PromQL aggregation across heterogeneous source kinds remains valid.
 | `embedded_kind`, `embedded_key` | `kubeconfig` only | Whether the cert came from a `cluster` or `user` block, plus the YAML key. Empty for other source kinds |
 | `secret_namespace`, `secret_name`, `secret_key` | `kube-secret` only | Identifies the Secret and the data key within it |
 | `configmap_namespace`, `configmap_name`, `configmap_key` | `kube-configmap` only | Same, for ConfigMaps |
-| `cabundle_resource_kind`, `cabundle_resource_name` | `kube-cabundle` only | Kubernetes resource Kind (e.g. `MutatingWebhookConfiguration`) and cluster-scoped resource name. caBundle resources are not namespaced — there is no `cabundle_namespace`. |
-| `cabundle_entry` | `kube-cabundle` only | Per-webhook entry name (`.webhooks[].name`) for `MutatingWebhookConfiguration` / `ValidatingWebhookConfiguration`. Empty for single-caBundle resources. |
+| `cabundle_resource_kind`, `cabundle_resource_name` | `kube-cabundle` only | Kubernetes resource Kind and cluster-scoped resource name. Possible Kinds: `MutatingWebhookConfiguration`, `ValidatingWebhookConfiguration`, `APIService`, `CustomResourceDefinition`. caBundle resources are not namespaced — there is no `cabundle_namespace`. |
+| `cabundle_entry` | `kube-cabundle` only | Per-webhook entry name (`.webhooks[].name`) for `MutatingWebhookConfiguration` / `ValidatingWebhookConfiguration`. Empty for single-caBundle resources (`APIService`, `CustomResourceDefinition`). |
 | `secret_label_<name>` | `kube-secret`, optional | One label per entry in `sources[].secrets.exposeLabels` (chart: `secretsExporter.exposeSecretLabels`). Names are sanitised: any non-alnum/underscore char becomes `_`, leading digit gets a `_` prefix |
 | `configmap_label_<name>` | `kube-configmap`, optional | One label per entry in `sources[].configMaps.exposeLabels`. Same sanitisation rule. Not currently exposed by the Helm chart |
 | `cabundle_label_<name>` | `kube-cabundle`, optional | One label per entry in `sources[].cabundles.exposeLabels` (chart: `cabundlesExporter.exposeLabels`). Same sanitisation rule. |

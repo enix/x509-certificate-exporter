@@ -609,11 +609,14 @@ func buildCABundleSource(s config.Source, ready func(bool), logger *slog.Logger)
 
 	cb := s.CABundles
 	opts := cabundlesource.Options{
-		Name:   s.Name,
-		Client: cli,
+		Name:       s.Name,
+		Client:     cli,
+		RESTConfig: cfg,
 		Resources: cabundlesource.Resources{
-			Mutating:   cb.Resources.Mutating,
-			Validating: cb.Resources.Validating,
+			Mutating:      cb.Resources.Mutating,
+			Validating:    cb.Resources.Validating,
+			APIService:    cb.Resources.APIService,
+			CRDConversion: cb.Resources.CRDConversion,
 		},
 		ResyncEvery:   refreshOrDefault(s.RefreshInterval, 30*time.Minute),
 		IncludeNames:  nonWildcard(cb.Include),

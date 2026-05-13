@@ -16,10 +16,15 @@ import (
 
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	"github.com/enix/x509-certificate-exporter/v4/dev/scenarios"
 )
@@ -77,7 +82,7 @@ func main() {
 		fmt.Printf("[seed] %s %s/%s — keys=%v watched=%v\n", s.Kind, s.Namespace, s.Name, keys(s.Data), s.Watched)
 	}
 	seedAuxiliary(ctx, cs)
-	seedCABundles(ctx, cs)
+	seedCABundles(ctx, cs, cfg)
 	fmt.Printf("[seed] %d scenarios applied across %d namespace(s)\n", len(all), len(seenNS))
 }
 
@@ -187,11 +192,22 @@ func keys(m map[string][]byte) []string {
 
 // seedCABundles applies the cluster-scoped cabundle scenarios. The
 // resources are MutatingWebhookConfiguration / ValidatingWebhookConfiguration
-// with inline caBundle PEM fields generated from a self-signed cert
-// per webhook entry. URLs are deliberately bogus — the webhooks never
-// actually fire in the e2e cluster, the chart's cabundle source only
-// reads `caBundle` and the resource's metadata.
-func seedCABundles(ctx context.Context, cs *kubernetes.Clientset) {
+// (admissionregistration.k8s.io) plus APIService (apiregistration.k8s.io)
+// and CustomResourceDefinition with a conversion webhook
+// (apiextensions.k8s.io). All four carry inline caBundle PEM fields
+// generated from a self-signed cert per scenario. URLs are deliberately
+// bogus — the webhooks never actually fire in the e2e cluster, the
+// chart's cabundle source only reads `caBundle` and the resource's
+// metadata.
+func seedCABundles(ctx context.Context, cs *kubernetes.Clientset, cfg *rest.Config) {
+	aggregator, err := aggregatorclient.NewForConfig(cfg)
+	if err != nil {
+		log.Fatalf("aggregator client: %v", err)
+	}
+	apiext, err := apiextclient.NewForConfig(cfg)
+	if err != nil {
+		log.Fatalf("apiextensions client: %v", err)
+	}
 	for _, sc := range scenarios.AllCABundles() {
 		labels := map[string]string{managedByLabel: managedByValue}
 		for k, v := range sc.Labels {
@@ -244,10 +260,85 @@ func seedCABundles(ctx context.Context, cs *kubernetes.Clientset) {
 					log.Fatalf("vwc %s: %v", sc.Name, err)
 				}
 			}
+		case scenarios.CABundleKindAPIService:
+			// APIServices have a single caBundle. The scenario shape
+			// has one webhook entry with an empty name — we use its
+			// CN as the cert subject. The Service block has to point
+			// at *some* Service; we use a non-existent one in
+			// kube-system, the apiserver will mark the APIService
+			// "stale" but the resource itself is happily stored —
+			// which is all the cabundle source needs to see.
+			w := sc.Webhooks[0]
+			obj := &apiregistrationv1.APIService{
+				ObjectMeta: metav1.ObjectMeta{Name: sc.Name, Labels: labels},
+				Spec: apiregistrationv1.APIServiceSpec{
+					CABundle:             makeCABundlePEM(w.CN),
+					Group:                "x509ce-e2e.example.com",
+					Version:              "v1",
+					GroupPriorityMinimum: 1000,
+					VersionPriority:      15,
+					Service:              &apiregistrationv1.ServiceReference{Namespace: "kube-system", Name: "x509ce-e2e-dummy", Port: ptrInt32(443)},
+				},
+			}
+			if _, err := aggregator.ApiregistrationV1().APIServices().Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
+				if !apierrors.IsNotFound(err) {
+					log.Fatalf("apiservice %s: %v", sc.Name, err)
+				}
+				if _, err := aggregator.ApiregistrationV1().APIServices().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+					log.Fatalf("apiservice %s: %v", sc.Name, err)
+				}
+			}
+		case scenarios.CABundleKindCRD:
+			// CRD with a conversion webhook. The webhook URL points
+			// nowhere reachable — the kube-apiserver only invokes it
+			// when an object of this CRD is read/written across
+			// versions, which never happens in the e2e (no instances
+			// of x509cetenants are created).
+			w := sc.Webhooks[0]
+			obj := &apiextensionsv1.CustomResourceDefinition{
+				ObjectMeta: metav1.ObjectMeta{Name: sc.Name, Labels: labels},
+				Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+					Group: "x509ce-e2e.example.com",
+					Names: apiextensionsv1.CustomResourceDefinitionNames{
+						Plural:   "x509cetenants",
+						Singular: "x509cetenant",
+						Kind:     "X509ceTenant",
+						ListKind: "X509ceTenantList",
+					},
+					Scope: apiextensionsv1.NamespaceScoped,
+					Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+						{
+							Name:    "v1",
+							Served:  true,
+							Storage: true,
+							Schema: &apiextensionsv1.CustomResourceValidation{
+								OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{Type: "object"},
+							},
+						},
+					},
+					Conversion: &apiextensionsv1.CustomResourceConversion{
+						Strategy: apiextensionsv1.WebhookConverter,
+						Webhook: &apiextensionsv1.WebhookConversion{
+							ConversionReviewVersions: []string{"v1"},
+							ClientConfig:             &apiextensionsv1.WebhookClientConfig{URL: ptrString("https://x509ce-e2e.invalid/hook"), CABundle: makeCABundlePEM(w.CN)},
+						},
+					},
+				},
+			}
+			if _, err := apiext.ApiextensionsV1().CustomResourceDefinitions().Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
+				if !apierrors.IsNotFound(err) {
+					log.Fatalf("crd %s: %v", sc.Name, err)
+				}
+				if _, err := apiext.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, obj, metav1.CreateOptions{}); err != nil {
+					log.Fatalf("crd %s: %v", sc.Name, err)
+				}
+			}
 		}
 		fmt.Printf("[seed] %s %s — entries=%d watched=%v\n", sc.Kind, sc.Name, len(sc.Webhooks), sc.Watched)
 	}
 }
+
+func ptrInt32(v int32) *int32 { return &v }
 
 // makeCABundlePEM generates a self-signed PEM-encoded certificate
 // with the given CN, predictable lifetime so the e2e never sees an

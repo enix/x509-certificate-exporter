@@ -62,6 +62,14 @@
         "resources": {
           "additionalProperties": false,
           "properties": {
+            "apiservice": {
+              "default": false,
+              "type": "boolean"
+            },
+            "crdConversion": {
+              "default": false,
+              "type": "boolean"
+            },
             "mutating": {
               "default": true,
               "type": "boolean"
@@ -73,7 +81,9 @@
           },
           "required": [
             "mutating",
-            "validating"
+            "validating",
+            "apiservice",
+            "crdConversion"
           ]
         }
       },

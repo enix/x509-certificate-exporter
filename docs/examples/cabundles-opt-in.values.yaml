@@ -19,8 +19,18 @@
 cabundlesExporter:
   enabled: true
   resources:
+    # Admission webhooks — most common case.
     mutating: true
     validating: true
+    # API-aggregation layer (metrics-server, prometheus-adapter, ...).
+    # Opt in if you run aggregated APIs and want to know when their
+    # signing CA expires before the apiserver refuses to delegate.
+    apiservice: false
+    # CRDs with a conversion webhook. Opt in if you operate CRDs
+    # with `conversion.strategy: Webhook`. CRDs with `strategy: None`
+    # are skipped silently — enabling this is cheap, RBAC is what
+    # costs.
+    crdConversion: false
 
   # Limit to the webhook configs you actually own. Glob patterns
   # (shell glob: `*`, `?`, `[abc]`) keep the cluster-wide scan from

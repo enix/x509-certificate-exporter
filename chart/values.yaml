@@ -429,6 +429,10 @@ cabundlesExporter:
     mutating: true
     # -- Watch `ValidatingWebhookConfiguration` resources (admissionregistration.k8s.io/v1).
     validating: true
+    # -- Watch `APIService` resources (apiregistration.k8s.io/v1) — surfaces caBundle expiry on aggregated APIs (metrics-server, prometheus-adapter, etc.).
+    apiservice: false
+    # -- Watch `CustomResourceDefinition` resources with a conversion webhook (apiextensions.k8s.io/v1). CRDs with `conversion.strategy: None` are skipped silently — the vast majority — so enabling this is cheap.
+    crdConversion: false
   # @schema
   # type: [array, 'null']
   # items: {type: string}

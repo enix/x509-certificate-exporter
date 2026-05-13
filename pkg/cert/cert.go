@@ -39,6 +39,12 @@ const (
 const (
 	FormatPEM    = "pem"
 	FormatPKCS12 = "pkcs12"
+	// FormatDER consumes a single ASN.1 DER blob and surfaces it as
+	// either a cert Item or a CRL RevocationItem depending on which of
+	// `x509.ParseCertificate` / `x509.ParseRevocationList` succeeds.
+	// The wire format has no self-framing so concatenated DER is not
+	// supported — one DER object per source bytes.
+	FormatDER = "der"
 )
 
 // SourceRef identifies where a Bundle was found. It is the unit of identity

@@ -25,6 +25,10 @@ const (
 	// secretTypes.pkcs12.passphraseKey points to that key.
 	PKCS12Passphrase    = "letmein"
 	PKCS12PassphraseKey = "keystore-passphrase"
+
+	// JKS passphrase constants — parallel to PKCS#12.
+	JKSPassphrase    = "changeit"
+	JKSPassphraseKey = "jks-passphrase"
 )
 
 // Lifecycle classifies the temporal state of an expected cert.
@@ -44,6 +48,7 @@ const (
 	ErrNone           ParseError = ""
 	ErrBadPEM         ParseError = "bad_pem"
 	ErrBadPKCS12      ParseError = "bad_pkcs12"
+	ErrBadJKS         ParseError = "bad_jks"
 	ErrBadPassphrase  ParseError = "bad_passphrase"
 	ErrNoCertificates ParseError = "no_certificate_found"
 )
@@ -379,6 +384,67 @@ func build() {
 		},
 		Watched: true,
 		Expect:  []ExpectCert{{Key: "keystore.p12", ParseError: ErrBadPassphrase}},
+	})
+
+	// ─── Opaque — JKS truststore (two CA certs, passphrase from passphraseKey) ─
+	jksCa1, _, err := Selfsigned(CertSpec{
+		CN: "JKS Trust Anchor One", O: []string{"x509ce-dev"},
+		NotBefore: in(-time.Hour), NotAfter: in(720 * day),
+		Algo: AlgoECDSAP256, IsCA: true,
+	})
+	must(err)
+	jksCa2, _, err := Selfsigned(CertSpec{
+		CN: "JKS Trust Anchor Two", O: []string{"x509ce-dev"},
+		NotBefore: in(-time.Hour), NotAfter: in(720 * day),
+		Algo: AlgoRSA2048, IsCA: true,
+	})
+	must(err)
+	jksTruststore, err := EncodeJKSTrustStore([]*x509.Certificate{jksCa1, jksCa2}, JKSPassphrase)
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-jks", Name: "truststore",
+		Kind: "Secret", SecretType: "Opaque",
+		Data: map[string][]byte{
+			"truststore.jks": jksTruststore,
+			JKSPassphraseKey: []byte(JKSPassphrase),
+		},
+		Watched: true,
+		Expect: []ExpectCert{
+			{Key: "truststore.jks", SubjectCN: "JKS Trust Anchor One", Lifecycle: LifecycleValid},
+			{Key: "truststore.jks", SubjectCN: "JKS Trust Anchor Two", Lifecycle: LifecycleValid},
+		},
+	})
+
+	// ─── Opaque — JKS wrong passphrase ──────────────────────────────────
+	jksWrongPwCa, _, err := Selfsigned(CertSpec{
+		CN: "JKS Wrong PW CA", O: []string{"x509ce-dev"},
+		NotBefore: in(-time.Hour), NotAfter: in(180 * day),
+		Algo: AlgoECDSAP256, IsCA: true,
+	})
+	must(err)
+	jksWrongPwStore, err := EncodeJKSTrustStore([]*x509.Certificate{jksWrongPwCa}, JKSPassphrase)
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-errors", Name: "wrong-passphrase-jks",
+		Kind: "Secret", SecretType: "Opaque",
+		Data: map[string][]byte{
+			"truststore.jks": jksWrongPwStore,
+			JKSPassphraseKey: []byte("not-the-right-password"),
+		},
+		Watched: true,
+		Expect:  []ExpectCert{{Key: "truststore.jks", ParseError: ErrBadPassphrase}},
+	})
+
+	// ─── Opaque — corrupt JKS bytes ─────────────────────────────────────
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-errors", Name: "bad-jks",
+		Kind: "Secret", SecretType: "Opaque",
+		Data: map[string][]byte{
+			"truststore.jks": []byte("garbage-not-jks"),
+			JKSPassphraseKey: []byte(JKSPassphrase),
+		},
+		Watched: true,
+		Expect:  []ExpectCert{{Key: "truststore.jks", ParseError: ErrBadJKS}},
 	})
 
 	// ─── Negative — namespace excluded by label ─────────────────────────

@@ -5,6 +5,7 @@
 #   - Opaque PEM with custom data keys
 #   - Opaque PKCS#12 (encrypted via passphraseKey + passwordless via
 #     tryEmptyPassphrase)
+#   - Opaque JKS truststore (passphrase from passphraseKey)
 #   - ConfigMaps holding tls.crt
 #   - Per-cert error metrics, relative-time metrics
 #   - exposeSecretLabels for the rich-DN scenario
@@ -51,6 +52,12 @@ secretsExporter:
     - type: Opaque
       key: revocation.crl
       format: der
+    # JKS truststore — passphrase pulled from a sibling key in the same Secret
+    - type: Opaque
+      key: truststore.jks
+      format: jks
+      jks:
+        passphraseKey: jks-passphrase
 
   # Watch ConfigMaps holding a tls.crt key.
   configMapKeys:

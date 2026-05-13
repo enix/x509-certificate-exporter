@@ -239,6 +239,23 @@ func TestExporterCoversAllScenarios(t *testing.T) {
 		})
 	}
 
+	// cabundle scenarios — cluster-scoped admission resources with
+	// inline caBundle PEM fields. The seed binary applies them
+	// (seedCABundles in dev/seed/main.go) and the chart's
+	// cabundlesExporter source emits one series per webhook entry.
+	for _, sc := range scenarios.AllCABundles() {
+		sc := sc
+		t.Run(fmt.Sprintf("CABundle/%s/%s", sc.Kind, sc.Name), func(t *testing.T) {
+			if !sc.Watched {
+				assertNoCABundleSeries(t, notAfter, sc)
+				return
+			}
+			for _, w := range sc.Webhooks {
+				assertCABundleEntry(t, notAfter, sc, w)
+			}
+		})
+	}
+
 	// Ancillary global checks.
 	t.Run("source_up", func(t *testing.T) {
 		fam := fams["x509_source_up"]
@@ -423,6 +440,28 @@ func assertHostPathCert(t *testing.T, notAfter, expired *dto.MetricFamily, sc sc
 		t.Fatalf("no x509_cert_expired series with %v", want)
 	} else if got := exMetric.GetGauge().GetValue(); got != 0 {
 		t.Fatalf("hostPath %s: expected expired=0, got %v", sc.Path, got)
+	}
+}
+
+func assertCABundleEntry(t *testing.T, notAfter *dto.MetricFamily, sc scenarios.CABundleScenario, w scenarios.CABundleWebhook) {
+	t.Helper()
+	want := map[string]string{
+		"cabundle_resource_kind": string(sc.Kind),
+		"cabundle_resource_name": sc.Name,
+		"cabundle_entry":         w.Name,
+		"subject_CN":             w.CN,
+	}
+	if find(notAfter, want) == nil {
+		t.Fatalf("no x509_cert_not_after series with %v", want)
+	}
+}
+
+func assertNoCABundleSeries(t *testing.T, notAfter *dto.MetricFamily, sc scenarios.CABundleScenario) {
+	t.Helper()
+	for _, m := range notAfter.GetMetric() {
+		if labelEq(m, "cabundle_resource_kind", string(sc.Kind)) && labelEq(m, "cabundle_resource_name", sc.Name) {
+			t.Fatalf("unexpected x509_cert_not_after series for excluded cabundle %s/%s: %+v", sc.Kind, sc.Name, m.GetLabel())
+		}
 	}
 }
 

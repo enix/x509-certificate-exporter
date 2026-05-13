@@ -40,6 +40,20 @@ extraDeploy:
           port: 9793
           targetPort: metrics
 
+cabundlesExporter:
+  enabled: true
+  resources:
+    mutating: true
+    validating: true
+  # The seed creates an `x509ce-e2e-*-ignored` resource that this
+  # excludeNames pattern must filter out — the e2e test asserts no
+  # x509_cert_* series for the matching resource name.
+  excludeNames:
+    - "*-ignored"
+  # Expose the managed-by label as a Prometheus label.
+  exposeLabels:
+    - app.kubernetes.io/managed-by
+
 hostPathsExporter:
   # 5s instead of the chart default (300s) so the exporter picks up
   # files written by the seed-hostpath Job within the e2e suite's

@@ -18,6 +18,8 @@ cabundlesExporter:
   resources:
     mutating: true
     validating: true
+    apiservice: true
+    crdConversion: true
 
 hostPathsExporter:
   hostPathVolumeType: DirectoryOrCreate

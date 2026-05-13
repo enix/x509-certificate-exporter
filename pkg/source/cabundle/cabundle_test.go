@@ -45,12 +45,14 @@ func (s *fakeSink) Delete(r cert.SourceRef) {
 	s.delete = append(s.delete, r)
 }
 
-func makeCertPEM(t *testing.T) []byte {
+func makeCertPEM(t *testing.T) []byte { return makeCertCN(t, "test-ca") }
+
+func makeCertCN(t *testing.T, cn string) []byte {
 	t.Helper()
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "test-ca"},
+		Subject:      pkix.Name{CommonName: cn},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(180 * 24 * time.Hour),
 	}
@@ -406,6 +408,140 @@ func TestCRDConversionWebhookEmits(t *testing.T) {
 	b := sink.upsert[0]
 	if b.Source.Location != "CustomResourceDefinition/tenants.platform.example.com" {
 		t.Errorf("location %q", b.Source.Location)
+	}
+}
+
+func TestCABundleRotationReplacesUpsert(t *testing.T) {
+	// cert-manager-style rotation: a webhook's caBundle is updated
+	// to a fresh cert while the resource itself stays. The source
+	// must emit a fresh Bundle (same SourceRef, new content) so the
+	// registry replaces the previous one. Without this behaviour
+	// the metrics would silently report the OLD cert's expiry.
+	caV1, caV2 := makeCertCN(t, "ca-v1"), makeCertCN(t, "ca-v2")
+	mwc := &admissionv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "rotated"},
+		Webhooks: []admissionv1.MutatingWebhook{
+			{Name: "wh", ClientConfig: admissionv1.WebhookClientConfig{CABundle: caV1}},
+		},
+	}
+	client := fake.NewSimpleClientset(mwc)
+	src := New(Options{
+		Name:        "cabundles",
+		Client:      client,
+		Resources:   Resources{Mutating: true},
+		ResyncEvery: 10 * time.Minute,
+	}, nopLogger())
+	sink := &fakeSink{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = src.Run(ctx, sink) }()
+
+	waitFor(t, func() bool {
+		sink.mu.Lock()
+		defer sink.mu.Unlock()
+		return len(sink.upsert) >= 1
+	}, "initial upsert with v1")
+
+	// Verify the first Bundle parsed the v1 cert.
+	sink.mu.Lock()
+	if len(sink.upsert[0].Items) != 1 || sink.upsert[0].Items[0].Cert.Subject.CommonName != "ca-v1" {
+		t.Fatalf("initial Bundle does not carry ca-v1: %+v", sink.upsert[0])
+	}
+	initialUpserts := len(sink.upsert)
+	sink.mu.Unlock()
+
+	// Rotate the caBundle in place.
+	mwc.Webhooks[0].ClientConfig.CABundle = caV2
+	if _, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().
+		Update(ctx, mwc, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("update mwc: %v", err)
+	}
+
+	waitFor(t, func() bool {
+		sink.mu.Lock()
+		defer sink.mu.Unlock()
+		if len(sink.upsert) <= initialUpserts {
+			return false
+		}
+		// Find a Bundle carrying ca-v2 — the registry replaces by
+		// SourceRef, but we capture every Upsert in the fakeSink,
+		// so the new one is appended at the end.
+		latest := sink.upsert[len(sink.upsert)-1]
+		return len(latest.Items) == 1 && latest.Items[0].Cert.Subject.CommonName == "ca-v2"
+	}, "rotation upsert with ca-v2")
+
+	// No Delete should fire — the SourceRef did not change.
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	if len(sink.delete) != 0 {
+		t.Fatalf("rotation must replace, not delete + re-add (got %d deletes)", len(sink.delete))
+	}
+}
+
+func TestCrossKindSameNameDisambiguated(t *testing.T) {
+	// resID is keyed by (kind, name). Two cluster resources of
+	// different Kind happening to share a metadata.name must each
+	// keep their own tracked set; deleting one must not evict the
+	// other.
+	ca := makeCertPEM(t)
+	const shared = "duplicate-name"
+	mwc := &admissionv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: shared},
+		Webhooks:   []admissionv1.MutatingWebhook{{Name: "wh", ClientConfig: admissionv1.WebhookClientConfig{CABundle: ca}}},
+	}
+	as := &apiregistrationv1.APIService{
+		ObjectMeta: metav1.ObjectMeta{Name: shared},
+		Spec:       apiregistrationv1.APIServiceSpec{CABundle: ca, Group: "x.example", Version: "v1"},
+	}
+	client := fake.NewSimpleClientset(mwc)
+	agg := aggregatorfake.NewSimpleClientset(as)
+	src := New(Options{
+		Name:             "cabundles",
+		Client:           client,
+		AggregatorClient: agg,
+		Resources:        Resources{Mutating: true, APIService: true},
+		ResyncEvery:      10 * time.Minute,
+	}, nopLogger())
+	sink := &fakeSink{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = src.Run(ctx, sink) }()
+
+	waitFor(t, func() bool {
+		sink.mu.Lock()
+		defer sink.mu.Unlock()
+		return len(sink.upsert) >= 2
+	}, "one upsert per Kind")
+
+	// Both kinds present, distinct Locations.
+	sink.mu.Lock()
+	locs := map[string]bool{}
+	for _, b := range sink.upsert {
+		locs[b.Source.Location] = true
+	}
+	sink.mu.Unlock()
+	if !locs["MutatingWebhookConfiguration/"+shared] || !locs["APIService/"+shared] {
+		t.Fatalf("want both Kinds tracked, got %v", locs)
+	}
+
+	// Delete only the MWC — the APIService ref must NOT be evicted.
+	if err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().
+		Delete(ctx, shared, metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("delete mwc: %v", err)
+	}
+	waitFor(t, func() bool {
+		sink.mu.Lock()
+		defer sink.mu.Unlock()
+		return len(sink.delete) >= 1
+	}, "MWC delete event")
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	if len(sink.delete) != 1 {
+		t.Fatalf("want exactly 1 delete (MWC only), got %d", len(sink.delete))
+	}
+	if sink.delete[0].Location != "MutatingWebhookConfiguration/"+shared {
+		t.Fatalf("wrong delete location: %s", sink.delete[0].Location)
 	}
 }
 

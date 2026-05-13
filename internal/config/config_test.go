@@ -143,6 +143,82 @@ func TestValidateKubernetesGlobPatterns(t *testing.T) {
 	})
 }
 
+func TestValidateCABundleSource(t *testing.T) {
+	mkConfig := func(s Source) Config {
+		c := Default()
+		c.Sources = []Source{s}
+		return c
+	}
+	t.Run("missing cabundles block", func(t *testing.T) {
+		s := Source{Kind: "cabundle", Name: "x"}
+		err := Validate(mkConfig(s))
+		if err == nil || !strings.Contains(err.Error(), "must configure cabundles") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("no resource enabled", func(t *testing.T) {
+		s := Source{Kind: "cabundle", Name: "x", CABundles: &CABundlesCfg{}}
+		err := Validate(mkConfig(s))
+		if err == nil || !strings.Contains(err.Error(), "at least one resource kind must be enabled") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("only mutating is valid", func(t *testing.T) {
+		s := Source{Kind: "cabundle", Name: "x", CABundles: &CABundlesCfg{
+			Resources: CABundleResources{Mutating: true},
+		}}
+		if err := Validate(mkConfig(s)); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	t.Run("only apiservice is valid", func(t *testing.T) {
+		s := Source{Kind: "cabundle", Name: "x", CABundles: &CABundlesCfg{
+			Resources: CABundleResources{APIService: true},
+		}}
+		if err := Validate(mkConfig(s)); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	t.Run("only crdConversion is valid", func(t *testing.T) {
+		s := Source{Kind: "cabundle", Name: "x", CABundles: &CABundlesCfg{
+			Resources: CABundleResources{CRDConversion: true},
+		}}
+		if err := Validate(mkConfig(s)); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	t.Run("invalid include glob rejected", func(t *testing.T) {
+		s := Source{Kind: "cabundle", Name: "x", CABundles: &CABundlesCfg{
+			Resources: CABundleResources{Mutating: true},
+			Include:   []string{"bad["},
+		}}
+		err := Validate(mkConfig(s))
+		if err == nil || !strings.Contains(err.Error(), "cabundles.include[0]") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("invalid exclude glob rejected", func(t *testing.T) {
+		s := Source{Kind: "cabundle", Name: "x", CABundles: &CABundlesCfg{
+			Resources: CABundleResources{Validating: true},
+			Exclude:   []string{"good", "["},
+		}}
+		err := Validate(mkConfig(s))
+		if err == nil || !strings.Contains(err.Error(), "cabundles.exclude[1]") {
+			t.Fatalf("got %v", err)
+		}
+	})
+	t.Run("globs accepted on include/exclude", func(t *testing.T) {
+		s := Source{Kind: "cabundle", Name: "x", CABundles: &CABundlesCfg{
+			Resources: CABundleResources{Mutating: true},
+			Include:   []string{"cert-manager-*", "linkerd-?"},
+			Exclude:   []string{"test-*"},
+		}}
+		if err := Validate(mkConfig(s)); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
 func TestApplyCLI(t *testing.T) {
 	c := ApplyCLI(Default(), CLIOverrides{
 		WatchFiles:       []string{"/etc/x.pem"},

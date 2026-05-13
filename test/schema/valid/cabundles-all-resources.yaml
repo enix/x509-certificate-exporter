@@ -1,0 +1,15 @@
+# Lock-down: every cabundle resource kind enabled. Catches a future
+# chart regression that breaks the schema when the four toggles
+# coexist (the existing `cabundles-enabled.yaml` only exercises the
+# `mutating: true, validating: false` combo).
+secretsExporter:
+  enabled: false
+cabundlesExporter:
+  enabled: true
+  resources:
+    mutating: true
+    validating: true
+    apiservice: true
+    crdConversion: true
+  exposeLabels:
+    - app.kubernetes.io/managed-by

@@ -1183,7 +1183,8 @@
                 "enum": [
                   "pem",
                   "pkcs12",
-                  "der"
+                  "der",
+                  "jks"
                 ],
                 "required": []
               },
@@ -1226,6 +1227,25 @@
                       "key"
                     ],
                     "type": "object"
+                  },
+                  "tryEmptyPassphrase": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "jks": {
+                "additionalProperties": false,
+                "properties": {
+                  "passphrase": {
+                    "type": "string"
+                  },
+                  "passphraseFile": {
+                    "type": "string"
+                  },
+                  "passphraseKey": {
+                    "type": "string"
                   },
                   "tryEmptyPassphrase": {
                     "type": "boolean"

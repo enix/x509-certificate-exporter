@@ -71,6 +71,10 @@ data:
               pkcs12:
                 {{- toYaml . | nindent 16 }}
               {{- end }}
+              {{- with .jks }}
+              jks:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
             {{- end }}
           exposeLabels: {{ if .Values.secretsExporter.exposeSecretLabels }}{{ .Values.secretsExporter.exposeSecretLabels | toJson }}{{ else }}[]{{ end }}
         {{- if .Values.secretsExporter.configMapKeys }}

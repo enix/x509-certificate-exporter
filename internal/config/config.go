@@ -142,12 +142,11 @@ type Source struct {
 }
 
 type Pkcs12 struct {
-	Passphrase           string     `yaml:"passphrase,omitempty"`
-	PassphraseFile       string     `yaml:"passphraseFile,omitempty"`
-	PassphraseSecretRef  *SecretRef `yaml:"passphraseSecretRef,omitempty"`
-	PassphraseKey        string     `yaml:"passphraseKey,omitempty"`
-	PassphraseAnnotation string     `yaml:"passphraseAnnotation,omitempty"`
-	TryEmptyPassphrase   *bool      `yaml:"tryEmptyPassphrase,omitempty"`
+	Passphrase          string     `yaml:"passphrase,omitempty"`
+	PassphraseFile      string     `yaml:"passphraseFile,omitempty"`
+	PassphraseSecretRef *SecretRef `yaml:"passphraseSecretRef,omitempty"`
+	PassphraseKey       string     `yaml:"passphraseKey,omitempty"`
+	TryEmptyPassphrase  *bool      `yaml:"tryEmptyPassphrase,omitempty"`
 }
 
 type Jks struct {

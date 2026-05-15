@@ -219,6 +219,8 @@ tasks:
     cmds:
       - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/pem/
       - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/pkcs12/
+      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/der/
+      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/jks/
       - go test -run=^$ -fuzz=FuzzCompile -fuzztime=5s ./pkg/fileglob/
 
   test:helm-examples:

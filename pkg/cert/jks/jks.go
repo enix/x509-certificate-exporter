@@ -28,7 +28,7 @@ package jks
 import (
 	"bytes"
 	"crypto/hmac"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // JKS/JCEKS wire format mandates SHA-1
 	"crypto/x509"
 	"encoding/binary"
 	"errors"
@@ -228,7 +228,6 @@ func decodeJCEKS(data []byte, pass string) ([]itemWithRole, error) {
 	}
 
 	r := bytes.NewReader(payload)
-	skip := func(uint32) error { return nil }
 	var magic, version, count uint32
 	for _, dst := range []*uint32{&magic, &version, &count} {
 		if err := binary.Read(r, binary.BigEndian, dst); err != nil {
@@ -242,7 +241,7 @@ func decodeJCEKS(data []byte, pass string) ([]itemWithRole, error) {
 		return nil, fmt.Errorf("unsupported JCEKS version %d", version)
 	}
 
-	skip = func(n uint32) error {
+	skip := func(n uint32) error {
 		_, err := r.Seek(int64(n), io.SeekCurrent)
 		return err
 	}
@@ -346,7 +345,7 @@ func readJavaUTF(r *bytes.Reader) (string, error) {
 // keystore-go's behaviour and the universe of passphrases configured in
 // real Java apps.
 func jceksHMAC(pass string, payload []byte) []byte {
-	h := sha1.New()
+	h := sha1.New() //nolint:gosec // protocol-mandated: JKS/JCEKS HMAC uses SHA-1
 	for _, b := range []byte(pass) {
 		h.Write([]byte{0x00, b})
 	}

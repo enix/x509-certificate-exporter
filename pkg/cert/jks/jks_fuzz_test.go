@@ -33,7 +33,7 @@ func makeJCEKSTrustStoreForFuzz(ca *x509.Certificate, password string) []byte {
 	put(uint32(1))           // entry count
 	put(uint32(2))           // TrustedCertificateEntry
 	putUTF("seed")
-	put(int64(time.Now().UnixMilli()))
+	put(time.Now().UnixMilli())
 	putUTF("X.509")
 	put(uint32(len(ca.Raw)))
 	buf.Write(ca.Raw)

@@ -73,7 +73,7 @@ func buildJCEKSWithSecretKey(t *testing.T, password string) []byte {
 	put(uint32(1))
 	put(uint32(3)) // SecretKeyEntry
 	putUTF("secret-1")
-	put(int64(time.Now().UnixMilli()))
+	put(time.Now().UnixMilli())
 	// No body — decoder must refuse before reading further.
 
 	h := sha1.New()

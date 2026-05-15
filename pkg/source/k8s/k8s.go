@@ -505,7 +505,7 @@ func (s *Source) listSecretPages(ctx context.Context, sink cert.Sink) (rv string
 			sec := &list.Items[i]
 			s.secretsSeen.Add(1)
 			seen[sec.Namespace+"/"+sec.Name] = struct{}{}
-			s.onSecret(sink, sec, false)
+			s.onSecret(ctx, sink, sec, false)
 		}
 
 		rv = list.ResourceVersion
@@ -579,11 +579,11 @@ func (s *Source) watchSecretLoop(ctx context.Context, sink cert.Sink, rv string,
 			switch event.Type {
 			case watch.Added, watch.Modified:
 				if sec, ok := event.Object.(*corev1.Secret); ok {
-					s.onSecret(sink, sec, false)
+					s.onSecret(ctx, sink, sec, false)
 				}
 			case watch.Deleted:
 				if sec, ok := event.Object.(*corev1.Secret); ok {
-					s.onSecret(sink, sec, true)
+					s.onSecret(ctx, sink, sec, true)
 				}
 			case watch.Bookmark:
 				// Bookmarks advance the API server's notion of the watch
@@ -799,7 +799,7 @@ func (s *Source) watchConfigMapLoop(ctx context.Context, sink cert.Sink, rv stri
 	}
 }
 
-func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
+func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted bool) {
 	sec := extractSecret(obj)
 	if sec == nil {
 		return
@@ -837,7 +837,7 @@ func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
 				}
 			}
 			if rule.PassphraseSecretRef != nil {
-				if pp, err := s.fetchPassphrase(rule.PassphraseSecretRef, sec.Namespace); err != nil {
+				if pp, err := s.fetchPassphrase(ctx, rule.PassphraseSecretRef, sec.Namespace); err != nil {
 					s.log.Warn("passphraseSecretRef lookup failed",
 						"namespace", sec.Namespace, "name", sec.Name,
 						"ref_namespace", rule.PassphraseSecretRef.Namespace,
@@ -854,7 +854,7 @@ func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
 				}
 			}
 			if rule.JksPassphraseSecretRef != nil {
-				if pp, err := s.fetchPassphrase(rule.JksPassphraseSecretRef, sec.Namespace); err != nil {
+				if pp, err := s.fetchPassphrase(ctx, rule.JksPassphraseSecretRef, sec.Namespace); err != nil {
 					s.log.Warn("jks passphraseSecretRef lookup failed",
 						"namespace", sec.Namespace, "name", sec.Name,
 						"ref_namespace", rule.JksPassphraseSecretRef.Namespace,
@@ -932,12 +932,12 @@ func (s *Source) onConfigMap(sink cert.Sink, obj any, deleted bool) {
 // The CR/LF trim mirrors PassphraseKey/JksPassphraseKey handling so that
 // `kubectl create secret --from-literal=...` (which appends no newline)
 // and `--from-file=...` (which preserves whatever is on disk) both work.
-func (s *Source) fetchPassphrase(ref *PassphraseSecretRef, fallbackNS string) (string, error) {
+func (s *Source) fetchPassphrase(ctx context.Context, ref *PassphraseSecretRef, fallbackNS string) (string, error) {
 	ns := ref.Namespace
 	if ns == "" {
 		ns = fallbackNS
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), ListRequestTimeout)
+	ctx, cancel := context.WithTimeout(ctx, ListRequestTimeout)
 	defer cancel()
 	sec, err := s.opts.Client.CoreV1().Secrets(ns).Get(ctx, ref.Name, metav1.GetOptions{})
 	if err != nil {

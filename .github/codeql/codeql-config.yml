@@ -1,0 +1,26 @@
+name: x509-certificate-exporter
+
+# CodeQL configuration. Companion to `.github/workflows/codeql.yaml` —
+# kept as a separate file so the workflow stays minimal and the query
+# filters are reviewable in isolation.
+
+queries:
+  - uses: security-extended
+
+# Query filters. Each exclusion narrows the security-extended suite —
+# justify every entry, since silenced rules don't fire anywhere in the
+# tree.
+query-filters:
+  # JKS/JCEKS HMAC is SHA-1 by protocol: the wire format defined by
+  # `com.sun.crypto.provider.JceKeyStore.getPreKeyedHash` mandates
+  # SHA1( utf16be(pass) || "Mighty Aphrodite" || payload ). Swapping
+  # algorithms would break interop with the Java KeyStore spec and
+  # every real-world `.jks` / `.jceks` file. The exporter only
+  # *verifies* this digest before parsing — it never derives a key
+  # from a passphrase or signs anything. The exporter has no other
+  # password-hashing surface (it's a cert-metadata exporter, not an
+  # auth system), so suppressing this rule project-wide doesn't
+  # mask a realistic future regression. See pkg/cert/jks/jks.go's
+  # `jceksHMAC` for the contract.
+  - exclude:
+      id: go/weak-sensitive-data-hashing

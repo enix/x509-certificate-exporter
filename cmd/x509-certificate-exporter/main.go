@@ -534,6 +534,13 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 					if t.Pkcs12.PassphraseKey != "" {
 						rule.PassphraseKey = t.Pkcs12.PassphraseKey
 					}
+					if t.Pkcs12.PassphraseSecretRef != nil {
+						rule.PassphraseSecretRef = &k8ssource.PassphraseSecretRef{
+							Namespace: t.Pkcs12.PassphraseSecretRef.Namespace,
+							Name:      t.Pkcs12.PassphraseSecretRef.Name,
+							Key:       t.Pkcs12.PassphraseSecretRef.Key,
+						}
+					}
 					if t.Pkcs12.TryEmptyPassphrase != nil {
 						rule.ParseOpts.Pkcs12TryEmpty = *t.Pkcs12.TryEmptyPassphrase
 					} else {

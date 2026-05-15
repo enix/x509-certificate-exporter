@@ -49,13 +49,7 @@ jobs:
       - uses: github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4
         with:
           languages: ${{ matrix.language }}
-          queries: security-extended
-          # config: |
-          #   paths-ignore:
-          #     - dev/**
-          #     - test/**
-          #     - "**/*_test.go"
-          #     - "**/*_fuzz_test.go"
+          config-file: ./.github/codeql/codeql-config.yml
 
       - uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4
         with:

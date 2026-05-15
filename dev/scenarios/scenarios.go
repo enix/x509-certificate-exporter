@@ -503,12 +503,22 @@ func build() {
 	must(err)
 	p12Vaulted, err := EncodePKCS12Chain(leafKeyVault, chainVault, PKCS12Passphrase)
 	must(err)
+	// Companion vault first — the exporter resolves passphraseSecretRef via
+	// a live API GET when it processes the `vaulted` Secret. Seeding the
+	// vault first guarantees the passphrase is reachable on the very first
+	// LIST/WATCH event, so the test doesn't depend on resync.
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-pkcs12", Name: "vault",
+		Kind: "Secret", SecretType: "Opaque",
+		Data:    map[string][]byte{"pkcs12-passphrase": []byte(PKCS12Passphrase)},
+		Watched: false,
+	})
 	sc = append(sc, Scenario{
 		Namespace: "x509ce-pkcs12", Name: "vaulted",
 		Kind: "Secret", SecretType: "Opaque",
 		// Distinct key — dev/values.yaml routes `keystore-vaulted.p12` to
 		// a secretType configured with passphraseSecretRef pointing at
-		// the companion Secret below. No sibling passphrase key here.
+		// the companion Secret above. No sibling passphrase key here.
 		Data:    map[string][]byte{"keystore-vaulted.p12": p12Vaulted},
 		Watched: true,
 		Expect: []ExpectCert{
@@ -516,14 +526,6 @@ func build() {
 			{Key: "keystore-vaulted.p12", SubjectCN: "Dev Seed Intermediate CA", Lifecycle: LifecycleValid},
 			{Key: "keystore-vaulted.p12", SubjectCN: "Dev Seed Root CA", Lifecycle: LifecycleValid},
 		},
-	})
-	// Companion vault — same namespace, key holds the passphrase. The
-	// Secret itself doesn't match any rule so it never emits metrics.
-	sc = append(sc, Scenario{
-		Namespace: "x509ce-pkcs12", Name: "vault",
-		Kind: "Secret", SecretType: "Opaque",
-		Data:    map[string][]byte{"pkcs12-passphrase": []byte(PKCS12Passphrase)},
-		Watched: false,
 	})
 
 	// ─── Opaque — JKS with passphraseSecretRef (companion vault Secret) ──
@@ -535,6 +537,13 @@ func build() {
 	must(err)
 	jksVaultStore, err := EncodeJKSTrustStore([]*x509.Certificate{jksVaultCa}, JKSPassphrase)
 	must(err)
+	// Same ordering invariant as the PKCS#12 vaulted pair above.
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-jks", Name: "vault",
+		Kind: "Secret", SecretType: "Opaque",
+		Data:    map[string][]byte{"jks-passphrase": []byte(JKSPassphrase)},
+		Watched: false,
+	})
 	sc = append(sc, Scenario{
 		Namespace: "x509ce-jks", Name: "vaulted",
 		Kind: "Secret", SecretType: "Opaque",
@@ -543,12 +552,6 @@ func build() {
 		Expect: []ExpectCert{
 			{Key: "truststore-vaulted.jks", SubjectCN: "JKS Vaulted Trust Anchor", Lifecycle: LifecycleValid},
 		},
-	})
-	sc = append(sc, Scenario{
-		Namespace: "x509ce-jks", Name: "vault",
-		Kind: "Secret", SecretType: "Opaque",
-		Data:    map[string][]byte{"jks-passphrase": []byte(JKSPassphrase)},
-		Watched: false,
 	})
 
 	// ─── Negative — namespace excluded by label ─────────────────────────

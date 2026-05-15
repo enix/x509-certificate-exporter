@@ -151,10 +151,11 @@ type Pkcs12 struct {
 }
 
 type Jks struct {
-	Passphrase         string `yaml:"passphrase,omitempty"`
-	PassphraseFile     string `yaml:"passphraseFile,omitempty"`
-	PassphraseKey      string `yaml:"passphraseKey,omitempty"`
-	TryEmptyPassphrase *bool  `yaml:"tryEmptyPassphrase,omitempty"`
+	Passphrase          string     `yaml:"passphrase,omitempty"`
+	PassphraseFile      string     `yaml:"passphraseFile,omitempty"`
+	PassphraseSecretRef *SecretRef `yaml:"passphraseSecretRef,omitempty"`
+	PassphraseKey       string     `yaml:"passphraseKey,omitempty"`
+	TryEmptyPassphrase  *bool      `yaml:"tryEmptyPassphrase,omitempty"`
 }
 
 type SecretRef struct {

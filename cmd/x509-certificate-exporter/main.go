@@ -551,6 +551,13 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 					if t.Jks.PassphraseKey != "" {
 						rule.JksPassphraseKey = t.Jks.PassphraseKey
 					}
+					if t.Jks.PassphraseSecretRef != nil {
+						rule.JksPassphraseSecretRef = &k8ssource.PassphraseSecretRef{
+							Namespace: t.Jks.PassphraseSecretRef.Namespace,
+							Name:      t.Jks.PassphraseSecretRef.Name,
+							Key:       t.Jks.PassphraseSecretRef.Key,
+						}
+					}
 					if t.Jks.TryEmptyPassphrase != nil {
 						rule.ParseOpts.JksTryEmpty = *t.Jks.TryEmptyPassphrase
 					} else {

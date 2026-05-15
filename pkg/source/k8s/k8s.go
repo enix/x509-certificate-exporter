@@ -108,9 +108,10 @@ type SecretTypeRule struct {
 	KeyRe               *regexp.Regexp
 	Parser              cert.FormatParser
 	ParseOpts           cert.ParseOptions
-	PassphraseKey       string               // when format is pkcs12
-	JksPassphraseKey    string               // when format is jks
-	PassphraseSecretRef *PassphraseSecretRef // optional cross-Secret passphrase ref
+	PassphraseKey          string               // when format is pkcs12
+	JksPassphraseKey       string               // when format is jks
+	PassphraseSecretRef    *PassphraseSecretRef // pkcs12: optional cross-Secret passphrase ref
+	JksPassphraseSecretRef *PassphraseSecretRef // jks: optional cross-Secret passphrase ref
 }
 
 // PassphraseSecretRef points at a Secret key holding a passphrase, used
@@ -850,6 +851,18 @@ func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
 			if rule.JksPassphraseKey != "" {
 				if pp, ok := sec.Data[rule.JksPassphraseKey]; ok {
 					po.JksPassphrase = strings.TrimRight(string(pp), "\r\n")
+				}
+			}
+			if rule.JksPassphraseSecretRef != nil {
+				if pp, err := s.fetchPassphrase(rule.JksPassphraseSecretRef, sec.Namespace); err != nil {
+					s.log.Warn("jks passphraseSecretRef lookup failed",
+						"namespace", sec.Namespace, "name", sec.Name,
+						"ref_namespace", rule.JksPassphraseSecretRef.Namespace,
+						"ref_name", rule.JksPassphraseSecretRef.Name,
+						"ref_key", rule.JksPassphraseSecretRef.Key,
+						"err", err)
+				} else {
+					po.JksPassphrase = pp
 				}
 			}
 			b := rule.Parser.Parse(v, ref, po)

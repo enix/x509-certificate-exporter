@@ -108,9 +108,18 @@ type SecretTypeRule struct {
 	KeyRe               *regexp.Regexp
 	Parser              cert.FormatParser
 	ParseOpts           cert.ParseOptions
-	PassphraseKey       string          // when format is pkcs12
-	JksPassphraseKey    string          // when format is jks
-	PassphraseSecretRef *cert.SourceRef // optional cross-secret passphrase ref
+	PassphraseKey       string               // when format is pkcs12
+	JksPassphraseKey    string               // when format is jks
+	PassphraseSecretRef *PassphraseSecretRef // optional cross-Secret passphrase ref
+}
+
+// PassphraseSecretRef points at a Secret key holding a passphrase, used
+// by the PKCS#12 rule path. An empty Namespace defaults to the cert
+// Secret's own namespace at resolution time.
+type PassphraseSecretRef struct {
+	Namespace string
+	Name      string
+	Key       string
 }
 
 // Selectors carry server-side filters.
@@ -826,6 +835,18 @@ func (s *Source) onSecret(sink cert.Sink, obj any, deleted bool) {
 					po.Pkcs12Passphrase = strings.TrimRight(string(pp), "\r\n")
 				}
 			}
+			if rule.PassphraseSecretRef != nil {
+				if pp, err := s.fetchPassphrase(rule.PassphraseSecretRef, sec.Namespace); err != nil {
+					s.log.Warn("passphraseSecretRef lookup failed",
+						"namespace", sec.Namespace, "name", sec.Name,
+						"ref_namespace", rule.PassphraseSecretRef.Namespace,
+						"ref_name", rule.PassphraseSecretRef.Name,
+						"ref_key", rule.PassphraseSecretRef.Key,
+						"err", err)
+				} else {
+					po.Pkcs12Passphrase = pp
+				}
+			}
 			if rule.JksPassphraseKey != "" {
 				if pp, ok := sec.Data[rule.JksPassphraseKey]; ok {
 					po.JksPassphrase = strings.TrimRight(string(pp), "\r\n")
@@ -885,6 +906,35 @@ func (s *Source) onConfigMap(sink cert.Sink, obj any, deleted bool) {
 		s.log.Debug("configmap accepted",
 			"namespace", cm.Namespace, "name", cm.Name, "bundles", emitted)
 	}
+}
+
+// fetchPassphrase resolves a passphraseSecretRef to its raw value. ref.Key
+// is read from data; an empty ref.Namespace falls back to the cert
+// Secret's own namespace (the common case for in-cluster wiring). A
+// one-shot Get request is used — the source has no general-purpose Secret
+// lister, and Secret events fire at object-change frequency, not scrape
+// frequency, so the extra API call is bounded by cluster activity rather
+// than scrape rate.
+//
+// The CR/LF trim mirrors PassphraseKey/JksPassphraseKey handling so that
+// `kubectl create secret --from-literal=...` (which appends no newline)
+// and `--from-file=...` (which preserves whatever is on disk) both work.
+func (s *Source) fetchPassphrase(ref *PassphraseSecretRef, fallbackNS string) (string, error) {
+	ns := ref.Namespace
+	if ns == "" {
+		ns = fallbackNS
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), ListRequestTimeout)
+	defer cancel()
+	sec, err := s.opts.Client.CoreV1().Secrets(ns).Get(ctx, ref.Name, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("get secret %s/%s: %w", ns, ref.Name, err)
+	}
+	v, ok := sec.Data[ref.Key]
+	if !ok {
+		return "", fmt.Errorf("key %q not found in secret %s/%s", ref.Key, ns, ref.Name)
+	}
+	return strings.TrimRight(string(v), "\r\n"), nil
 }
 
 func (s *Source) refSecret(sec *corev1.Secret, key, format string) cert.SourceRef {

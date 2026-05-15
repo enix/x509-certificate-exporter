@@ -58,6 +58,34 @@ secretsExporter:
       format: jks
       jks:
         passphraseKey: jks-passphrase
+    # JCEKS truststore (magic 0xCECECECE) — same `format: jks`, auto-detected
+    - type: Opaque
+      key: truststore.jceks
+      format: jks
+      jks:
+        passphraseKey: jks-passphrase
+    # JKS passwordless — tryEmptyPassphrase falls back to ""
+    - type: Opaque
+      key: truststore-empty.jks
+      format: jks
+      jks:
+        tryEmptyPassphrase: true
+    # PKCS#12 with passphrase in a separate same-namespace Secret
+    - type: Opaque
+      key: keystore-vaulted.p12
+      format: pkcs12
+      pkcs12:
+        passphraseSecretRef:
+          name: vault
+          key: pkcs12-passphrase
+    # JKS with passphrase in a separate same-namespace Secret
+    - type: Opaque
+      key: truststore-vaulted.jks
+      format: jks
+      jks:
+        passphraseSecretRef:
+          name: vault
+          key: jks-passphrase
 
   # Watch ConfigMaps holding a tls.crt key.
   configMapKeys:

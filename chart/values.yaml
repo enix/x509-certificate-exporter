@@ -289,6 +289,14 @@ secretsExporter:
   #         passphrase: {type: string}
   #         passphraseKey: {type: string}
   #         passphraseFile: {type: string}
+  #         passphraseSecretRef:
+  #           type: object
+  #           additionalProperties: false
+  #           required: [name, key]
+  #           properties:
+  #             namespace: {type: string}
+  #             name: {type: string}
+  #             key: {type: string}
   #         tryEmptyPassphrase: {type: boolean}
   #   oneOf:
   #     - required: [key]
@@ -298,10 +306,10 @@ secretsExporter:
   # (a single Secret data key — the matching regex `^<key>$` is built for
   # you) or `keyPatterns` (a list of regexes, full control). Optional
   # `format` is `pem` (default), `pkcs12`, `der`, or `jks` (Java KeyStore);
-  # `pkcs12` block accepts `passphrase`, `passphraseKey` (read passphrase from
-  # a sibling key in the same Secret), `passphraseFile`, `passphraseSecretRef`,
-  # `tryEmptyPassphrase`; `jks` block accepts the same fields except
-  # `passphraseSecretRef`.
+  # `pkcs12` and `jks` blocks accept the same passphrase options:
+  # `passphrase`, `passphraseKey` (read passphrase from a sibling key in
+  # the same Secret), `passphraseFile`, `passphraseSecretRef` (read from a
+  # separate Secret, optionally in another namespace), `tryEmptyPassphrase`.
   # @default -- see `values.yaml`
   secretTypes:
     - type: kubernetes.io/tls

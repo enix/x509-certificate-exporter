@@ -66,8 +66,9 @@ cluster it observes, but equally happy as a standalone binary.
   sibling key in the same Secret, an external file, a cross-namespace
   Secret reference, or none (`tryEmptyPassphrase`).
 - **JKS / JCEKS** keystores and truststores — magic-byte auto-detection
-  between JKS and JCEKS; passphrase from a sibling key, external file,
-  or `tryEmptyPassphrase`.
+  between JKS and JCEKS; passphrase from a sibling key in the same Secret,
+  a separate Secret in any namespace, an external file, or none
+  (`tryEmptyPassphrase`).
 - **Certificate Revocation Lists** — `X509 CRL` PEM blocks (intermixed
   freely with `CERTIFICATE` blocks) and raw DER `*.crl` files
   (`format: der`) are parsed into the dedicated `x509_crl_*` family so
@@ -169,15 +170,17 @@ The default install runs a single Deployment watching
 `kubernetes.io/tls` Secrets across all namespaces — disable with
 `secretsExporter.enabled: false`.
 
-### Multiple Secret types and PKCS#12
+### Multiple Secret types, PKCS#12 and JKS
 
 `secretsExporter.secretTypes` accepts any mix of types and keys: a
 literal `key` (regex `^<key>$` is built for you) or a `keyPatterns`
-list for full regex control, with optional `format: pkcs12` plus a
-`pkcs12:` block. Passphrases are pulled from a sibling Secret key
-(`pkcs12.passphraseKey`), an external file, a cross-namespace Secret
-ref, or skipped entirely with `tryEmptyPassphrase: true` for
-passwordless keystores.
+list for full regex control, with optional `format: pkcs12` or
+`format: jks` plus a matching `pkcs12:` / `jks:` block. Both blocks
+expose the same passphrase sources: a sibling Secret key
+(`passphraseKey`), a separate Secret in any namespace
+(`passphraseSecretRef`), an external file (`passphraseFile`), or
+skipped entirely with `tryEmptyPassphrase: true` for passwordless
+keystores.
 
 ### Watching ConfigMaps
 
@@ -313,7 +316,7 @@ exporter-toolkit is the recommended path on new installs.
 | secretsExporter.securityContext | object | see `values.yaml` | SecurityContext for containers of the TLS Secrets exporter |
 | secretsExporter.extraVolumes | list | `[]` | Additional volumes added to Pods of the TLS Secrets exporter (combined with global `extraVolumes`) |
 | secretsExporter.extraVolumeMounts | list | `[]` | Additional volume mounts added to Pod containers of the TLS Secrets exporter (combined with global `extraVolumeMounts`) |
-| secretsExporter.secretTypes | list | see `values.yaml` | Which type of Secrets should be watched. Each entry takes either `key` (a single Secret data key — the matching regex `^<key>$` is built for you) or `keyPatterns` (a list of regexes, full control). Optional `format` is `pem` (default), `pkcs12`, `der`, or `jks` (Java KeyStore); `pkcs12` block accepts `passphrase`, `passphraseKey` (read passphrase from a sibling key in the same Secret), `passphraseFile`, `passphraseSecretRef`, `tryEmptyPassphrase`; `jks` block accepts the same fields except `passphraseSecretRef`. |
+| secretsExporter.secretTypes | list | see `values.yaml` | Which type of Secrets should be watched. Each entry takes either `key` (a single Secret data key — the matching regex `^<key>$` is built for you) or `keyPatterns` (a list of regexes, full control). Optional `format` is `pem` (default), `pkcs12`, `der`, or `jks` (Java KeyStore); `pkcs12` and `jks` blocks accept the same passphrase options: `passphrase`, `passphraseKey` (read passphrase from a sibling key in the same Secret), `passphraseFile`, `passphraseSecretRef` (read from a separate Secret, optionally in another namespace), `tryEmptyPassphrase`. |
 | secretsExporter.configMapKeys | list | see `values.yaml` | If the exporter should watch for certificates in ConfigMaps, just specify the keys it needs to watch. E.g.: `configMapKeys: ["tls.crt"]` |
 | secretsExporter.includeNamespaces | list | `[]` | Restrict the list of namespaces the TLS Secrets exporter should scan for certificates to watch (all namespaces if empty). Each entry is a shell-glob pattern (`*`, `?`, `[abc]`) or a literal name — e.g. `team-*` matches `team-alpha` and `team-beta`. |
 | secretsExporter.excludeNamespaces | list | `[]` | Exclude namespaces from being scanned by the TLS Secrets exporter (evaluated after `includeNamespaces`). Same shell-glob syntax as `includeNamespaces`. |

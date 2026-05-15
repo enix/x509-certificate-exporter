@@ -1200,6 +1200,25 @@
                   "passphraseKey": {
                     "type": "string"
                   },
+                  "passphraseSecretRef": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "key"
+                    ],
+                    "type": "object"
+                  },
                   "tryEmptyPassphrase": {
                     "type": "boolean"
                   }

@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"context"
 	"regexp"
 	"sync"
 	"testing"
@@ -78,7 +79,7 @@ func TestPassphraseSecretRefSameNamespace(t *testing.T) {
 		Parser:              parser,
 	}
 	src := newSource(t, rule, certSec, ppSec)
-	src.onSecret(&fakeSink{}, certSec, false)
+	src.onSecret(context.Background(), &fakeSink{}, certSec, false)
 
 	if got := parser.lastOpts(t).Pkcs12Passphrase; got != "letmein" {
 		t.Fatalf("Pkcs12Passphrase = %q, want %q", got, "letmein")
@@ -103,7 +104,7 @@ func TestPassphraseSecretRefExplicitNamespace(t *testing.T) {
 		Parser:              parser,
 	}
 	src := newSource(t, rule, certSec, ppSec)
-	src.onSecret(&fakeSink{}, certSec, false)
+	src.onSecret(context.Background(), &fakeSink{}, certSec, false)
 
 	if got := parser.lastOpts(t).Pkcs12Passphrase; got != "cross-ns-pass" {
 		t.Fatalf("Pkcs12Passphrase = %q, want %q", got, "cross-ns-pass")
@@ -127,7 +128,7 @@ func TestPassphraseSecretRefMissingSecretLogsAndContinues(t *testing.T) {
 		Parser:              parser,
 	}
 	src := newSource(t, rule, certSec)
-	src.onSecret(&fakeSink{}, certSec, false)
+	src.onSecret(context.Background(), &fakeSink{}, certSec, false)
 
 	if got := parser.lastOpts(t).Pkcs12Passphrase; got != "" {
 		t.Fatalf("Pkcs12Passphrase = %q, want empty (missing ref)", got)
@@ -152,7 +153,7 @@ func TestPassphraseSecretRefMissingKeyLogsAndContinues(t *testing.T) {
 		Parser:              parser,
 	}
 	src := newSource(t, rule, certSec, ppSec)
-	src.onSecret(&fakeSink{}, certSec, false)
+	src.onSecret(context.Background(), &fakeSink{}, certSec, false)
 
 	if got := parser.lastOpts(t).Pkcs12Passphrase; got != "" {
 		t.Fatalf("Pkcs12Passphrase = %q, want empty (key missing)", got)
@@ -180,7 +181,7 @@ func TestJksPassphraseSecretRefSameNamespace(t *testing.T) {
 		Parser:                 parser,
 	}
 	src := newSource(t, rule, certSec, ppSec)
-	src.onSecret(&fakeSink{}, certSec, false)
+	src.onSecret(context.Background(), &fakeSink{}, certSec, false)
 
 	got := parser.lastOpts(t)
 	if got.JksPassphrase != "letmein" {
@@ -209,7 +210,7 @@ func TestJksPassphraseSecretRefExplicitNamespace(t *testing.T) {
 		Parser:                 parser,
 	}
 	src := newSource(t, rule, certSec, ppSec)
-	src.onSecret(&fakeSink{}, certSec, false)
+	src.onSecret(context.Background(), &fakeSink{}, certSec, false)
 
 	if got := parser.lastOpts(t).JksPassphrase; got != "cross-ns-jks" {
 		t.Fatalf("JksPassphrase = %q, want %q", got, "cross-ns-jks")

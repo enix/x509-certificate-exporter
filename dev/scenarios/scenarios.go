@@ -447,6 +447,110 @@ func build() {
 		Expect:  []ExpectCert{{Key: "truststore.jks", ParseError: ErrBadJKS}},
 	})
 
+	// ─── Opaque — JKS passwordless (empty passphrase + tryEmptyPassphrase) ─
+	jksEmptyCa, _, err := Selfsigned(CertSpec{
+		CN: "JKS Passwordless Anchor", O: []string{"x509ce-dev"},
+		NotBefore: in(-time.Hour), NotAfter: in(720 * day),
+		Algo: AlgoECDSAP256, IsCA: true,
+	})
+	must(err)
+	jksEmptyStore, err := EncodeJKSTrustStore([]*x509.Certificate{jksEmptyCa}, "")
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-jks", Name: "passwordless",
+		Kind: "Secret", SecretType: "Opaque",
+		// Note the distinct key suffix: dev/values.yaml routes
+		// `truststore-empty.jks` to a secretType with tryEmptyPassphrase.
+		Data:    map[string][]byte{"truststore-empty.jks": jksEmptyStore},
+		Watched: true,
+		Expect: []ExpectCert{
+			{Key: "truststore-empty.jks", SubjectCN: "JKS Passwordless Anchor", Lifecycle: LifecycleValid},
+		},
+	})
+
+	// ─── Opaque — JCEKS truststore (native decoder; magic 0xCECECECE) ────
+	jceksCa1, _, err := Selfsigned(CertSpec{
+		CN: "JCEKS Trust Anchor One", O: []string{"x509ce-dev"},
+		NotBefore: in(-time.Hour), NotAfter: in(720 * day),
+		Algo: AlgoECDSAP256, IsCA: true,
+	})
+	must(err)
+	jceksCa2, _, err := Selfsigned(CertSpec{
+		CN: "JCEKS Trust Anchor Two", O: []string{"x509ce-dev"},
+		NotBefore: in(-time.Hour), NotAfter: in(720 * day),
+		Algo: AlgoRSA2048, IsCA: true,
+	})
+	must(err)
+	jceksStore, err := EncodeJCEKSTrustStore([]*x509.Certificate{jceksCa1, jceksCa2}, JKSPassphrase)
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-jks", Name: "jceks-truststore",
+		Kind: "Secret", SecretType: "Opaque",
+		Data: map[string][]byte{
+			"truststore.jceks": jceksStore,
+			JKSPassphraseKey:   []byte(JKSPassphrase),
+		},
+		Watched: true,
+		Expect: []ExpectCert{
+			{Key: "truststore.jceks", SubjectCN: "JCEKS Trust Anchor One", Lifecycle: LifecycleValid},
+			{Key: "truststore.jceks", SubjectCN: "JCEKS Trust Anchor Two", Lifecycle: LifecycleValid},
+		},
+	})
+
+	// ─── Opaque — PKCS#12 with passphraseSecretRef (companion vault Secret) ─
+	leafKeyVault, chainVault, err := Chain("pkcs12-vaulted.example.test",
+		in(-time.Hour), in(180*day), AlgoECDSAP256)
+	must(err)
+	p12Vaulted, err := EncodePKCS12Chain(leafKeyVault, chainVault, PKCS12Passphrase)
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-pkcs12", Name: "vaulted",
+		Kind: "Secret", SecretType: "Opaque",
+		// Distinct key — dev/values.yaml routes `keystore-vaulted.p12` to
+		// a secretType configured with passphraseSecretRef pointing at
+		// the companion Secret below. No sibling passphrase key here.
+		Data:    map[string][]byte{"keystore-vaulted.p12": p12Vaulted},
+		Watched: true,
+		Expect: []ExpectCert{
+			{Key: "keystore-vaulted.p12", SubjectCN: "pkcs12-vaulted.example.test", Lifecycle: LifecycleValid},
+			{Key: "keystore-vaulted.p12", SubjectCN: "Dev Seed Intermediate CA", Lifecycle: LifecycleValid},
+			{Key: "keystore-vaulted.p12", SubjectCN: "Dev Seed Root CA", Lifecycle: LifecycleValid},
+		},
+	})
+	// Companion vault — same namespace, key holds the passphrase. The
+	// Secret itself doesn't match any rule so it never emits metrics.
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-pkcs12", Name: "vault",
+		Kind: "Secret", SecretType: "Opaque",
+		Data:    map[string][]byte{"pkcs12-passphrase": []byte(PKCS12Passphrase)},
+		Watched: false,
+	})
+
+	// ─── Opaque — JKS with passphraseSecretRef (companion vault Secret) ──
+	jksVaultCa, _, err := Selfsigned(CertSpec{
+		CN: "JKS Vaulted Trust Anchor", O: []string{"x509ce-dev"},
+		NotBefore: in(-time.Hour), NotAfter: in(720 * day),
+		Algo: AlgoECDSAP256, IsCA: true,
+	})
+	must(err)
+	jksVaultStore, err := EncodeJKSTrustStore([]*x509.Certificate{jksVaultCa}, JKSPassphrase)
+	must(err)
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-jks", Name: "vaulted",
+		Kind: "Secret", SecretType: "Opaque",
+		Data:    map[string][]byte{"truststore-vaulted.jks": jksVaultStore},
+		Watched: true,
+		Expect: []ExpectCert{
+			{Key: "truststore-vaulted.jks", SubjectCN: "JKS Vaulted Trust Anchor", Lifecycle: LifecycleValid},
+		},
+	})
+	sc = append(sc, Scenario{
+		Namespace: "x509ce-jks", Name: "vault",
+		Kind: "Secret", SecretType: "Opaque",
+		Data:    map[string][]byte{"jks-passphrase": []byte(JKSPassphrase)},
+		Watched: false,
+	})
+
 	// ─── Negative — namespace excluded by label ─────────────────────────
 	hiddenCert, hiddenKey, err := Selfsigned(CertSpec{
 		CN: "hidden.example.test", DNSNames: []string{"hidden.example.test"},

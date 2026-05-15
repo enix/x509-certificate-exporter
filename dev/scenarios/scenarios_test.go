@@ -49,7 +49,12 @@ func TestAllParseWithExporter(t *testing.T) {
 					if other, ok := sc.Data[JKSPassphraseKey]; ok {
 						pp = string(other)
 					}
-					b = jksP.Parse(blob, ref, cert.ParseOptions{JksPassphrase: pp})
+					// Empty-passphrase fixture: dev/values.yaml routes
+					// `truststore-empty.jks` to a secretType with
+					// tryEmptyPassphrase, mirror that here so the
+					// self-test stays representative of runtime wiring.
+					tryEmpty := key == "truststore-empty.jks"
+					b = jksP.Parse(blob, ref, cert.ParseOptions{JksPassphrase: pp, JksTryEmpty: tryEmpty})
 				case isDERKey(key):
 					b = derP.Parse(blob, ref, cert.ParseOptions{})
 				default:
@@ -62,12 +67,14 @@ func TestAllParseWithExporter(t *testing.T) {
 }
 
 func isPKCS12Key(k string) bool {
-	return k == "keystore.p12" || k == "keystore-empty.p12" || k == "truststore.p12"
+	return k == "keystore.p12" || k == "keystore-empty.p12" || k == "truststore.p12" || k == "keystore-vaulted.p12"
 }
 
-// isJKSKey reflects the dev/values.yaml secretTypes routing.
+// isJKSKey reflects the dev/values.yaml secretTypes routing: both `.jks`
+// and `.jceks` data keys are mapped to `format: jks` — the parser auto-
+// detects which magic the payload carries.
 func isJKSKey(k string) bool {
-	return strings.HasSuffix(k, ".jks")
+	return strings.HasSuffix(k, ".jks") || strings.HasSuffix(k, ".jceks")
 }
 
 // isDERKey reflects the dev/values.yaml secretTypes routing: any key

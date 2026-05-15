@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/binary"
@@ -16,6 +17,36 @@ import (
 
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
 )
+
+// makeJCEKSTrustStoreForFuzz builds a minimal valid JCEKS truststore so
+// the coverage-guided fuzzer has a launching point into the JCEKS
+// decoder. Without a valid seed the fuzzer would need to randomly
+// satisfy the magic + version + HMAC checks before reaching any of the
+// entry-walking code — practically unreachable.
+func makeJCEKSTrustStoreForFuzz(ca *x509.Certificate, password string) []byte {
+	var buf bytes.Buffer
+	put := func(v interface{}) { _ = binary.Write(&buf, binary.BigEndian, v) }
+	putUTF := func(s string) { put(uint16(len(s))); buf.WriteString(s) }
+
+	put(uint32(0xCECECECE)) // JCEKS magic
+	put(uint32(2))           // version
+	put(uint32(1))           // entry count
+	put(uint32(2))           // TrustedCertificateEntry
+	putUTF("seed")
+	put(int64(time.Now().UnixMilli()))
+	putUTF("X.509")
+	put(uint32(len(ca.Raw)))
+	buf.Write(ca.Raw)
+
+	h := sha1.New()
+	for _, b := range []byte(password) {
+		h.Write([]byte{0x00, b})
+	}
+	h.Write([]byte("Mighty Aphrodite"))
+	h.Write(buf.Bytes())
+	buf.Write(h.Sum(nil))
+	return buf.Bytes()
+}
 
 func makeCertForFuzz() (*x509.Certificate, []byte, *ecdsa.PrivateKey) {
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -48,6 +79,7 @@ func FuzzParse(f *testing.F) {
 	var buf bytes.Buffer
 	_ = ks.Store(&buf, []byte("seed-pw"))
 	validJKS := buf.Bytes()
+	validJCEKS := makeJCEKSTrustStoreForFuzz(ca, "seed-pw")
 
 	magicJKSBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(magicJKSBytes, magicJKS)
@@ -57,13 +89,16 @@ func FuzzParse(f *testing.F) {
 	for _, seed := range [][]byte{
 		nil,
 		{},
-		{0x00, 0x00, 0x00},                 // too short for magic
-		magicJKSBytes,                       // magic only, no body
-		magicJCEKSBytes,                     // JCEKS magic only
-		append(magicJKSBytes, 0xff, 0xff),  // magic + 2 garbage bytes
-		validJKS,                            // valid JKS
-		validJKS[:len(validJKS)/2],          // truncated
-		[]byte("-----BEGIN CERTIFICATE-----\n"), // misrouted PEM
+		{0x00, 0x00, 0x00},                       // too short for magic
+		magicJKSBytes,                             // JKS magic only, no body
+		magicJCEKSBytes,                           // JCEKS magic only, no body
+		append(magicJKSBytes, 0xff, 0xff),        // magic + 2 garbage bytes
+		validJKS,                                  // valid JKS
+		validJKS[:len(validJKS)/2],                // truncated JKS
+		validJCEKS,                                // valid JCEKS truststore
+		validJCEKS[:len(validJCEKS)/2],            // truncated JCEKS
+		validJCEKS[:len(validJCEKS)-1],            // JCEKS with corrupted trailing HMAC
+		[]byte("-----BEGIN CERTIFICATE-----\n"),   // misrouted PEM
 	} {
 		f.Add(seed)
 	}

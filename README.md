@@ -57,8 +57,9 @@ cluster it observes, but equally happy as a standalone binary.
   sibling key in the same Secret, an external file, a cross-namespace
   Secret reference, or none (`tryEmptyPassphrase`).
 - **JKS / JCEKS** keystores and truststores — magic-byte auto-detection
-  between JKS and JCEKS; passphrase from a sibling key, external file,
-  or `tryEmptyPassphrase`.
+  between JKS and JCEKS; passphrase from a sibling key in the same Secret,
+  a separate Secret in any namespace, an external file, or none
+  (`tryEmptyPassphrase`).
 - **Certificate Revocation Lists** — `X509 CRL` PEM blocks (intermixed
   freely with `CERTIFICATE` blocks) and raw DER `*.crl` files
   (`format: der`) are parsed into the dedicated `x509_crl_*` family so

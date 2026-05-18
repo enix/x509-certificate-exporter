@@ -831,20 +831,21 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 			}
 			ref := s.refSecret(sec, k, rule.Parser.Format())
 			po := rule.ParseOpts
-			resolveRef := func(secretRef *PassphraseSecretRef, dest *string) {
+			resolveRef := func(secretRef *PassphraseSecretRef, dest *string) bool {
 				pp, err := s.fetchPassphrase(ctx, secretRef, sec.Namespace)
 				if err != nil {
 					s.log.Info("passphraseSecretRef lookup failed",
 						"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
 						"ref_namespace", secretRef.Namespace, "ref_name", secretRef.Name,
 						"ref_key", secretRef.Key, "err", err)
-					return
+					return false
 				}
 				*dest = pp
 				s.log.Debug("passphraseSecretRef resolved",
 					"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
 					"ref_namespace", secretRef.Namespace, "ref_name", secretRef.Name,
 					"ref_key", secretRef.Key)
+				return true
 			}
 			passphraseUnavailable := false
 			if rule.PassphraseKey != "" {
@@ -858,7 +859,9 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 				}
 			}
 			if rule.PassphraseSecretRef != nil {
-				resolveRef(rule.PassphraseSecretRef, &po.Pkcs12Passphrase)
+				if ok := resolveRef(rule.PassphraseSecretRef, &po.Pkcs12Passphrase); !ok {
+					passphraseUnavailable = !po.Pkcs12TryEmpty
+				}
 			}
 			if rule.JksPassphraseKey != "" {
 				if pp, ok := sec.Data[rule.JksPassphraseKey]; ok {
@@ -871,7 +874,9 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 				}
 			}
 			if rule.JksPassphraseSecretRef != nil {
-				resolveRef(rule.JksPassphraseSecretRef, &po.JksPassphrase)
+				if ok := resolveRef(rule.JksPassphraseSecretRef, &po.JksPassphrase); !ok {
+					passphraseUnavailable = !po.JksTryEmpty
+				}
 			}
 			if passphraseUnavailable {
 				b := cert.Bundle{Source: ref, Errors: []cert.ItemError{{

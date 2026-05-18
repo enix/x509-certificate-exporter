@@ -284,6 +284,18 @@ func (r *Registry) Delete(ref cert.SourceRef) {
 func (r *Registry) recordBundleErrors(b cert.Bundle) {
 	for _, e := range b.Errors {
 		r.MarkSourceError(b.Source.Kind, b.Source.SourceName, e.Reason)
+		args := []any{
+			"source_kind", b.Source.Kind,
+			"source_name", b.Source.SourceName,
+			"location", b.Source.Location,
+			"key", b.Source.Key,
+			"format", b.Source.Format,
+			"reason", e.Reason,
+		}
+		if e.Err != nil {
+			args = append(args, "err", e.Err)
+		}
+		r.logger.Debug("bundle parse error", args...)
 		if e.Reason == cert.ReasonBadPassphrase {
 			// Route to the per-format counter when one is registered.
 			// Format is set on the SourceRef by every parser-aware

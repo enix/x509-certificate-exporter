@@ -849,6 +849,10 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 			if rule.PassphraseKey != "" {
 				if pp, ok := sec.Data[rule.PassphraseKey]; ok {
 					po.Pkcs12Passphrase = strings.TrimRight(string(pp), "\r\n")
+				} else {
+					s.log.Debug("passphraseKey not found in secret data",
+						"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
+						"passphrase_key", rule.PassphraseKey)
 				}
 			}
 			if rule.PassphraseSecretRef != nil {
@@ -857,6 +861,10 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 			if rule.JksPassphraseKey != "" {
 				if pp, ok := sec.Data[rule.JksPassphraseKey]; ok {
 					po.JksPassphrase = strings.TrimRight(string(pp), "\r\n")
+				} else {
+					s.log.Debug("passphraseKey not found in secret data",
+						"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
+						"passphrase_key", rule.JksPassphraseKey)
 				}
 			}
 			if rule.JksPassphraseSecretRef != nil {

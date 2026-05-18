@@ -47,6 +47,15 @@ func (p *recordingParser) lastOpts(t *testing.T) cert.ParseOptions {
 	return p.opts[len(p.opts)-1]
 }
 
+func (p *recordingParser) assertNotCalled(t *testing.T) {
+	t.Helper()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.opts) > 0 {
+		t.Fatalf("parser was called %d time(s), expected none", len(p.opts))
+	}
+}
+
 // newSource builds a minimal Source whose only purpose is to drive
 // onSecret directly. Bypasses Run() to avoid the LIST+WATCH event loop
 // — these tests target the rule→passphrase resolution logic and the
@@ -111,10 +120,11 @@ func TestPassphraseSecretRefExplicitNamespace(t *testing.T) {
 	}
 }
 
-func TestPassphraseSecretRefMissingSecretLogsAndContinues(t *testing.T) {
-	// The passphrase Secret does not exist. Source must log and call the
-	// parser anyway (with empty Pkcs12Passphrase) — a sane PKCS#12 parser
-	// will surface bad_passphrase, but that's the parser's job.
+func TestPassphraseSecretRefMissingSecretSkipsParseWhenTryEmptyFalse(t *testing.T) {
+	// The passphrase Secret does not exist and tryEmptyPassphrase is false
+	// (default). The source must NOT call the parser — it emits a
+	// bad_passphrase bundle error directly rather than silently falling
+	// through to an empty-passphrase attempt.
 	certSec := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "ns"},
 		Type:       corev1.SecretType("kubernetes.io/tls"),
@@ -128,14 +138,37 @@ func TestPassphraseSecretRefMissingSecretLogsAndContinues(t *testing.T) {
 		Parser:              parser,
 	}
 	src := newSource(t, rule, certSec)
+	sink := &fakeSink{}
+	src.onSecret(context.Background(), sink, certSec, false)
+
+	parser.assertNotCalled(t)
+}
+
+func TestPassphraseSecretRefMissingSecretContinuesWhenTryEmptyTrue(t *testing.T) {
+	// Same setup, but tryEmptyPassphrase: true — source must still call the
+	// parser (with empty passphrase) so the parser can decide the outcome.
+	certSec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "ns"},
+		Type:       corev1.SecretType("kubernetes.io/tls"),
+		Data:       map[string][]byte{"keystore.p12": []byte("blob")},
+	}
+	parser := &recordingParser{}
+	rule := SecretTypeRule{
+		Type:                "kubernetes.io/tls",
+		KeyRe:               regexp.MustCompile(`^keystore\.p12$`),
+		PassphraseSecretRef: &PassphraseSecretRef{Name: "missing", Key: "pp"},
+		ParseOpts:           cert.ParseOptions{Pkcs12TryEmpty: true},
+		Parser:              parser,
+	}
+	src := newSource(t, rule, certSec)
 	src.onSecret(context.Background(), &fakeSink{}, certSec, false)
 
 	if got := parser.lastOpts(t).Pkcs12Passphrase; got != "" {
-		t.Fatalf("Pkcs12Passphrase = %q, want empty (missing ref)", got)
+		t.Fatalf("Pkcs12Passphrase = %q, want empty", got)
 	}
 }
 
-func TestPassphraseSecretRefMissingKeyLogsAndContinues(t *testing.T) {
+func TestPassphraseSecretRefMissingKeySkipsParseWhenTryEmptyFalse(t *testing.T) {
 	certSec := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "ns"},
 		Type:       corev1.SecretType("kubernetes.io/tls"),
@@ -155,9 +188,7 @@ func TestPassphraseSecretRefMissingKeyLogsAndContinues(t *testing.T) {
 	src := newSource(t, rule, certSec, ppSec)
 	src.onSecret(context.Background(), &fakeSink{}, certSec, false)
 
-	if got := parser.lastOpts(t).Pkcs12Passphrase; got != "" {
-		t.Fatalf("Pkcs12Passphrase = %q, want empty (key missing)", got)
-	}
+	parser.assertNotCalled(t)
 }
 
 func TestJksPassphraseSecretRefSameNamespace(t *testing.T) {

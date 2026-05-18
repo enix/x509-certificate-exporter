@@ -846,6 +846,7 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 					"ref_namespace", secretRef.Namespace, "ref_name", secretRef.Name,
 					"ref_key", secretRef.Key)
 			}
+			passphraseUnavailable := false
 			if rule.PassphraseKey != "" {
 				if pp, ok := sec.Data[rule.PassphraseKey]; ok {
 					po.Pkcs12Passphrase = strings.TrimRight(string(pp), "\r\n")
@@ -853,6 +854,7 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 					s.log.Debug("passphraseKey not found in secret data",
 						"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
 						"passphrase_key", rule.PassphraseKey)
+					passphraseUnavailable = !po.Pkcs12TryEmpty
 				}
 			}
 			if rule.PassphraseSecretRef != nil {
@@ -865,10 +867,21 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 					s.log.Debug("passphraseKey not found in secret data",
 						"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
 						"passphrase_key", rule.JksPassphraseKey)
+					passphraseUnavailable = !po.JksTryEmpty
 				}
 			}
 			if rule.JksPassphraseSecretRef != nil {
 				resolveRef(rule.JksPassphraseSecretRef, &po.JksPassphrase)
+			}
+			if passphraseUnavailable {
+				b := cert.Bundle{Source: ref, Errors: []cert.ItemError{{
+					Index:  -1,
+					Reason: cert.ReasonBadPassphrase,
+					Err:    fmt.Errorf("passphraseKey not found in secret data"),
+				}}}
+				s.trackUpsert(sink, b)
+				emitted++
+				continue
 			}
 			b := rule.Parser.Parse(v, ref, po)
 			s.trackUpsert(sink, b)

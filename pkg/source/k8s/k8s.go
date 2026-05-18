@@ -104,10 +104,10 @@ const (
 // use. KeyRe is compiled from the user-provided regex; one entry per
 // regex.
 type SecretTypeRule struct {
-	Type                string
-	KeyRe               *regexp.Regexp
-	Parser              cert.FormatParser
-	ParseOpts           cert.ParseOptions
+	Type                   string
+	KeyRe                  *regexp.Regexp
+	Parser                 cert.FormatParser
+	ParseOpts              cert.ParseOptions
 	PassphraseKey          string               // when format is pkcs12
 	JksPassphraseKey       string               // when format is jks
 	PassphraseSecretRef    *PassphraseSecretRef // pkcs12: optional cross-Secret passphrase ref
@@ -831,22 +831,28 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 			}
 			ref := s.refSecret(sec, k, rule.Parser.Format())
 			po := rule.ParseOpts
+			resolveRef := func(secretRef *PassphraseSecretRef, dest *string) {
+				pp, err := s.fetchPassphrase(ctx, secretRef, sec.Namespace)
+				if err != nil {
+					s.log.Info("passphraseSecretRef lookup failed",
+						"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
+						"ref_namespace", secretRef.Namespace, "ref_name", secretRef.Name,
+						"ref_key", secretRef.Key, "err", err)
+					return
+				}
+				*dest = pp
+				s.log.Debug("passphraseSecretRef resolved",
+					"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
+					"ref_namespace", secretRef.Namespace, "ref_name", secretRef.Name,
+					"ref_key", secretRef.Key)
+			}
 			if rule.PassphraseKey != "" {
 				if pp, ok := sec.Data[rule.PassphraseKey]; ok {
 					po.Pkcs12Passphrase = strings.TrimRight(string(pp), "\r\n")
 				}
 			}
 			if rule.PassphraseSecretRef != nil {
-				if pp, err := s.fetchPassphrase(ctx, rule.PassphraseSecretRef, sec.Namespace); err != nil {
-					s.log.Warn("passphraseSecretRef lookup failed",
-						"namespace", sec.Namespace, "name", sec.Name,
-						"ref_namespace", rule.PassphraseSecretRef.Namespace,
-						"ref_name", rule.PassphraseSecretRef.Name,
-						"ref_key", rule.PassphraseSecretRef.Key,
-						"err", err)
-				} else {
-					po.Pkcs12Passphrase = pp
-				}
+				resolveRef(rule.PassphraseSecretRef, &po.Pkcs12Passphrase)
 			}
 			if rule.JksPassphraseKey != "" {
 				if pp, ok := sec.Data[rule.JksPassphraseKey]; ok {
@@ -854,16 +860,7 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 				}
 			}
 			if rule.JksPassphraseSecretRef != nil {
-				if pp, err := s.fetchPassphrase(ctx, rule.JksPassphraseSecretRef, sec.Namespace); err != nil {
-					s.log.Warn("jks passphraseSecretRef lookup failed",
-						"namespace", sec.Namespace, "name", sec.Name,
-						"ref_namespace", rule.JksPassphraseSecretRef.Namespace,
-						"ref_name", rule.JksPassphraseSecretRef.Name,
-						"ref_key", rule.JksPassphraseSecretRef.Key,
-						"err", err)
-				} else {
-					po.JksPassphrase = pp
-				}
+				resolveRef(rule.JksPassphraseSecretRef, &po.JksPassphrase)
 			}
 			b := rule.Parser.Parse(v, ref, po)
 			s.trackUpsert(sink, b)

@@ -229,7 +229,7 @@ func New(opts Options, logger *slog.Logger) *Source {
 	}
 	return &Source{
 		opts:            opts,
-		log:             logger.With("source_kind", "kubernetes", "source_name", opts.Name),
+		log:             logger.With("source_name", opts.Name),
 		tracked:         map[string]struct{}{},
 		nsLabels:        map[string]map[string]string{},
 		nsLabelsChanged: make(chan struct{}, 1),

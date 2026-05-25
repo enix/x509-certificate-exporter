@@ -39,6 +39,7 @@ The exporter splits its output into four families:
 | Per-source | `x509_pkcs12_passphrase_failures_total` | counter | auto: when any source declares `format: pkcs12` |
 | Per-source | `x509_jks_passphrase_failures_total` | counter | auto: when any source declares `format: jks` |
 | Per-source | `x509_cert_collision_total` | counter | always |
+| Per-source | `x509_cert_collision_dropped_total` | counter | always |
 | Diagnostic | `x509_parse_duration_seconds` | histogram | `metrics.exposeDiagnostics: true` |
 | Diagnostic | `x509_kube_request_duration_seconds` | histogram | `metrics.exposeDiagnostics: true`, Kubernetes sources only |
 | Diagnostic | `x509_kube_informer_scope` | gauge | `metrics.exposeDiagnostics: true`, Kubernetes sources only |
@@ -429,8 +430,13 @@ key wasn't, or a `passphraseFile` was stale.
 ### `x509_cert_collision_total`
 
 Number of times the registry detected two distinct certificates that
-would have produced the same Prometheus label set, and resolved the
-collision by adding a `discriminator` label to one of them.
+would have produced the same Prometheus label set. This counter ticks
+on **every scrape** while the collision persists, regardless of how
+the registry resolves it — discriminator label, never-emit drop, or
+unconditional discriminator. Use it as a diagnostic that "your config
+has overlapping rules", not as a data-loss alarm.
+
+For the data-loss-only signal, see [`x509_cert_collision_dropped_total`](#x509_cert_collision_dropped_total).
 
 - **Type**: counter
 - **Labels**: `source_kind`
@@ -442,6 +448,25 @@ counter increasing means the exporter is working around the ambiguity
 with the discriminator scheme set in `metrics.collisionDiscriminator`
 (default `auto`); investigate so you can disambiguate at the source
 rather than rely on the auto-discriminator.
+
+### `x509_cert_collision_dropped_total`
+
+Number of certificate items that were **actually thrown away** because
+of a label collision and the registry's `Collision=Never` policy. Each
+increment means one certificate is no longer reported and its
+expiration will not trigger any alert. Stays at 0 under the default
+`CollisionAuto` and under `CollisionAlways`, where the discriminator
+disambiguates colliding rows instead of dropping them.
+
+- **Type**: counter
+- **Labels**: `source_kind`
+- **Always emitted.**
+
+This is the right signal to page on for "a watched cert went silently
+invisible". The `CertificateCollision` PrometheusRule alert shipped by
+the Helm chart watches this counter rather than the detect-only
+[`x509_cert_collision_total`](#x509_cert_collision_total) so it stays
+quiet under the default policy.
 
 ---
 

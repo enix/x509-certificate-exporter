@@ -257,6 +257,15 @@ func TestCollisionAuto(t *testing.T) {
 	if !found {
 		t.Fatalf("expected discriminator label on collision in auto mode")
 	}
+	// `_total` reflects "detected", so it ticks. `_dropped_total` only
+	// fires when an item is actually thrown away (CollisionNever) — must
+	// stay at 0 when the discriminator resolves the collision.
+	if got := testutil.ToFloat64(r.collisionTotal.WithLabelValues("file")); got < 1 {
+		t.Fatalf("collisionTotal = %v want >=1 (collision was detected)", got)
+	}
+	if got := testutil.ToFloat64(r.collisionDropped.WithLabelValues("file")); got != 0 {
+		t.Fatalf("collisionDropped = %v want 0 (auto resolves via discriminator)", got)
+	}
 }
 
 func TestCollisionAlways(t *testing.T) {
@@ -303,6 +312,12 @@ func TestCollisionNeverDedups(t *testing.T) {
 	}
 	if got := testutil.ToFloat64(r.collisionTotal.WithLabelValues("file")); got < 1 {
 		t.Fatalf("collisionTotal = %v want >=1", got)
+	}
+	// CollisionNever is the only mode that actually drops data — alerts
+	// must be wired to this counter to distinguish "config overlap" from
+	// "silently lost certificate".
+	if got := testutil.ToFloat64(r.collisionDropped.WithLabelValues("file")); got < 1 {
+		t.Fatalf("collisionDropped = %v want >=1 (Never drops the loser)", got)
 	}
 }
 

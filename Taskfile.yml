@@ -266,9 +266,23 @@ tasks:
       _KUBECONFIG_E2E: "{{.KUBECONFIG_E2E}}"
       _K3S_IMAGE: "{{.K3S_IMAGE}}"
     cmds:
+      # Defers are LIFO. Order of registration → execution:
+      #   1. k3d registry delete — disconnects the registry container from the
+      #      cluster network (`--registry-use` attached it at create time). If
+      #      we left it for after the cluster delete, Docker would refuse to
+      #      remove the network because the registry is still on it, and the
+      #      network would leak. After enough leaks, Docker's predefined
+      #      address pool exhausts: "all predefined address pools have been
+      #      fully subnetted".
+      #   2. k3d cluster delete — removes the server/agent containers and
+      #      the network (now empty).
+      #   3. docker network rm — paranoia step: if k3d ever still leaks the
+      #      network for whatever reason, this catches it. Always exits 0.
+      #   4. rm kubeconfig.
       - defer: rm -f -- "$_KUBECONFIG_E2E"
-      - defer: k3d registry delete "$_REGISTRY"
+      - defer: docker network rm "k3d-$_CLUSTER" 2>/dev/null || true
       - defer: k3d cluster delete "$_CLUSTER"
+      - defer: k3d registry delete "$_REGISTRY"
       - k3d registry create "$_REGISTRY" --port "$_REGISTRY_PORT" --no-help
       - cmd: |
           k3d cluster create "$_CLUSTER" \

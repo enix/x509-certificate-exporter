@@ -132,7 +132,13 @@ spec:
     {{- end }}
     {{- if .Values.prometheusRules.alertOnCertificateCollisions }}
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateCollision" | trim }}'
-      expr: increase(x509_cert_collision_total[1h]) > 0
+      # Targets the `_dropped_total` counter so the alert only fires for
+      # actual data-loss (registry CollisionNever policy). The detect-only
+      # counter `x509_cert_collision_total` keeps ticking under the
+      # default CollisionAuto policy, where the discriminator resolves
+      # the overlap and no data is lost — that signal stays available as
+      # a diagnostic on dashboards but doesn't page.
+      expr: increase(x509_cert_collision_dropped_total[1h]) > 0
       for: 15m
       labels:
         severity: {{ .Values.prometheusRules.certificateCollisionsSeverity }}
@@ -140,8 +146,8 @@ spec:
         {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
         {{- end }}
       annotations:
-        summary: Certificate label collision detected
-        description: Two or more certificates observed by source kind `{{ "{{" }} $labels.source_kind {{ "}}" }}` share the same Prometheus label set, so only one of them gets reported. The other is silently invisible — its expiration will not raise an alert. Typically caused by overlapping `secretTypes` / `configMapKeys` patterns, or identical subjects in two distinct keystores.
+        summary: Certificate label collision dropped a series
+        description: At least one certificate observed by source kind `{{ "{{" }} $labels.source_kind {{ "}}" }}` was dropped because it shared its Prometheus label set with another and the registry is configured with `Collision=Never`. Its expiration will not raise an alert. Typically caused by overlapping `secretTypes` / `configMapKeys` patterns, or identical subjects in two distinct keystores; either disambiguate the source config or switch the registry to the default `Auto` policy so the discriminator label disambiguates the series instead.
         {{- if .Values.prometheusRules.alertExtraAnnotations }}
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}

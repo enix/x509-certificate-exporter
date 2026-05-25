@@ -102,6 +102,7 @@ func (r *Registry) Describe(ch chan<- *prometheus.Desc) {
 	r.sourceErrors.Describe(ch)
 	r.sourceBundles.Describe(ch)
 	r.collisionTotal.Describe(ch)
+	r.collisionDropped.Describe(ch)
 	ch <- r.scrapeDuration.Desc()
 	r.panicTotal.Describe(ch)
 	r.watchResyncs.Describe(ch)
@@ -143,6 +144,7 @@ func (r *Registry) Collect(ch chan<- prometheus.Metric) {
 	r.sourceErrors.Collect(ch)
 	r.sourceBundles.Collect(ch)
 	r.collisionTotal.Collect(ch)
+	r.collisionDropped.Collect(ch)
 	r.panicTotal.Collect(ch)
 	r.watchResyncs.Collect(ch)
 	if r.parseDuration != nil {
@@ -217,7 +219,9 @@ func (r *Registry) emitCertMetrics(ch chan<- prometheus.Metric, bundles []cert.B
 						best = it
 					}
 				}
-				r.collisionTotal.WithLabelValues(kind).Add(float64(len(items) - 1))
+				dropped := float64(len(items) - 1)
+				r.collisionTotal.WithLabelValues(kind).Add(dropped)
+				r.collisionDropped.WithLabelValues(kind).Add(dropped)
 				r.emitItem(ch, best, false)
 				continue
 			}

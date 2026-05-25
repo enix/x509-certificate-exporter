@@ -91,6 +91,7 @@ type Registry struct {
 	sourceErrors             *prometheus.CounterVec
 	sourceBundles            *prometheus.GaugeVec
 	collisionTotal           *prometheus.CounterVec
+	collisionDropped         *prometheus.CounterVec
 	scrapeDuration           prometheus.Histogram
 	parseDuration            *prometheus.HistogramVec
 	panicTotal               *prometheus.CounterVec
@@ -140,7 +141,10 @@ func (r *Registry) initSelfMetrics() {
 		Name: "x509_source_bundles", Help: "Number of bundles currently tracked per source.",
 	}, []string{"source_kind", "source_name"})
 	r.collisionTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "x509_cert_collision_total", Help: "Number of label-collision events resolved by the registry.",
+		Name: "x509_cert_collision_total", Help: "Number of label-collision events detected by the registry, regardless of resolution policy. Increments on every scrape while a collision persists — useful as a diagnostic that the config has overlapping rules, but not a data-loss signal on its own. For that, see x509_cert_collision_dropped_total.",
+	}, []string{"source_kind"})
+	r.collisionDropped = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "x509_cert_collision_dropped_total", Help: "Number of certificate label-collision events that resulted in actual data loss — i.e. one or more colliding items were dropped because the registry is configured with Collision=Never. Stays at 0 under the default CollisionAuto policy (discriminator added) and under CollisionAlways. Alert on this for real silently-invisible certificates.",
 	}, []string{"source_kind"})
 	r.scrapeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:    "x509_scrape_duration_seconds",

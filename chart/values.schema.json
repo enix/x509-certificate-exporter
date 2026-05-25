@@ -580,6 +580,10 @@
           "default": true,
           "type": "boolean"
         },
+        "alertOnKubeTransportErrors": {
+          "default": true,
+          "type": "boolean"
+        },
         "alertOnPassphraseFailures": {
           "default": true,
           "type": "boolean"
@@ -683,6 +687,24 @@
           "additionalProperties": true,
           "required": []
         },
+        "kubeTransportErrorsSeverity": {
+          "default": "warning",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
+        },
+        "kubeTransportErrorsSustainedSeverity": {
+          "default": "critical",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
+        },
         "passphraseFailuresSeverity": {
           "default": "warning",
           "enum": [
@@ -724,6 +746,7 @@
         "create",
         "alertOnReadErrors",
         "alertOnSourceDown",
+        "alertOnKubeTransportErrors",
         "alertOnPassphraseFailures",
         "alertOnCertificateErrors",
         "alertOnCertificateNotYetValid",

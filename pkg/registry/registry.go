@@ -98,6 +98,7 @@ type Registry struct {
 	informerScope            *prometheus.GaugeVec
 	informerQueueDepth       *prometheus.GaugeVec
 	watchResyncs             *prometheus.CounterVec
+	transportErrors          *prometheus.CounterVec
 	pkcs12PassphraseFailures *prometheus.CounterVec
 	jksPassphraseFailures    *prometheus.CounterVec
 	kubeRequestDuration      *prometheus.HistogramVec
@@ -157,6 +158,9 @@ func (r *Registry) initSelfMetrics() {
 	r.watchResyncs = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "x509_kube_watch_resyncs_total", Help: "Number of forced resyncs (WatchExpired / 410 Gone).",
 	}, []string{"source_name", "resource"})
+	r.transportErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "x509_kube_transport_errors_total", Help: "Transport-level failures in the kubernetes source's LIST/WATCH loop, by resource and reason. Distinct from x509_source_errors_total (which counts bundle-level parse failures): this counter captures operational issues below the bundle layer — LIST returning an error, WATCH failing to start, the WATCH stream surfacing an Error event, watches flapping (closing within a few seconds of opening), and the namespace informer failing to converge. None of these would otherwise be visible as metrics, only in logs.",
+	}, []string{"source_name", "resource", "reason"})
 	if r.cfg.ExposeDiagnostics {
 		r.parseDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Name:    "x509_parse_duration_seconds",
@@ -441,6 +445,14 @@ func (r *Registry) MarkWatchResync(sourceName, resource string) {
 		r.statsMu.Unlock()
 	}
 	r.watchResyncs.WithLabelValues(sourceName, resource).Inc()
+}
+
+// MarkTransportError increments the kubernetes-source transport error
+// counter for (sourceName, resource, reason). The reason should be one
+// of the cert.Reason* transport constants — anything else is accepted
+// but breaks alert expressions that match on those literals.
+func (r *Registry) MarkTransportError(sourceName, resource, reason string) {
+	r.transportErrors.WithLabelValues(sourceName, resource, reason).Inc()
 }
 
 // snapshot copies the bundles map under the read lock.

@@ -754,6 +754,18 @@ prometheusRules:
   # @schema
   # -- Severity for the SourceDown alerting rule
   sourceDownSeverity: critical
+  # -- Should the KubeTransportErrors / KubeTransportErrorsSustained alerting rules be created to notify when the Kubernetes source records LIST/WATCH/informer-level failures (auth rotation drift, apiserver throttling, persistent network issues). The two share one toggle and one expression but two severities: warning fires after >5 errors in 15 minutes (filters out the 1–3 events a rolling control-plane upgrade typically produces), critical fires once that condition has held continuously for 30 minutes (sustained dysfunction, not a transient blip). Independent from X509ExporterReadErrors: the latter covers per-HTTP-response errors via `x509_source_errors_total`, this one covers higher-level transport state (watch flapping, list backoff, namespace informer sync timeouts).
+  alertOnKubeTransportErrors: true
+  # @schema
+  # enum: [info, warning, critical]
+  # @schema
+  # -- Severity for the KubeTransportErrors alerting rule (warning band — >5 events in 15min)
+  kubeTransportErrorsSeverity: warning
+  # @schema
+  # enum: [info, warning, critical]
+  # @schema
+  # -- Severity for the KubeTransportErrorsSustained alerting rule (critical band — warning condition has held for ≥30min)
+  kubeTransportErrorsSustainedSeverity: critical
   # -- Should the KeystorePassphraseFailures alerting rule be created to notify when PKCS#12 or JKS/JCEKS decoding fails with `bad_passphrase`. A misconfigured passphraseKey/passphraseSecretRef would otherwise leak only into logs and a counter that no one watches.
   alertOnPassphraseFailures: true
   # @schema

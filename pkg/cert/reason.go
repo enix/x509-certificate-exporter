@@ -31,4 +31,16 @@ const (
 	// Centralised here so the wording stays consistent.
 	ReasonNameFilter      = "name_filter"
 	ReasonNamespaceFilter = "namespace_filter"
+
+	// Kubernetes-source transport reasons. Surface as the `reason` label
+	// of x509_kube_transport_errors_total. Distinct from the bundle
+	// reasons above: these describe what went wrong below the bundle
+	// layer (LIST/WATCH/informer), not what went wrong parsing a
+	// certificate. Kept here so call sites in pkg/source/k8s and the
+	// alerting rules stay in lockstep on spelling.
+	ReasonListFailed         = "list_failed"
+	ReasonWatchStartFailed   = "watch_start_failed"
+	ReasonWatchErrorEvent    = "watch_error_event"
+	ReasonWatchFlapped       = "watch_flapped"
+	ReasonNamespaceSyncFail  = "namespace_sync_failed"
 )

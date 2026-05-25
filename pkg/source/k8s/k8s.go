@@ -831,58 +831,74 @@ func (s *Source) onSecret(ctx context.Context, sink cert.Sink, obj any, deleted 
 			}
 			ref := s.refSecret(sec, k, rule.Parser.Format())
 			po := rule.ParseOpts
-			resolveRef := func(secretRef *PassphraseSecretRef, dest *string) bool {
+			resolveRef := func(secretRef *PassphraseSecretRef, dest *string) error {
 				pp, err := s.fetchPassphrase(ctx, secretRef, sec.Namespace)
 				if err != nil {
 					s.log.Info("passphraseSecretRef lookup failed",
 						"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
 						"ref_namespace", secretRef.Namespace, "ref_name", secretRef.Name,
 						"ref_key", secretRef.Key, "err", err)
-					return false
+					return err
 				}
 				*dest = pp
 				s.log.Debug("passphraseSecretRef resolved",
 					"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
 					"ref_namespace", secretRef.Namespace, "ref_name", secretRef.Name,
 					"ref_key", secretRef.Key)
-				return true
+				return nil
 			}
-			passphraseUnavailable := false
-			if rule.PassphraseKey != "" {
-				if pp, ok := sec.Data[rule.PassphraseKey]; ok {
-					po.Pkcs12Passphrase = strings.TrimRight(string(pp), "\r\n")
-				} else {
-					s.log.Debug("passphraseKey not found in secret data",
-						"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
-						"passphrase_key", rule.PassphraseKey)
-					passphraseUnavailable = !po.Pkcs12TryEmpty
+			tryKey := func(passphraseKey string, dest *string) error {
+				if pp, ok := sec.Data[passphraseKey]; ok {
+					*dest = strings.TrimRight(string(pp), "\r\n")
+					return nil
 				}
+				s.log.Debug("passphraseKey not found in secret data",
+					"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
+					"passphrase_key", passphraseKey)
+				return fmt.Errorf("passphraseKey %q not found in secret data", passphraseKey)
+			}
+			// Per-rule passphrase resolution. A rule is mono-format
+			// (Parser.Format()), so only the matching pair of fields is
+			// populated by the wiring layer — the other pair is zero
+			// values that no-op here. The bundle error preserves the
+			// concrete cause (missing key vs failed SecretRef lookup)
+			// of the last failed source, so the operator sees a useful
+			// reason in metrics + logs instead of a generic message.
+			passphraseAttempted := false
+			passphraseObtained := false
+			var passphraseErr error
+			recordResult := func(err error) {
+				passphraseAttempted = true
+				if err == nil {
+					passphraseObtained = true
+					return
+				}
+				passphraseErr = err
+			}
+			if rule.PassphraseKey != "" {
+				recordResult(tryKey(rule.PassphraseKey, &po.Pkcs12Passphrase))
 			}
 			if rule.PassphraseSecretRef != nil {
-				if ok := resolveRef(rule.PassphraseSecretRef, &po.Pkcs12Passphrase); !ok {
-					passphraseUnavailable = !po.Pkcs12TryEmpty
-				}
+				recordResult(resolveRef(rule.PassphraseSecretRef, &po.Pkcs12Passphrase))
 			}
 			if rule.JksPassphraseKey != "" {
-				if pp, ok := sec.Data[rule.JksPassphraseKey]; ok {
-					po.JksPassphrase = strings.TrimRight(string(pp), "\r\n")
-				} else {
-					s.log.Debug("passphraseKey not found in secret data",
-						"namespace", sec.Namespace, "name", sec.Name, "format", ref.Format,
-						"passphrase_key", rule.JksPassphraseKey)
-					passphraseUnavailable = !po.JksTryEmpty
-				}
+				recordResult(tryKey(rule.JksPassphraseKey, &po.JksPassphrase))
 			}
 			if rule.JksPassphraseSecretRef != nil {
-				if ok := resolveRef(rule.JksPassphraseSecretRef, &po.JksPassphrase); !ok {
-					passphraseUnavailable = !po.JksTryEmpty
-				}
+				recordResult(resolveRef(rule.JksPassphraseSecretRef, &po.JksPassphrase))
 			}
-			if passphraseUnavailable {
+			tryEmpty := false
+			switch ref.Format {
+			case cert.FormatPKCS12:
+				tryEmpty = po.Pkcs12TryEmpty
+			case cert.FormatJKS:
+				tryEmpty = po.JksTryEmpty
+			}
+			if passphraseAttempted && !passphraseObtained && !tryEmpty {
 				b := cert.Bundle{Source: ref, Errors: []cert.ItemError{{
 					Index:  -1,
 					Reason: cert.ReasonBadPassphrase,
-					Err:    fmt.Errorf("passphraseKey not found in secret data"),
+					Err:    passphraseErr,
 				}}}
 				s.trackUpsert(sink, b)
 				emitted++

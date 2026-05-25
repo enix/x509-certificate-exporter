@@ -35,6 +35,38 @@ spec:
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}
     {{- end }}
+    {{- if .Values.prometheusRules.alertOnSourceDown }}
+    - alert: '{{ printf "%s %s" $rulePrefix "SourceDown" | trim }}'
+      expr: x509_source_up == 0
+      for: 5m
+      labels:
+        severity: {{ .Values.prometheusRules.sourceDownSeverity }}
+        {{- if .Values.prometheusRules.alertExtraLabels }}
+        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        summary: x509-certificate-exporter source is not reporting healthy
+        description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` (kind `{{ "{{" }} $labels.source_kind {{ "}}" }}`) failed its initial sync or has gone unhealthy. While this lasts, certificates it normally watches are not being checked — a silently expired cert is possible. Common causes are RBAC denials, persistent K8s API errors, or unreadable file paths.
+        {{- if .Values.prometheusRules.alertExtraAnnotations }}
+        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
+        {{- end }}
+    {{- end }}
+    {{- if .Values.prometheusRules.alertOnPassphraseFailures }}
+    - alert: '{{ printf "%s %s" $rulePrefix "KeystorePassphraseFailures" | trim }}'
+      expr: (increase(x509_pkcs12_passphrase_failures_total[15m]) > 0) or (increase(x509_jks_passphrase_failures_total[15m]) > 0)
+      for: 15m
+      labels:
+        severity: {{ .Values.prometheusRules.passphraseFailuresSeverity }}
+        {{- if .Values.prometheusRules.alertExtraLabels }}
+        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        summary: Keystore passphrase failures observed
+        description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` recorded PKCS#12 or JKS/JCEKS decode failures with reason `bad_passphrase` over the last 15 minutes. The configured passphrase is wrong, missing, or pointing at the wrong key — the affected keystores are not contributing any certificate metrics.
+        {{- if .Values.prometheusRules.alertExtraAnnotations }}
+        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
+        {{- end }}
+    {{- end }}
     {{- if .Values.prometheusRules.alertOnCertificateErrors }}
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateError" | trim }}'
       expr: x509_cert_error > 0
@@ -79,6 +111,41 @@ spec:
         {{- if .Values.prometheusRules.alertExtraAnnotations }}
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}
+    {{- if .Values.prometheusRules.alertOnCertificateNotYetValid }}
+    - alert: '{{ printf "%s %s" $rulePrefix "CertificateNotYetValid" | trim }}'
+      # Depends on `exposeNotBeforeMetric: true` — without it the
+      # `x509_cert_not_before` series isn't emitted and this rule is a
+      # silent no-op. Documented in the values comment alongside.
+      expr: (x509_cert_not_before - time()) > 0
+      for: 15m
+      labels:
+        severity: {{ .Values.prometheusRules.certificateNotYetValidSeverity }}
+        {{- if .Values.prometheusRules.alertExtraLabels }}
+        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        summary: Certificate is not yet valid
+        description: Certificate for `{{ "{{" }} $labels.subject_CN {{ "}}" }}` becomes valid in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}. Likely a clock drift, a misdated issuance, or a planned-future cert that shipped early.
+        {{- if .Values.prometheusRules.alertExtraAnnotations }}
+        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
+        {{- end }}
+    {{- end }}
+    {{- if .Values.prometheusRules.alertOnCertificateCollisions }}
+    - alert: '{{ printf "%s %s" $rulePrefix "CertificateCollision" | trim }}'
+      expr: increase(x509_cert_collision_total[1h]) > 0
+      for: 15m
+      labels:
+        severity: {{ .Values.prometheusRules.certificateCollisionsSeverity }}
+        {{- if .Values.prometheusRules.alertExtraLabels }}
+        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        summary: Certificate label collision detected
+        description: Two or more certificates observed by source kind `{{ "{{" }} $labels.source_kind {{ "}}" }}` share the same Prometheus label set, so only one of them gets reported. The other is silently invisible — its expiration will not raise an alert. Typically caused by overlapping `secretTypes` / `configMapKeys` patterns, or identical subjects in two distinct keystores.
+        {{- if .Values.prometheusRules.alertExtraAnnotations }}
+        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
+        {{- end }}
+    {{- end }}
     {{- if .Values.prometheusRules.alertOnCRLs }}
     - alert: '{{ printf "%s %s" $rulePrefix "CRLNeedsRefresh" | trim }}'
       expr: (x509_crl_next_update - time()) < ({{ .Values.prometheusRules.crlWarningDaysLeft }} * 86400) and x509_crl_stale == 0

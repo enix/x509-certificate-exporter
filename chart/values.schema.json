@@ -568,13 +568,38 @@
           "default": true,
           "type": "boolean"
         },
+        "alertOnCertificateCollisions": {
+          "default": true,
+          "type": "boolean"
+        },
         "alertOnCertificateErrors": {
+          "default": true,
+          "type": "boolean"
+        },
+        "alertOnCertificateNotYetValid": {
+          "default": true,
+          "type": "boolean"
+        },
+        "alertOnPassphraseFailures": {
           "default": true,
           "type": "boolean"
         },
         "alertOnReadErrors": {
           "default": true,
           "type": "boolean"
+        },
+        "alertOnSourceDown": {
+          "default": true,
+          "type": "boolean"
+        },
+        "certificateCollisionsSeverity": {
+          "default": "warning",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
         },
         "certificateErrorsSeverity": {
           "default": "warning",
@@ -587,6 +612,15 @@
         },
         "certificateExpirationsSeverity": {
           "default": "critical",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
+        },
+        "certificateNotYetValidSeverity": {
+          "default": "warning",
           "enum": [
             "info",
             "warning",
@@ -649,6 +683,15 @@
           "additionalProperties": true,
           "required": []
         },
+        "passphraseFailuresSeverity": {
+          "default": "warning",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
+        },
         "readErrorsSeverity": {
           "default": "warning",
           "enum": [
@@ -662,6 +705,15 @@
           "default": "",
           "type": "string"
         },
+        "sourceDownSeverity": {
+          "default": "critical",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
+        },
         "warningDaysLeft": {
           "default": "28",
           "minimum": 0,
@@ -671,7 +723,11 @@
       "required": [
         "create",
         "alertOnReadErrors",
+        "alertOnSourceDown",
+        "alertOnPassphraseFailures",
         "alertOnCertificateErrors",
+        "alertOnCertificateNotYetValid",
+        "alertOnCertificateCollisions",
         "alertOnCRLs",
         "rulePrefix",
         "disableBuiltinAlertGroup",

@@ -407,8 +407,16 @@ exporter-toolkit is the recommended path on new installs.
 | prometheusRules.create | bool | `true` | Should a PrometheusRule object be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users. |
 | prometheusRules.alertOnReadErrors | bool | `true` | Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions. |
 | prometheusRules.readErrorsSeverity | string | `"warning"` | Severity for the X509ExporterReadErrors alerting rule |
+| prometheusRules.alertOnSourceDown | bool | `true` | Should the SourceDown alerting rule be created to notify when a source fails its initial sync or stops reporting (`x509_source_up == 0`). A source that is down means every certificate it normally watches has stopped being checked — a silently expired cert is then possible. |
+| prometheusRules.sourceDownSeverity | string | `"critical"` | Severity for the SourceDown alerting rule |
+| prometheusRules.alertOnPassphraseFailures | bool | `true` | Should the KeystorePassphraseFailures alerting rule be created to notify when PKCS#12 or JKS/JCEKS decoding fails with `bad_passphrase`. A misconfigured passphraseKey/passphraseSecretRef would otherwise leak only into logs and a counter that no one watches. |
+| prometheusRules.passphraseFailuresSeverity | string | `"warning"` | Severity for the KeystorePassphraseFailures alerting rule |
 | prometheusRules.alertOnCertificateErrors | bool | `true` | Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too. |
 | prometheusRules.certificateErrorsSeverity | string | `"warning"` | Severity for the CertificateError alerting rule |
+| prometheusRules.alertOnCertificateNotYetValid | bool | `true` | Should the CertificateNotYetValid alerting rule be created to notify when a certificate's `notBefore` is in the future. Depends on `exposeNotBeforeMetric: true` — without it the underlying `x509_cert_not_before` series isn't emitted and the rule is a silent no-op. |
+| prometheusRules.certificateNotYetValidSeverity | string | `"warning"` | Severity for the CertificateNotYetValid alerting rule |
+| prometheusRules.alertOnCertificateCollisions | bool | `true` | Should the CertificateCollision alerting rule be created to notify when two or more certificates share the same Prometheus label set — only one of them is reported, the other is invisible. |
+| prometheusRules.certificateCollisionsSeverity | string | `"warning"` | Severity for the CertificateCollision alerting rule |
 | prometheusRules.certificateRenewalsSeverity | string | `"warning"` | Severity for the CertificateRenewal alerting rule |
 | prometheusRules.certificateExpirationsSeverity | string | `"critical"` | Severity for the CertificateExpiration alerting rule |
 | prometheusRules.warningDaysLeft | int | `28` | Raise a warning alert when fewer than this many days are left before a certificate expiration (cert-manager would renew Let's Encrypt certs before day 29) |

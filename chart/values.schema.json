@@ -564,15 +564,11 @@
           "additionalProperties": true,
           "required": []
         },
-        "alertOnCRLs": {
+        "alertOnCertificateCollision": {
           "default": true,
           "type": "boolean"
         },
-        "alertOnCertificateCollisions": {
-          "default": true,
-          "type": "boolean"
-        },
-        "alertOnCertificateErrors": {
+        "alertOnCertificateError": {
           "default": true,
           "type": "boolean"
         },
@@ -580,15 +576,11 @@
           "default": true,
           "type": "boolean"
         },
+        "alertOnKeystorePassphraseFailures": {
+          "default": true,
+          "type": "boolean"
+        },
         "alertOnKubeTransportErrors": {
-          "default": true,
-          "type": "boolean"
-        },
-        "alertOnPassphraseFailures": {
-          "default": true,
-          "type": "boolean"
-        },
-        "alertOnReadErrors": {
           "default": true,
           "type": "boolean"
         },
@@ -596,7 +588,11 @@
           "default": true,
           "type": "boolean"
         },
-        "certificateCollisionsSeverity": {
+        "alertOnSourceErrors": {
+          "default": true,
+          "type": "boolean"
+        },
+        "certificateCollisionSeverity": {
           "default": "warning",
           "enum": [
             "info",
@@ -605,7 +601,7 @@
           ],
           "required": []
         },
-        "certificateErrorsSeverity": {
+        "certificateErrorSeverity": {
           "default": "warning",
           "enum": [
             "info",
@@ -687,6 +683,15 @@
           "additionalProperties": true,
           "required": []
         },
+        "keystorePassphraseFailuresSeverity": {
+          "default": "warning",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
+        },
         "kubeTransportErrorsSeverity": {
           "default": "warning",
           "enum": [
@@ -698,24 +703,6 @@
         },
         "kubeTransportErrorsSustainedSeverity": {
           "default": "critical",
-          "enum": [
-            "info",
-            "warning",
-            "critical"
-          ],
-          "required": []
-        },
-        "passphraseFailuresSeverity": {
-          "default": "warning",
-          "enum": [
-            "info",
-            "warning",
-            "critical"
-          ],
-          "required": []
-        },
-        "readErrorsSeverity": {
-          "default": "warning",
           "enum": [
             "info",
             "warning",
@@ -736,6 +723,24 @@
           ],
           "required": []
         },
+        "sourceErrorsSeverity": {
+          "default": "warning",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
+        },
+        "sourceErrorsSustainedSeverity": {
+          "default": "critical",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "required": []
+        },
         "warningDaysLeft": {
           "default": "28",
           "minimum": 0,
@@ -744,14 +749,13 @@
       },
       "required": [
         "create",
-        "alertOnReadErrors",
+        "alertOnSourceErrors",
         "alertOnSourceDown",
         "alertOnKubeTransportErrors",
-        "alertOnPassphraseFailures",
-        "alertOnCertificateErrors",
+        "alertOnKeystorePassphraseFailures",
+        "alertOnCertificateError",
         "alertOnCertificateNotYetValid",
-        "alertOnCertificateCollisions",
-        "alertOnCRLs",
+        "alertOnCertificateCollision",
         "rulePrefix",
         "disableBuiltinAlertGroup",
         "extraAlertGroups"

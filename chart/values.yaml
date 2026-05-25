@@ -740,13 +740,37 @@ prometheusPodMonitor:
 prometheusRules:
   # -- Should a PrometheusRule object be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users.
   create: true
-  # -- Should the X509ExporterReadErrors alerting rule be created to notify when the exporter can't read files or authenticate with the Kubernetes API. It aims at preventing undetected misconfigurations and monitoring regressions.
-  alertOnReadErrors: true
+  # -- Prefix prepended to the alert rule names of PrometheusRule rules
+  rulePrefix: ""
+  # @schema
+  # additionalProperties: true
+  # @schema
+  # -- Additional labels to add to PrometheusRule objects
+  extraLabels: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
+  # -- Additional labels to add to PrometheusRule rules
+  alertExtraLabels: {}
+  # @schema
+  # additionalProperties: true
+  # @schema
+  # -- Additional annotations to add to PrometheusRule rules
+  alertExtraAnnotations: {}
+
+  # ─── Source health alerts ──────────────────────────────────────────────
+  # -- Should the SourceErrors / SourceErrorsSustained alerting rules be created to notify when a source produces decode or transport errors. Two bands share one toggle and one expression: warning fires after >5 errors in 15 minutes (aggregated across reasons, so a single malformed cert won't page), critical fires once that condition has held continuously for 30 minutes.
+  alertOnSourceErrors: true
   # @schema
   # enum: [info, warning, critical]
   # @schema
-  # -- Severity for the X509ExporterReadErrors alerting rule
-  readErrorsSeverity: warning
+  # -- Severity for the SourceErrors alerting rule (warning band — >5 errors in 15min)
+  sourceErrorsSeverity: warning
+  # @schema
+  # enum: [info, warning, critical]
+  # @schema
+  # -- Severity for the SourceErrorsSustained alerting rule (critical band — warning condition has held for ≥30min)
+  sourceErrorsSustainedSeverity: critical
   # -- Should the SourceDown alerting rule be created to notify when a source fails its initial sync or stops reporting (`x509_source_up == 0`). A source that is down means every certificate it normally watches has stopped being checked — a silently expired cert is then possible.
   alertOnSourceDown: true
   # @schema
@@ -754,7 +778,7 @@ prometheusRules:
   # @schema
   # -- Severity for the SourceDown alerting rule
   sourceDownSeverity: critical
-  # -- Should the KubeTransportErrors / KubeTransportErrorsSustained alerting rules be created to notify when the Kubernetes source records LIST/WATCH/informer-level failures (auth rotation drift, apiserver throttling, persistent network issues). The two share one toggle and one expression but two severities: warning fires after >5 errors in 15 minutes (filters out the 1–3 events a rolling control-plane upgrade typically produces), critical fires once that condition has held continuously for 30 minutes (sustained dysfunction, not a transient blip). Independent from X509ExporterReadErrors: the latter covers per-HTTP-response errors via `x509_source_errors_total`, this one covers higher-level transport state (watch flapping, list backoff, namespace informer sync timeouts).
+  # -- Should the KubeTransportErrors / KubeTransportErrorsSustained alerting rules be created to notify when the Kubernetes source records LIST/WATCH/informer-level failures (auth rotation drift, apiserver throttling, persistent network issues). The two share one toggle and one expression but two severities: warning fires after >5 errors in 15 minutes (filters out the 1–3 events a rolling control-plane upgrade typically produces), critical fires once that condition has held continuously for 30 minutes. Independent from SourceErrors: this one is scoped to Kubernetes API transport state (watch flapping, list backoff, namespace informer sync timeouts), the other covers decode-level errors across all source kinds.
   alertOnKubeTransportErrors: true
   # @schema
   # enum: [info, warning, critical]
@@ -767,33 +791,25 @@ prometheusRules:
   # -- Severity for the KubeTransportErrorsSustained alerting rule (critical band — warning condition has held for ≥30min)
   kubeTransportErrorsSustainedSeverity: critical
   # -- Should the KeystorePassphraseFailures alerting rule be created to notify when PKCS#12 or JKS/JCEKS decoding fails with `bad_passphrase`. A misconfigured passphraseKey/passphraseSecretRef would otherwise leak only into logs and a counter that no one watches.
-  alertOnPassphraseFailures: true
+  alertOnKeystorePassphraseFailures: true
   # @schema
   # enum: [info, warning, critical]
   # @schema
   # -- Severity for the KeystorePassphraseFailures alerting rule
-  passphraseFailuresSeverity: warning
-  # -- Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics` to be enabled too.
-  alertOnCertificateErrors: true
+  keystorePassphraseFailuresSeverity: warning
+
+  # ─── Certificate lifecycle alerts ──────────────────────────────────────
+  # CertificateRenewal and CertificateExpiration have no toggle: expiration
+  # monitoring is the exporter's core value, disabling them would defeat
+  # the purpose of the chart. The remaining rules guard against specific
+  # operational failure modes and are individually opt-out.
+  # -- Should the CertificateError alerting rule be created to notify when the exporter can't decode or process a certificate. Depends on `exposePerCertificateErrorMetrics: true` — without it the underlying `x509_cert_error` series isn't emitted and the rule is a silent no-op.
+  alertOnCertificateError: true
   # @schema
   # enum: [info, warning, critical]
   # @schema
   # -- Severity for the CertificateError alerting rule
-  certificateErrorsSeverity: warning
-  # -- Should the CertificateNotYetValid alerting rule be created to notify when a certificate's `notBefore` is in the future. Depends on `exposeNotBeforeMetric: true` — without it the underlying `x509_cert_not_before` series isn't emitted and the rule is a silent no-op.
-  alertOnCertificateNotYetValid: true
-  # @schema
-  # enum: [info, warning, critical]
-  # @schema
-  # -- Severity for the CertificateNotYetValid alerting rule
-  certificateNotYetValidSeverity: warning
-  # -- Should the CertificateCollision alerting rule be created to notify when two or more certificates share the same Prometheus label set — only one of them is reported, the other is invisible.
-  alertOnCertificateCollisions: true
-  # @schema
-  # enum: [info, warning, critical]
-  # @schema
-  # -- Severity for the CertificateCollision alerting rule
-  certificateCollisionsSeverity: warning
+  certificateErrorSeverity: warning
   # @schema
   # enum: [info, warning, critical]
   # @schema
@@ -814,8 +830,25 @@ prometheusRules:
   # @schema
   # -- Raise a critical alert when fewer than this many days are left before a certificate expiration (two weeks to deal with ACME rate limiting should this be an issue)
   criticalDaysLeft: 14
-  # -- Should the CRLNeedsRefresh and CRLStale alerting rules be created to notify when a watched CRL approaches or has passed its nextUpdate horizon. Safe to leave on even without CRLs — the alerts only fire when the exporter actually sees an `x509_crl_*` series.
-  alertOnCRLs: true
+  # -- Should the CertificateNotYetValid alerting rule be created to notify when a certificate's `notBefore` is in the future. Depends on `exposeNotBeforeMetric: true` — without it the underlying `x509_cert_not_before` series isn't emitted and the rule is a silent no-op.
+  alertOnCertificateNotYetValid: true
+  # @schema
+  # enum: [info, warning, critical]
+  # @schema
+  # -- Severity for the CertificateNotYetValid alerting rule
+  certificateNotYetValidSeverity: warning
+  # -- Should the CertificateCollision alerting rule be created to notify when at least one certificate was dropped because of a label collision (registry `Collision=Never` policy). The detect-only counter `x509_cert_collision_total` keeps ticking under the default `Collision=Auto` policy where the discriminator label resolves the overlap — that signal stays on dashboards but does not page.
+  alertOnCertificateCollision: true
+  # @schema
+  # enum: [info, warning, critical]
+  # @schema
+  # -- Severity for the CertificateCollision alerting rule
+  certificateCollisionSeverity: warning
+
+  # ─── CRL lifecycle alerts ──────────────────────────────────────────────
+  # No toggle: same rationale as CertificateRenewal/Expiration. The
+  # underlying `x509_crl_*` series only exist when a CRL is actually
+  # observed, so installations that don't watch any CRL get no alerts.
   # @schema
   # minimum: 0
   # @schema
@@ -831,37 +864,29 @@ prometheusRules:
   # @schema
   # -- Severity for the CRLStale alerting rule (fires once `x509_crl_stale > 0`, i.e. the CRL's nextUpdate is in the past)
   crlStaleSeverity: critical
-  # @schema
-  # additionalProperties: true
-  # @schema
-  # -- Additional labels to add to PrometheusRule objects
-  extraLabels: {}
-  # @schema
-  # additionalProperties: true
-  # @schema
-  # -- Additional labels to add to PrometheusRule rules
-  alertExtraLabels: {}
-  # @schema
-  # additionalProperties: true
-  # @schema
-  # -- Additional annotations to add to PrometheusRule rules
-  alertExtraAnnotations: {}
-  # -- Prefix prepended to the alert rule names of PrometheusRule rules
-  rulePrefix: ""
+
   # -- Skip all built-in alerts when using extraAlertGroups
   disableBuiltinAlertGroup: false
   # -- Additional alert groups for custom configuration (example in `values.yaml`)
   extraAlertGroups: []
-  # - name: custom.rules
+  # - name: x509-certificate-exporter.custom
   #   rules:
-  #   - alert: X509ExporterReadErrorsCustom
-  #     expr: x509_source_errors_total > 0
-  #     for: 30m
+  #   # Flag certificates that have been past their NotAfter for more
+  #   # than 24 hours. The built-in CertificateExpiration keeps firing
+  #   # once a cert crosses its expiry, but doesn't distinguish
+  #   # "expired today" from "expired three weeks ago and nobody renewed".
+  #   - alert: CertificateExpiredForTooLong
+  #     expr: (time() - x509_cert_not_after) > 86400
+  #     for: 15m
   #     labels:
-  #       severity: warning
+  #       severity: critical
   #     annotations:
-  #       summary: Error events exist for this x509-certificate-exporter
-  #       description: This x509-certificate-exporter instance has experienced parse errors in the past.
+  #       summary: Certificate is expired and has not been renewed
+  #       # extraAlertGroups content is run through Helm's `tpl` with
+  #       # the chart root as context, so AlertManager template actions
+  #       # ({{ $labels.X }}, {{ humanizeDuration $value }}) must be
+  #       # backtick-escaped to survive Helm's pass unchanged.
+  #       description: Certificate for `{{`{{ $labels.subject_CN }}`}}` has been expired for {{`{{ humanizeDuration $value }}`}}.
 
 # @schema
 # additionalProperties: true

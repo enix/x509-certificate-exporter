@@ -186,6 +186,22 @@
       depNameTemplate: "goreleaser/goreleaser",
       datasourceTemplate: "github-releases",
     },
+    // GoReleaser version pinned in flake.nix (the dev shell installs
+    // the upstream binary release rather than the nixpkgs build). Same
+    // depName as the CI pin above — a single Renovate PR bumps every
+    // reference. Per-arch hashes in flake.nix still need manual refresh
+    // on bump (documented in the bump procedure comment alongside the
+    // declaration, mirroring the goSizeAnalyzer recipe).
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^flake\\.nix$/"],
+      matchStrings: [
+        "# goreleaser version\\s*\\n\\s*version\\s*=\\s*\"(?<currentValue>\\d[\\w.-]*)\"",
+      ],
+      depNameTemplate: "goreleaser/goreleaser",
+      datasourceTemplate: "github-releases",
+      extractVersionTemplate: "^v(?<version>.*)$",
+    },
     // Helm version pinned inside the `with: version:` field of
     // azure/setup-helm in release.yaml (same blind spot as goreleaser above).
     {

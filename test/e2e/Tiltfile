@@ -54,7 +54,10 @@ SEED_HOSTPATH_IMAGE = "x509ce-seed-hostpath"
 # the release pipeline (one image-build codepath for dev + e2e + release).
 # See the dev Tiltfile for the full rationale. The custom_build command
 # `cd`s to the repo root so the goreleaser config + the binaries land
-# where its dockers_v2 entry expects them.
+# where its dockers_v2 entry expects them. The `-<arch>` suffix that
+# dockers_v2 appends in snapshot mode is stripped by a `hooks.post` on
+# the tilt entry inside .goreleaser.yaml, so the image lands in local
+# Docker under exactly EXPECTED_REF (skips_local_docker=False).
 custom_build(
     ref=IMAGE,
     command=" && ".join([
@@ -64,7 +67,6 @@ custom_build(
         'export GORELEASER_TILT=1',
         'export IMAGE_NAME=x509-certificate-exporter',
         'goreleaser release --snapshot --skip=publish,sign,sbom,archive,before --clean',
-        'docker tag "${EXPECTED_REF}-$(go env GOARCH)" "$EXPECTED_REF"',
     ]),
     deps=[
         ROOT + "/cmd",

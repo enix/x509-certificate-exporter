@@ -49,10 +49,10 @@ KUBE_PROMETHEUS_VERSION = "85.3.3"
 #   - builds only the host arch + only this variant,
 #   - tags directly with what Tilt expects via TILT_IMAGE_REPO/TAG.
 #
-# GoReleaser's dockers_v2 appends a `-<arch>` suffix to local tags in
-# snapshot mode (anti-collision when buildx loads multi-platform
-# images into Docker). The `docker tag` re-aliases to the bare
-# EXPECTED_REF Tilt expects (skips_local_docker=False).
+# The `-<arch>` suffix that dockers_v2 appends in snapshot mode is
+# stripped by a `hooks.post` on the tilt entry inside .goreleaser.yaml,
+# so the image lands in local Docker under exactly EXPECTED_REF
+# (skips_local_docker=False).
 custom_build(
     ref=IMAGE,
     command=" && ".join(
@@ -62,7 +62,6 @@ custom_build(
             "export GORELEASER_TILT=1",
             "export IMAGE_NAME=x509-certificate-exporter",
             "goreleaser release --snapshot --skip=publish,sign,sbom,archive,before --clean",
-            'docker tag "${EXPECTED_REF}-$(go env GOARCH)" "$EXPECTED_REF"',
         ]
     ),
     deps=[

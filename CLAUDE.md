@@ -185,11 +185,11 @@ On any change Tilt invokes `goreleaser release --snapshot ...` with
 `GORELEASER_TILT=1`, which builds a single host-arch image from
 `build/Dockerfile.busybox` (the alt release variant — kept for dev
 because it ships a shell, even though scratch is the project default)
-and loads it into the local Docker daemon. A `docker tag` post-step strips the
-`-<arch>` suffix that dockers_v2 appends in snapshot mode so Tilt
-finds the image at exactly `EXPECTED_REF`. Tilt then pushes to the
-local registry; Helm is reconfigured with the new tag and the pod
-restarts.
+and loads it into the local Docker daemon. A `hooks.post` on the
+tilt dockers_v2 entry strips the `-<arch>` suffix that dockers_v2
+appends in snapshot mode so Tilt finds the image at exactly
+`EXPECTED_REF`. Tilt then pushes to the local registry; Helm is
+reconfigured with the new tag and the pod restarts.
 
 Forwarded ports:
 

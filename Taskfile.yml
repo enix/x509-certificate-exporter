@@ -30,7 +30,7 @@ vars:
   # always run the same k3s — drift would mean e2e tests don't
   # exercise what dev does. Renovate-tracked (custom regex manager
   # in renovate.json5).
-  K3S_IMAGE: rancher/k3s:v1.36.0-k3s1
+  K3S_IMAGE: rancher/k3s:v1.36.1-k3s1
   # Shared by `renovate:plan` and `renovate:patch`. Renovate-tracked
   # (custom regex manager in renovate.json5) and kept in lockstep with
   # `renovateImage` in dagger/base.go.

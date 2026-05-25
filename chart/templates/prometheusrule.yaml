@@ -46,7 +46,7 @@ spec:
         {{- end }}
       annotations:
         summary: Certificate cannot be decoded
-        description: Certificate could not be decoded {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+        description: Certificate could not be decoded {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
         {{- if .Values.prometheusRules.alertExtraAnnotations }}
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}
@@ -61,7 +61,7 @@ spec:
         {{- end }}
       annotations:
         summary: Certificate should be renewed
-        description: Certificate for "{{ "{{" }} $labels.subject_CN {{ "}}" }}" should be renewed as it expires in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+        description: Certificate for `{{ "{{" }} $labels.subject_CN {{ "}}" }}` should be renewed as it expires in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
         {{- if .Values.prometheusRules.alertExtraAnnotations }}
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}
@@ -75,7 +75,7 @@ spec:
         {{- end }}
       annotations:
         summary: Certificate is about to expire
-        description: Certificate for "{{ "{{" }} $labels.subject_CN {{ "}}" }}" is about to expire in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+        description: Certificate for `{{ "{{" }} $labels.subject_CN {{ "}}" }}` is about to expire in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
         {{- if .Values.prometheusRules.alertExtraAnnotations }}
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}
@@ -90,7 +90,7 @@ spec:
         {{- end }}
       annotations:
         summary: CRL needs to be refreshed
-        description: CRL issued by "{{ "{{" }} $labels.issuer_CN {{ "}}" }}" reaches its nextUpdate in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+        description: CRL issued by `{{ "{{" }} $labels.issuer_CN {{ "}}" }}` reaches its nextUpdate in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
         {{- if .Values.prometheusRules.alertExtraAnnotations }}
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}
@@ -104,7 +104,7 @@ spec:
         {{- end }}
       annotations:
         summary: CRL is stale (past its nextUpdate)
-        description: CRL issued by "{{ "{{" }} $labels.issuer_CN {{ "}}" }}" is past its nextUpdate — clients validating against this CRL are likely to reject the issuer's certs {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret "{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}"{{ "{{else}}" }}at location "{{ "{{" }} $labels.filepath {{ "}}" }}"{{ "{{end}}" }}
+        description: CRL issued by `{{ "{{" }} $labels.issuer_CN {{ "}}" }}` is past its nextUpdate — clients validating against this CRL are likely to reject the issuer's certs {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
         {{- if .Values.prometheusRules.alertExtraAnnotations }}
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}

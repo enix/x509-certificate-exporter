@@ -34,6 +34,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/pavlo-v-chernykh/keystore-go/v4"
@@ -149,7 +150,14 @@ func decodeJKS(data []byte, pass string) ([]itemWithRole, error) {
 		return nil, err
 	}
 	var out []itemWithRole
-	for _, alias := range ks.Aliases() {
+	// Sort aliases so the emitted item order is stable. keystore-go's
+	// Aliases() walks an internal map, which Go iterates in random
+	// order — that randomness leaks into Prometheus metric label
+	// ordering and breaks any downstream test or dashboard that
+	// assumes a stable ordering across exporter restarts.
+	aliases := ks.Aliases()
+	sort.Strings(aliases)
+	for _, alias := range aliases {
 		switch {
 		case ks.IsTrustedCertificateEntry(alias):
 			e, err := ks.GetTrustedCertificateEntry(alias)

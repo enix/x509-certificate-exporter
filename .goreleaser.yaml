@@ -232,6 +232,14 @@ dockers_v2:
       org.opencontainers.image.revision: "{{ .FullCommit }}"
       org.opencontainers.image.created: "{{ .Date }}"
       org.opencontainers.image.licenses: "MIT"
+      # Resolved by GoReleaser from the FROM line in
+      # build/Dockerfile.busybox at build time. Surfaces the exact base
+      # image identity in every published manifest — supply-chain
+      # transparency without manual bookkeeping. Skipped on the scratch
+      # variant: `FROM scratch` has no parent and these labels would be
+      # empty.
+      org.opencontainers.image.base.name: "{{ .BaseImage }}"
+      org.opencontainers.image.base.digest: "{{ .BaseImageDigest }}"
 
   - id: busybox-local
     disable: '{{ if eq (envOrDefault "GORELEASER_LOCAL_PLATFORM" "") "1" }}{{ else }}true{{ end }}'
@@ -257,6 +265,14 @@ dockers_v2:
   # Tilt sets via the wrapper script in the Tiltfile, so the resulting
   # image lands in local Docker under exactly the ref Tilt expects
   # (skips_local_docker=False).
+  #
+  # The post hook re-tags the image to drop the `-<arch>` suffix that
+  # dockers_v2 appends in snapshot mode. Tilt expects to find the image
+  # at exactly `EXPECTED_REF` (TILT_IMAGE_REPO:TILT_IMAGE_TAG), without
+  # any arch annotation. Living inside .goreleaser.yaml (not the
+  # Tiltfile) keeps the snapshot-mode quirk and its remedy in the same
+  # file — Tilt just runs `goreleaser release ...` and trusts the
+  # result.
   - id: tilt
     disable: '{{ if eq (envOrDefault "GORELEASER_TILT" "") "1" }}{{ else }}true{{ end }}'
     ids: [x509ce-local]
@@ -269,6 +285,9 @@ dockers_v2:
       - '{{ envOrDefault "TILT_IMAGE_TAG" "tilt" }}'
     sbom: false
     labels: *busybox-labels
+    hooks:
+      post:
+        - cmd: docker tag {{ envOrDefault "TILT_IMAGE_REPO" "x509-certificate-exporter" }}:{{ envOrDefault "TILT_IMAGE_TAG" "tilt" }}-{{ .Runtime.Goarch }} {{ envOrDefault "TILT_IMAGE_REPO" "x509-certificate-exporter" }}:{{ envOrDefault "TILT_IMAGE_TAG" "tilt" }}
 
 # ─── Cosign on container images ──────────────────────────────────────────────
 # Sign by digest (anchored to immutable content). Consumers verify the

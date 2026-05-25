@@ -49,6 +49,40 @@
             install -Dm755 gsa $out/bin/gsa
           '';
         };
+
+        # GoReleaser pinned independently of nixpkgs so the dev/e2e
+        # build path can adopt new releases as soon as upstream ships
+        # them. Grabs the upstream binary release rather than rebuilding
+        # via `buildGoModule` — same trade-off as goSizeAnalyzer above.
+        #
+        # Bump procedure (Renovate refreshes `version` but cannot
+        # recompute the four per-arch hashes on a `fetchurl` bump):
+        #   1. update `version` below
+        #   2. curl -sL https://github.com/goreleaser/goreleaser/releases/download/v<v>/checksums.txt
+        #   3. for each `goreleaser_<OS>_<arch>.tar.gz` line, convert:
+        #      `hash = "sha256-$(echo <hex> | xxd -r -p | base64)"`
+        goreleaser = let
+          # goreleaser version
+          version = "2.16.0";
+          assets = {
+            "x86_64-linux"   = { suffix = "Linux_x86_64";  hash = "sha256-6q4FteugdTO9DwaEa2jICDmVBHhN8Axi6yGVQfwE5eI="; };
+            "aarch64-linux"  = { suffix = "Linux_arm64";   hash = "sha256-AQLZdDc/zet3BC0fWJfK/6GTvjZiD9xsHaQ6Ae+OENM="; };
+            "x86_64-darwin"  = { suffix = "Darwin_x86_64"; hash = "sha256-K4LYMZ7lF9QkK0ioWBFLJnxiHx3R/lGhRoCQKxil2sg="; };
+            "aarch64-darwin" = { suffix = "Darwin_arm64";  hash = "sha256-j2iYJW81UxFl2Q8ttYHF7g0yvag+vCWsIx/1vbnSBxo="; };
+          };
+          asset = assets.${system} or (throw "goreleaser: unsupported system ${system}");
+        in pkgs.stdenvNoCC.mkDerivation {
+          pname = "goreleaser";
+          inherit version;
+          src = pkgs.fetchurl {
+            url = "https://github.com/goreleaser/goreleaser/releases/download/v${version}/goreleaser_${asset.suffix}.tar.gz";
+            hash = asset.hash;
+          };
+          sourceRoot = ".";
+          installPhase = ''
+            install -Dm755 goreleaser $out/bin/goreleaser
+          '';
+        };
       in {
         devShells.default = pkgs.mkShell {
           # Go is intentionally unpinned: the dev shell ships whatever Go
@@ -58,10 +92,10 @@
           packages = [
             dagger.packages.${system}.dagger
             goSizeAnalyzer
+            goreleaser
           ] ++ (with pkgs; [
             go
             go-task
-            goreleaser
             tilt
             k3d
             kubectl

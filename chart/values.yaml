@@ -888,6 +888,33 @@ prometheusRules:
   #       # backtick-escaped to survive Helm's pass unchanged.
   #       description: Certificate for `{{`{{ $labels.subject_CN }}`}}` has been expired for {{`{{ humanizeDuration $value }}`}}.
 
+  # ─── Per-alert overrides ───────────────────────────────────────────────
+  # Targeted escape hatches when an environment needs to tweak a single
+  # alert without disabling the whole built-in group via
+  # `disableBuiltinAlertGroup` + reproducing everything in
+  # `extraAlertGroups`. Keys are the bare alert names (no `rulePrefix`).
+  # Overrides are taken whole — there's no merge with the default; if
+  # you override CertificateRenewal's `expr`, you must reproduce any
+  # threshold or conjunction the default value contains.
+  # @schema
+  # type: object
+  # additionalProperties: {type: string}
+  # @schema
+  # -- Map of alertName -> Prometheus expression that replaces the default `expr:` of the built-in rule with the same name. Useful for adding label filters in multi-cluster setups (`max by (cluster, …) (x509_cert_not_after - time()) < …`), swapping in aggregation functions, or anything else that doesn't fit through the existing knobs.
+  alertExprOverrides: {}
+  #   CertificateRenewal: |-
+  #     max by (cluster, subject_CN, secret_namespace, secret_name, filepath) (
+  #       x509_cert_not_after - time()
+  #     ) < (28 * 86400) and (x509_cert_not_after - time()) > 0
+  # @schema
+  # type: object
+  # additionalProperties: {type: string, pattern: '^([0-9]+\.[0-9]+(ms|s|m|h|d|w|y)|([0-9]+(ms|s|m|h|d|w|y))+)$'}
+  # @schema
+  # -- Map of alertName -> `for:` duration that replaces the default. The shipped defaults are 5m for operational signals (Source*, KubeTransport*), 15m for state-based ones (Certificate*, CRL*, Keystore*), and 30m for the Sustained critical bands. Override values must be valid Prometheus duration strings (e.g. `30s`, `5m`, `1h`).
+  alertForOverrides: {}
+  #   KubeTransportErrorsSustained: "1h"
+  #   CertificateError: "1m"
+
 # @schema
 # additionalProperties: true
 # @schema

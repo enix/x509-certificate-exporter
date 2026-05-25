@@ -556,6 +556,13 @@
     "prometheusRules": {
       "additionalProperties": false,
       "properties": {
+        "alertExprOverrides": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
+        },
         "alertExtraAnnotations": {
           "additionalProperties": true,
           "required": []
@@ -563,6 +570,14 @@
         "alertExtraLabels": {
           "additionalProperties": true,
           "required": []
+        },
+        "alertForOverrides": {
+          "additionalProperties": {
+            "pattern": "^([0-9]+\\.[0-9]+(ms|s|m|h|d|w|y)|([0-9]+(ms|s|m|h|d|w|y))+)$",
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "alertOnCertificateCollision": {
           "default": true,
@@ -749,6 +764,7 @@
       },
       "required": [
         "create",
+        "rulePrefix",
         "alertOnSourceErrors",
         "alertOnSourceDown",
         "alertOnKubeTransportErrors",
@@ -756,7 +772,6 @@
         "alertOnCertificateError",
         "alertOnCertificateNotYetValid",
         "alertOnCertificateCollision",
-        "rulePrefix",
         "disableBuiltinAlertGroup",
         "extraAlertGroups"
       ],

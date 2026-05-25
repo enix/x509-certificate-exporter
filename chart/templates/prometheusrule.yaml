@@ -3,6 +3,14 @@
 {{- $extraLabels := include "x509-certificate-exporter.alertExtraLabels" . }}
 {{- $extraAnnotations := include "x509-certificate-exporter.alertExtraAnnotations" . }}
 {{- $loc := include "x509-certificate-exporter.alertLocationSuffix" . }}
+{{- /*
+Per-alert override maps. Pattern: at each `expr:` / `for:` line, the
+template defers to the matching key in these maps if present, else
+falls back to the chart's default. Both maps key on the bare alert
+name (no `rulePrefix`).
+*/}}
+{{- $exprOverrides := .Values.prometheusRules.alertExprOverrides | default dict }}
+{{- $forOverrides := .Values.prometheusRules.alertForOverrides | default dict }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -33,8 +41,8 @@ spec:
     # Aggregated over `reason` so the alert routes by source — the
     # reason breakdown stays available on the metric itself for triage.
     - alert: '{{ printf "%s %s" $rulePrefix "SourceErrors" | trim }}'
-      expr: sum without (reason) (increase(x509_source_errors_total[15m])) > 5
-      for: 5m
+      expr: {{ default "sum without (reason) (increase(x509_source_errors_total[15m])) > 5" (get $exprOverrides "SourceErrors") | quote }}
+      for: {{ default "5m" (get $forOverrides "SourceErrors") }}
       labels:
         severity: {{ .Values.prometheusRules.sourceErrorsSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -43,8 +51,8 @@ spec:
         description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` (kind `{{ "{{" }} $labels.source_kind {{ "}}" }}`) recorded more than 5 errors over the last 15 minutes. This covers both bundle-level failures (parse errors on PEM/PKCS#12/JKS/DER, missing certs, bad passphrase) and transport-level failures from the Kubernetes API. Inspect `x509_source_errors_total` broken down by `reason` for the specific cause.
         {{- $extraAnnotations | nindent 0 }}
     - alert: '{{ printf "%s %s" $rulePrefix "SourceErrorsSustained" | trim }}'
-      expr: sum without (reason) (increase(x509_source_errors_total[15m])) > 5
-      for: 30m
+      expr: {{ default "sum without (reason) (increase(x509_source_errors_total[15m])) > 5" (get $exprOverrides "SourceErrorsSustained") | quote }}
+      for: {{ default "30m" (get $forOverrides "SourceErrorsSustained") }}
       labels:
         severity: {{ .Values.prometheusRules.sourceErrorsSustainedSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -55,8 +63,8 @@ spec:
     {{- end }}
     {{- if .Values.prometheusRules.alertOnSourceDown }}
     - alert: '{{ printf "%s %s" $rulePrefix "SourceDown" | trim }}'
-      expr: x509_source_up == 0
-      for: 5m
+      expr: {{ default "x509_source_up == 0" (get $exprOverrides "SourceDown") | quote }}
+      for: {{ default "5m" (get $forOverrides "SourceDown") }}
       labels:
         severity: {{ .Values.prometheusRules.sourceDownSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -73,8 +81,8 @@ spec:
     # watch_flapped events per series and resolves on its own. Critical
     # fires once the condition has held continuously for 30 minutes.
     - alert: '{{ printf "%s %s" $rulePrefix "KubeTransportErrors" | trim }}'
-      expr: sum without (resource, reason) (increase(x509_kube_transport_errors_total[15m])) > 5
-      for: 5m
+      expr: {{ default "sum without (resource, reason) (increase(x509_kube_transport_errors_total[15m])) > 5" (get $exprOverrides "KubeTransportErrors") | quote }}
+      for: {{ default "5m" (get $forOverrides "KubeTransportErrors") }}
       labels:
         severity: {{ .Values.prometheusRules.kubeTransportErrorsSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -83,8 +91,8 @@ spec:
         description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` recorded more than 5 Kubernetes API transport-level errors (LIST/WATCH/informer failures) over the last 15 minutes. While this lasts, certificate observations from affected resources may be stale or missing. Typical causes are auth failures (token rotation, RBAC drift), apiserver throttling, or persistent network issues to the control plane.
         {{- $extraAnnotations | nindent 0 }}
     - alert: '{{ printf "%s %s" $rulePrefix "KubeTransportErrorsSustained" | trim }}'
-      expr: sum without (resource, reason) (increase(x509_kube_transport_errors_total[15m])) > 5
-      for: 30m
+      expr: {{ default "sum without (resource, reason) (increase(x509_kube_transport_errors_total[15m])) > 5" (get $exprOverrides "KubeTransportErrorsSustained") | quote }}
+      for: {{ default "30m" (get $forOverrides "KubeTransportErrorsSustained") }}
       labels:
         severity: {{ .Values.prometheusRules.kubeTransportErrorsSustainedSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -95,8 +103,8 @@ spec:
     {{- end }}
     {{- if .Values.prometheusRules.alertOnKeystorePassphraseFailures }}
     - alert: '{{ printf "%s %s" $rulePrefix "KeystorePassphraseFailures" | trim }}'
-      expr: (increase(x509_pkcs12_passphrase_failures_total[15m]) > 0) or (increase(x509_jks_passphrase_failures_total[15m]) > 0)
-      for: 15m
+      expr: {{ default "(increase(x509_pkcs12_passphrase_failures_total[15m]) > 0) or (increase(x509_jks_passphrase_failures_total[15m]) > 0)" (get $exprOverrides "KeystorePassphraseFailures") | quote }}
+      for: {{ default "15m" (get $forOverrides "KeystorePassphraseFailures") }}
       labels:
         severity: {{ .Values.prometheusRules.keystorePassphraseFailuresSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -118,8 +126,8 @@ spec:
     # `x509_cert_error` series isn't emitted and this rule is a silent
     # no-op — documented in values.yaml alongside the toggle.
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateError" | trim }}'
-      expr: x509_cert_error > 0
-      for: 15m
+      expr: {{ default "x509_cert_error > 0" (get $exprOverrides "CertificateError") | quote }}
+      for: {{ default "15m" (get $forOverrides "CertificateError") }}
       labels:
         severity: {{ .Values.prometheusRules.certificateErrorSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -129,8 +137,8 @@ spec:
         {{- $extraAnnotations | nindent 0 }}
     {{- end }}
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateRenewal" | trim }}'
-      expr: (x509_cert_not_after - time()) < ({{ .Values.prometheusRules.warningDaysLeft }} * 86400) and (x509_cert_not_after - time()) > 0
-      for: 15m
+      expr: {{ default (printf "(x509_cert_not_after - time()) < (%v * 86400) and (x509_cert_not_after - time()) > 0" .Values.prometheusRules.warningDaysLeft) (get $exprOverrides "CertificateRenewal") | quote }}
+      for: {{ default "15m" (get $forOverrides "CertificateRenewal") }}
       labels:
         severity: {{ .Values.prometheusRules.certificateRenewalsSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -144,8 +152,8 @@ spec:
     # via humanizeDuration's sign. AlertManager preserves the same
     # series identity through the transition; no flapping.
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateExpiration" | trim }}'
-      expr: (x509_cert_not_after - time()) < ({{ .Values.prometheusRules.criticalDaysLeft }} * 86400)
-      for: 15m
+      expr: {{ default (printf "(x509_cert_not_after - time()) < (%v * 86400)" .Values.prometheusRules.criticalDaysLeft) (get $exprOverrides "CertificateExpiration") | quote }}
+      for: {{ default "15m" (get $forOverrides "CertificateExpiration") }}
       labels:
         severity: {{ .Values.prometheusRules.certificateExpirationsSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -158,8 +166,8 @@ spec:
     # `x509_cert_not_before` series isn't emitted and this rule is a
     # silent no-op — documented in values.yaml alongside the toggle.
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateNotYetValid" | trim }}'
-      expr: (x509_cert_not_before - time()) > 0
-      for: 15m
+      expr: {{ default "(x509_cert_not_before - time()) > 0" (get $exprOverrides "CertificateNotYetValid") | quote }}
+      for: {{ default "15m" (get $forOverrides "CertificateNotYetValid") }}
       labels:
         severity: {{ .Values.prometheusRules.certificateNotYetValidSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -176,8 +184,8 @@ spec:
     # and no data is lost — that signal stays available as a diagnostic
     # on dashboards but doesn't page.
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateCollision" | trim }}'
-      expr: increase(x509_cert_collision_dropped_total[1h]) > 0
-      for: 15m
+      expr: {{ default "increase(x509_cert_collision_dropped_total[1h]) > 0" (get $exprOverrides "CertificateCollision") | quote }}
+      for: {{ default "15m" (get $forOverrides "CertificateCollision") }}
       labels:
         severity: {{ .Values.prometheusRules.certificateCollisionSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -192,8 +200,8 @@ spec:
     # being watched (the underlying `x509_crl_*` series simply don't
     # exist), so there's no benefit to a toggle.
     - alert: '{{ printf "%s %s" $rulePrefix "CRLNeedsRefresh" | trim }}'
-      expr: (x509_crl_next_update - time()) < ({{ .Values.prometheusRules.crlWarningDaysLeft }} * 86400) and x509_crl_stale == 0
-      for: 15m
+      expr: {{ default (printf "(x509_crl_next_update - time()) < (%v * 86400) and x509_crl_stale == 0" .Values.prometheusRules.crlWarningDaysLeft) (get $exprOverrides "CRLNeedsRefresh") | quote }}
+      for: {{ default "15m" (get $forOverrides "CRLNeedsRefresh") }}
       labels:
         severity: {{ .Values.prometheusRules.crlNeedsRefreshSeverity }}
         {{- $extraLabels | nindent 0 }}
@@ -202,8 +210,8 @@ spec:
         description: CRL issued by `{{ "{{" }} $labels.issuer_CN {{ "}}" }}` reaches its nextUpdate in {{`{{`}} humanizeDuration $value {{`}}`}} {{ $loc }}
         {{- $extraAnnotations | nindent 0 }}
     - alert: '{{ printf "%s %s" $rulePrefix "CRLStale" | trim }}'
-      expr: x509_crl_stale > 0
-      for: 15m
+      expr: {{ default "x509_crl_stale > 0" (get $exprOverrides "CRLStale") | quote }}
+      for: {{ default "15m" (get $forOverrides "CRLStale") }}
       labels:
         severity: {{ .Values.prometheusRules.crlStaleSeverity }}
         {{- $extraLabels | nindent 0 }}

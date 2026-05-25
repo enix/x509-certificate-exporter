@@ -229,21 +229,34 @@ them — disable with `prometheusServiceMonitor.create=false` and
 
 The shipped alerts:
 
-| Alert | Trigger | Severity |
+| Alert | Trigger | Default severity |
 |---|---|---|
-| `X509ExporterReadErrors` | `delta(x509_source_errors_total[15m]) > 0` for 5m | warning |
-| `CertificateError` | `x509_cert_error == 1` | warning |
-| `CertificateRenewal` | `(x509_cert_not_after - time()) / 86400 < 28` | warning |
-| `CertificateExpiration` | `(x509_cert_not_after - time()) / 86400 < 14` | critical |
+| `SourceErrors` | `sum without (reason) (increase(x509_source_errors_total[15m])) > 5` for 5m | warning |
+| `SourceErrorsSustained` | Same expression, sustained 30m | critical |
+| `SourceDown` | `x509_source_up == 0` for 5m | critical |
+| `KubeTransportErrors` | `sum without (resource, reason) (increase(x509_kube_transport_errors_total[15m])) > 5` for 5m | warning |
+| `KubeTransportErrorsSustained` | Same expression, sustained 30m | critical |
+| `KeystorePassphraseFailures` | `increase(x509_{pkcs12,jks}_passphrase_failures_total[15m]) > 0` for 15m | warning |
+| `CertificateError` | `x509_cert_error > 0` for 15m (requires `exposePerCertificateErrorMetrics`) | warning |
+| `CertificateRenewal` | `(x509_cert_not_after - time())` below `warningDaysLeft` (28 by default) | warning |
+| `CertificateExpiration` | `(x509_cert_not_after - time())` below `criticalDaysLeft` (14 by default); also fires once past NotAfter | critical |
+| `CertificateNotYetValid` | `(x509_cert_not_before - time()) > 0` (requires `exposeNotBeforeMetric`) | warning |
+| `CertificateCollision` | `increase(x509_cert_collision_dropped_total[1h]) > 0` (only fires under `Collision=Never`) | warning |
+| `CRLNeedsRefresh` | nextUpdate within `crlWarningDaysLeft` and not yet stale | warning |
+| `CRLStale` | `x509_crl_stale > 0` | critical |
 
-Tunable via `prometheusRules.warningDaysLeft` / `criticalDaysLeft`;
-disable any individually with
-`prometheusRules.alertOn{ReadErrors,CertificateError,CertificateRenewal,CertificateExpiration}`.
+`CertificateRenewal`, `CertificateExpiration`, `CRLNeedsRefresh` and
+`CRLStale` are always created — they are the exporter's core value.
+The other nine each carry a `prometheusRules.alertOn<Name>` toggle
+(default `true`). Per-alert tuning beyond thresholds and severities
+goes through `alertExprOverrides` and `alertForOverrides` —
+documented inline in `values.yaml`.
 
-> ⚠️ `X509ExporterReadErrors` is the early-warning canary for
-> misconfigurations (RBAC, missing files, malformed Secrets). Keep it
-> on, and split your `hostPathsExporter` DaemonSets along role
-> boundaries rather than disabling the alert.
+> ⚠️ `SourceErrors` and `SourceDown` are the early-warning canaries
+> for misconfigurations (RBAC, missing files, malformed Secrets,
+> apiserver unreachable). Keep them on, and split your
+> `hostPathsExporter` DaemonSets along role boundaries rather than
+> disabling them.
 
 ### Securing the `/metrics` endpoint
 
@@ -405,6 +418,10 @@ exporter-toolkit is the recommended path on new installs.
 | prometheusPodMonitor.scheme | string | `"http"` | Scheme config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusPodMonitor.tlsConfig | object | `{}` | Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig |
 | prometheusRules.create | bool | `true` | Should a PrometheusRule object be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users. |
+| prometheusRules.rulePrefix | string | `""` | Prefix prepended to the alert rule names of PrometheusRule rules |
+| prometheusRules.extraLabels | object | `{}` | Additional labels to add to PrometheusRule objects |
+| prometheusRules.alertExtraLabels | object | `{}` | Additional labels to add to PrometheusRule rules |
+| prometheusRules.alertExtraAnnotations | object | `{}` | Additional annotations to add to PrometheusRule rules |
 | prometheusRules.alertOnSourceErrors | bool | `true` | Should the SourceErrors / SourceErrorsSustained alerting rules be created to notify when a source produces decode or transport errors. Two bands share one toggle and one expression: warning fires after >5 errors in 15 minutes (aggregated across reasons, so a single malformed cert won't page), critical fires once that condition has held continuously for 30 minutes. |
 | prometheusRules.sourceErrorsSeverity | string | `"warning"` | Severity for the SourceErrors alerting rule (warning band — >5 errors in 15min) |
 | prometheusRules.sourceErrorsSustainedSeverity | string | `"critical"` | Severity for the SourceErrorsSustained alerting rule (critical band — warning condition has held for ≥30min) |
@@ -428,12 +445,10 @@ exporter-toolkit is the recommended path on new installs.
 | prometheusRules.crlWarningDaysLeft | int | `7` | Raise a warning alert when fewer than this many days are left before a CRL reaches its nextUpdate. CRLs are typically refreshed daily to weekly; 7 days gives a comfortable margin for a publisher running on a weekly cadence. |
 | prometheusRules.crlNeedsRefreshSeverity | string | `"warning"` | Severity for the CRLNeedsRefresh alerting rule |
 | prometheusRules.crlStaleSeverity | string | `"critical"` | Severity for the CRLStale alerting rule (fires once `x509_crl_stale > 0`, i.e. the CRL's nextUpdate is in the past) |
-| prometheusRules.extraLabels | object | `{}` | Additional labels to add to PrometheusRule objects |
-| prometheusRules.alertExtraLabels | object | `{}` | Additional labels to add to PrometheusRule rules |
-| prometheusRules.alertExtraAnnotations | object | `{}` | Additional annotations to add to PrometheusRule rules |
-| prometheusRules.rulePrefix | string | `""` | Prefix prepended to the alert rule names of PrometheusRule rules |
 | prometheusRules.disableBuiltinAlertGroup | bool | `false` | Skip all built-in alerts when using extraAlertGroups |
 | prometheusRules.extraAlertGroups | list | `[]` | Additional alert groups for custom configuration (example in `values.yaml`) |
+| prometheusRules.alertExprOverrides | object | `{}` | Map of alertName -> Prometheus expression that replaces the default `expr:` of the built-in rule with the same name. Useful for adding label filters in multi-cluster setups (`max by (cluster, …) (x509_cert_not_after - time()) < …`), swapping in aggregation functions, or anything else that doesn't fit through the existing knobs. |
+| prometheusRules.alertForOverrides | object | `{}` | Map of alertName -> `for:` duration that replaces the default. The shipped defaults are 5m for operational signals (Source*, KubeTransport*), 15m for state-based ones (Certificate*, CRL*, Keystore*), and 30m for the Sustained critical bands. Override values must be valid Prometheus duration strings (e.g. `30s`, `5m`, `1h`). |
 | extraLabels | object | `{}` | Additional labels added to all chart objects |
 | podExtraLabels | object | `{}` | Additional labels added to all Pods |
 | podAnnotations | object | `{}` | Annotations added to all Pods |

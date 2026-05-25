@@ -1,0 +1,6 @@
+# Locks in the exact set of PrometheusRule alerts the chart ships with
+# default values. Catches accidental renames or removals — every alert
+# name listed in the paired .expect-pass.txt must appear in `helm
+# template` output.
+prometheusRules:
+  create: true

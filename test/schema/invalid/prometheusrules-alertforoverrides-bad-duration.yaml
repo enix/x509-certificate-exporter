@@ -1,0 +1,3 @@
+prometheusRules:
+  alertForOverrides:
+    CertificateError: "30 minutes"

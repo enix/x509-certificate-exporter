@@ -113,6 +113,53 @@ func (m *X509Ce) TestHelmRender(ctx context.Context) (string, error) {
 		fmt.Fprintf(&report, "%s: OK (failed with expected substrings)\n", name)
 	}
 
+	// Positive substring check. Each `test/render/<name>.yaml` paired
+	// with a `<name>.expect-pass.txt` MUST `helm template` successfully
+	// AND every non-blank, non-comment line of the .expect-pass.txt
+	// MUST appear as a substring in stdout. Used to ratchet behaviours
+	// the chart promises and that would otherwise only surface as silent
+	// regressions — for instance the exact set of PrometheusRule alert
+	// names emitted with default values.
+	expectPassFiles, err := renderDir.Glob(ctx, "*.expect-pass.txt")
+	if err != nil {
+		return report.String(), fmt.Errorf("globbing render-pass fixtures: %w", err)
+	}
+	sort.Strings(expectPassFiles)
+	for _, expect := range expectPassFiles {
+		name := strings.TrimSuffix(expect, ".expect-pass.txt")
+		yamlPath := "test/render/" + name + ".yaml"
+		expectContents, err := m.Source.File("test/render/" + expect).Contents(ctx)
+		if err != nil {
+			return report.String(), fmt.Errorf("reading %s: %w", expect, err)
+		}
+		var expects []string
+		for _, line := range strings.Split(expectContents, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			expects = append(expects, line)
+		}
+
+		stdout, err := base.
+			WithExec([]string{"helm", "template", "release-name", "chart", "--values", yamlPath}).
+			Stdout(ctx)
+		if err != nil {
+			return report.String(), fmt.Errorf("%s: expected helm template to succeed, got error: %w", yamlPath, err)
+		}
+		var missing []string
+		for _, e := range expects {
+			if !strings.Contains(stdout, e) {
+				missing = append(missing, e)
+			}
+		}
+		if len(missing) > 0 {
+			return report.String(), fmt.Errorf("%s: rendered successfully but stdout missing expected substrings: %v",
+				yamlPath, missing)
+		}
+		fmt.Fprintf(&report, "%s: OK (passed with expected substrings)\n", name)
+	}
+
 	return report.String(), nil
 }
 

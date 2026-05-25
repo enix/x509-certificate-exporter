@@ -1,0 +1,18 @@
+# Every alert name the chart promises to ship by default. Order
+# matches the layout in chart/templates/prometheusrule.yaml. Adding
+# a new built-in alert? Add its name here too. Removing one?
+# Acknowledge by removing the line — the test failure is the
+# ratchet's intended friction point.
+- alert: 'SourceErrors'
+- alert: 'SourceErrorsSustained'
+- alert: 'SourceDown'
+- alert: 'KubeTransportErrors'
+- alert: 'KubeTransportErrorsSustained'
+- alert: 'KeystorePassphraseFailures'
+- alert: 'CertificateError'
+- alert: 'CertificateRenewal'
+- alert: 'CertificateExpiration'
+- alert: 'CertificateNotYetValid'
+- alert: 'CertificateCollision'
+- alert: 'CRLNeedsRefresh'
+- alert: 'CRLStale'

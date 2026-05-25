@@ -1,0 +1,19 @@
+# Per-alert overrides: alertExprOverrides accepts any Prometheus
+# expression string, alertForOverrides enforces a valid duration syntax.
+# Both keys are loose maps (alertName -> string); the schema doesn't
+# enumerate the built-in alert names because users may legitimately
+# pre-populate a key for a rule they're about to enable.
+prometheusRules:
+  alertExprOverrides:
+    CertificateRenewal: |-
+      max by (cluster, subject_CN, secret_namespace, secret_name, filepath) (
+        x509_cert_not_after - time()
+      ) < (28 * 86400) and (x509_cert_not_after - time()) > 0
+    CertificateExpiration: 'max by (cluster) (x509_cert_not_after - time()) < (14 * 86400)'
+  alertForOverrides:
+    # Prometheus accepts simple integer+unit, compound (1h30m, 12h34m56s),
+    # and fractional single-unit (1.5h). The regex must cover all three.
+    KubeTransportErrorsSustained: "1h"
+    CertificateError: "30s"
+    SourceErrorsSustained: "1h30m"
+    CertificateRenewal: "1.5h"

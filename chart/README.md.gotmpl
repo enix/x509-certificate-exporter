@@ -229,21 +229,34 @@ them — disable with `prometheusServiceMonitor.create=false` and
 
 The shipped alerts:
 
-| Alert | Trigger | Severity |
+| Alert | Trigger | Default severity |
 |---|---|---|
-| `X509ExporterReadErrors` | `delta(x509_source_errors_total[15m]) > 0` for 5m | warning |
-| `CertificateError` | `x509_cert_error == 1` | warning |
-| `CertificateRenewal` | `(x509_cert_not_after - time()) / 86400 < 28` | warning |
-| `CertificateExpiration` | `(x509_cert_not_after - time()) / 86400 < 14` | critical |
+| `SourceErrors` | `sum without (reason) (increase(x509_source_errors_total[15m])) > 5` for 5m | warning |
+| `SourceErrorsSustained` | Same expression, sustained 30m | critical |
+| `SourceDown` | `x509_source_up == 0` for 5m | critical |
+| `KubeTransportErrors` | `sum without (resource, reason) (increase(x509_kube_transport_errors_total[15m])) > 5` for 5m | warning |
+| `KubeTransportErrorsSustained` | Same expression, sustained 30m | critical |
+| `KeystorePassphraseFailures` | `increase(x509_{pkcs12,jks}_passphrase_failures_total[15m]) > 0` for 15m | warning |
+| `CertificateError` | `x509_cert_error > 0` for 15m (requires `exposePerCertificateErrorMetrics`) | warning |
+| `CertificateRenewal` | `(x509_cert_not_after - time())` below `warningDaysLeft` (28 by default) | warning |
+| `CertificateExpiration` | `(x509_cert_not_after - time())` below `criticalDaysLeft` (14 by default); also fires once past NotAfter | critical |
+| `CertificateNotYetValid` | `(x509_cert_not_before - time()) > 0` (requires `exposeNotBeforeMetric`) | warning |
+| `CertificateCollision` | `increase(x509_cert_collision_dropped_total[1h]) > 0` (only fires under `Collision=Never`) | warning |
+| `CRLNeedsRefresh` | nextUpdate within `crlWarningDaysLeft` and not yet stale | warning |
+| `CRLStale` | `x509_crl_stale > 0` | critical |
 
-Tunable via `prometheusRules.warningDaysLeft` / `criticalDaysLeft`;
-disable any individually with
-`prometheusRules.alertOn{ReadErrors,CertificateError,CertificateRenewal,CertificateExpiration}`.
+`CertificateRenewal`, `CertificateExpiration`, `CRLNeedsRefresh` and
+`CRLStale` are always created — they are the exporter's core value.
+The other nine each carry a `prometheusRules.alertOn<Name>` toggle
+(default `true`). Per-alert tuning beyond thresholds and severities
+goes through `alertExprOverrides` and `alertForOverrides` —
+documented inline in `values.yaml`.
 
-> ⚠️ `X509ExporterReadErrors` is the early-warning canary for
-> misconfigurations (RBAC, missing files, malformed Secrets). Keep it
-> on, and split your `hostPathsExporter` DaemonSets along role
-> boundaries rather than disabling the alert.
+> ⚠️ `SourceErrors` and `SourceDown` are the early-warning canaries
+> for misconfigurations (RBAC, missing files, malformed Secrets,
+> apiserver unreachable). Keep them on, and split your
+> `hostPathsExporter` DaemonSets along role boundaries rather than
+> disabling them.
 
 ### Securing the `/metrics` endpoint
 

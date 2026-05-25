@@ -184,7 +184,7 @@ jobs:
 
       - uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7
         with:
-          version: "v2.15.4"
+          version: "v2.16.0"
           args: release --clean
         # GITHUB_TOKEN is the credential goreleaser uses to attach
         # archives + checksums + signatures to the GitHub Release stub

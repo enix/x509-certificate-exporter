@@ -21,7 +21,7 @@ spec:
     rules:
     {{- if .Values.prometheusRules.alertOnReadErrors }}
     - alert: '{{ printf "%s %s" $rulePrefix "X509ExporterReadErrors" | trim }}'
-      expr: delta(x509_read_errors[15m]) > 0
+      expr: increase(x509_source_errors_total[15m]) > 0
       for: 5m
       labels:
         severity: {{ .Values.prometheusRules.readErrorsSeverity }}

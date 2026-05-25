@@ -483,7 +483,7 @@
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "count(x509_read_errors)",
+          "expr": "count(x509_source_errors_total)",
           "instant": false,
           "interval": "",
           "legendFormat": "",
@@ -550,7 +550,7 @@
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum(x509_read_errors)",
+          "expr": "sum(x509_source_errors_total)",
           "instant": false,
           "interval": "",
           "legendFormat": "",
@@ -1713,7 +1713,7 @@
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "count(x509_read_errors)",
+          "expr": "count(x509_source_errors_total)",
           "interval": "",
           "legendFormat": "exporters",
           "queryType": "randomWalk",
@@ -1810,7 +1810,7 @@
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum (x509_read_errors > bool 0)",
+          "expr": "sum (x509_source_errors_total > bool 0)",
           "interval": "",
           "legendFormat": "exporters with errors",
           "queryType": "randomWalk",
@@ -1908,7 +1908,7 @@
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum(rate(x509_read_errors[15m]))",
+          "expr": "sum(rate(x509_source_errors_total[15m]))",
           "interval": "",
           "legendFormat": "error rate",
           "queryType": "randomWalk",
@@ -2005,7 +2005,7 @@
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum(x509_read_errors)",
+          "expr": "sum(x509_source_errors_total)",
           "interval": "",
           "legendFormat": "errors",
           "queryType": "randomWalk",
@@ -2105,7 +2105,7 @@
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "topk(10, rate(x509_read_errors[6h]))",
+          "expr": "topk(10, rate(x509_source_errors_total[6h]))",
           "format": "table",
           "instant": true,
           "interval": "",
@@ -2199,7 +2199,7 @@
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "topk(10, x509_read_errors)",
+          "expr": "topk(10, x509_source_errors_total)",
           "format": "table",
           "instant": true,
           "interval": "",

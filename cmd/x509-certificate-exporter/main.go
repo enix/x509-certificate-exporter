@@ -665,6 +665,7 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 		ExposedSecretLabels:    exposedSecretLabels,
 		ExposedConfigMapLabels: exposedCMLabels,
 		OnReady:                ready,
+		Recorder:               reg,
 	}, logger), nil
 }
 

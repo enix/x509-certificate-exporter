@@ -56,6 +56,40 @@ func (p *recordingParser) assertNotCalled(t *testing.T) {
 	}
 }
 
+type recordingRecorder struct {
+	mu    sync.Mutex
+	calls [][3]string // source_name, resource, reason
+}
+
+func (r *recordingRecorder) MarkTransportError(sourceName, resource, reason string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, [3]string{sourceName, resource, reason})
+}
+
+func TestRecordTransportErrIsNilSafe(t *testing.T) {
+	// No Recorder configured (the library-consumer-without-metrics path):
+	// every call site must no-op without panicking.
+	src := &Source{opts: Options{Name: "kube"}}
+	src.recordTransportErr("secrets", "watch_flapped") // must not panic
+}
+
+func TestRecordTransportErrForwardsWithSourceName(t *testing.T) {
+	rec := &recordingRecorder{}
+	src := &Source{opts: Options{Name: "kube", Recorder: rec}}
+	src.recordTransportErr("secrets", "watch_flapped")
+	src.recordTransportErr("configmaps", "list_failed")
+	if len(rec.calls) != 2 {
+		t.Fatalf("want 2 calls, got %d", len(rec.calls))
+	}
+	if rec.calls[0] != [3]string{"kube", "secrets", "watch_flapped"} {
+		t.Errorf("call[0] = %v", rec.calls[0])
+	}
+	if rec.calls[1] != [3]string{"kube", "configmaps", "list_failed"} {
+		t.Errorf("call[1] = %v", rec.calls[1])
+	}
+}
+
 // newSource builds a minimal Source whose only purpose is to drive
 // onSecret directly. Bypasses Run() to avoid the LIST+WATCH event loop
 // — these tests target the rule→passphrase resolution logic and the

@@ -354,6 +354,20 @@ func TestRecordBundleErrorsBumpsCounters(t *testing.T) {
 	}
 }
 
+func TestMarkTransportError(t *testing.T) {
+	r := New(Config{}, nopLogger())
+	// Two distinct (resource, reason) pairs land on separate series.
+	r.MarkTransportError("kube-secrets", "secrets", cert.ReasonWatchFlapped)
+	r.MarkTransportError("kube-secrets", "secrets", cert.ReasonWatchFlapped)
+	r.MarkTransportError("kube-cms", "configmaps", cert.ReasonListFailed)
+	if got := testutil.ToFloat64(r.transportErrors.WithLabelValues("kube-secrets", "secrets", "watch_flapped")); got != 2 {
+		t.Errorf("watch_flapped counter = %v, want 2", got)
+	}
+	if got := testutil.ToFloat64(r.transportErrors.WithLabelValues("kube-cms", "configmaps", "list_failed")); got != 1 {
+		t.Errorf("list_failed counter = %v, want 1", got)
+	}
+}
+
 // TestStatsCacheTracksAllCounters is the regression guard for the
 // `/` stats page: every field of CacheStats is fed by its canonical
 // setter. A future setter that writes directly to the prometheus vec

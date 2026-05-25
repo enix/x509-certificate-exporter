@@ -36,6 +36,7 @@ The exporter splits its output into four families:
 | Per-source | `x509_source_bundles` | gauge | always |
 | Per-source | `x509_source_errors_total` | counter | always |
 | Per-source | `x509_kube_watch_resyncs_total` | counter | Kubernetes sources only |
+| Per-source | `x509_kube_transport_errors_total` | counter | Kubernetes sources only |
 | Per-source | `x509_pkcs12_passphrase_failures_total` | counter | auto: when any source declares `format: pkcs12` |
 | Per-source | `x509_jks_passphrase_failures_total` | counter | auto: when any source declares `format: jks` |
 | Per-source | `x509_cert_collision_total` | counter | always |
@@ -396,6 +397,41 @@ normal; dozens per minute warrants investigation.
 # probably a watch-cache issue on the apiserver side
 rate(x509_kube_watch_resyncs_total[15m]) * 60 > 1
 ```
+
+### `x509_kube_transport_errors_total`
+
+Transport-level failures of the Kubernetes source's LIST/WATCH loop and
+namespace informer. Distinct from
+[`x509_source_errors_total`](#x509_source_errors_total) (which counts
+bundle-level parse errors and per-HTTP-response error codes from the
+apiserver): this counter captures higher-level operational state —
+LIST returning an error, WATCH failing to start, the WATCH stream
+surfacing an `Error` event, watches flapping (closing within a few
+seconds of opening), and the namespace informer failing to converge.
+None of these were previously visible as metrics — only in logs.
+
+- **Type**: counter
+- **Labels**: `source_name`, `resource`, `reason`
+- **Emitted only for Kubernetes sources.**
+
+`resource` is one of `secrets`, `configmaps`, `namespaces`. `reason` is
+one of:
+
+| Reason | Trigger |
+| --- | --- |
+| `list_failed` | LIST call returned an error (per attempt, including inside the retry/backoff loop). |
+| `watch_start_failed` | `Watch()` call failed to open a stream. |
+| `watch_error_event` | An `Error` event arrived on the watch stream (token expiry, server-side stream termination, etc.). |
+| `watch_flapped` | The watch stream closed within `WatchFlapThreshold` (5s) of opening — typically token rotation or apiserver instability. |
+| `namespace_sync_failed` | The namespace informer failed to converge before context cancellation (set only when label-based namespace rules are in use, i.e. the informer is actually started). |
+
+The Helm chart ships a two-band PrometheusRule on this counter:
+`KubeTransportErrors` (warning) trips on `increase(...[15m]) > 5`
+sustained for 5 minutes — chosen above the 1–3 events a routine
+control-plane rollout produces per series. `KubeTransportErrorsSustained`
+(critical) uses the same expression but only fires once the condition
+has held continuously for 30 minutes, signalling that the issue is no
+longer transient.
 
 ### `x509_pkcs12_passphrase_failures_total`
 

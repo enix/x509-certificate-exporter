@@ -158,6 +158,15 @@ func (f NamespaceFilter) needsLabels() bool {
 	return len(f.IncludeLabels) > 0 || len(f.ExcludeLabels) > 0
 }
 
+// Recorder is the subset of the registry's API that the source uses to
+// emit transport-level operational metrics. Kept as a local interface so
+// the source remains decoupled from the concrete *registry.Registry type
+// and so tests can plug a recording fake. Nil is a valid value — the
+// source no-ops every call in that case.
+type Recorder interface {
+	MarkTransportError(sourceName, resource, reason string)
+}
+
 // Options configure a Kubernetes Source. Either Secrets or ConfigMaps (or
 // both) must be set.
 type Options struct {
@@ -186,6 +195,12 @@ type Options struct {
 
 	FirstSyncDone chan struct{}
 	OnReady       func(success bool)
+
+	// Recorder receives transport-level error events (LIST/WATCH/
+	// namespace-informer). Nil keeps the source's behaviour identical to
+	// the unmetered path — only the logs surface the failure. Production
+	// wires it to the registry; tests can plug a fake.
+	Recorder Recorder
 }
 
 // Source implements cert.Source.
@@ -238,6 +253,17 @@ func New(opts Options, logger *slog.Logger) *Source {
 
 func (s *Source) Name() string { return s.opts.Name }
 
+// recordTransportErr is a nil-safe wrapper around the Recorder. Every
+// LIST/WATCH/namespace-informer failure site goes through it so the
+// behaviour stays identical when no Recorder is wired (tests, library
+// consumers without metrics) — only logs.
+func (s *Source) recordTransportErr(resource, reason string) {
+	if s.opts.Recorder == nil {
+		return
+	}
+	s.opts.Recorder.MarkTransportError(s.opts.Name, resource, reason)
+}
+
 // Run wires up the namespace informer (when needed) and the Secret /
 // ConfigMap direct watches, then blocks until ctx is cancelled.
 //
@@ -289,6 +315,7 @@ func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 		if !waitForCacheSync(ctx, []cache.SharedInformer{nsInf}) {
 			s.log.Error("namespace informer sync did not complete",
 				"cause", ctx.Err(), "elapsed", time.Since(nsSyncStart))
+			s.recordTransportErr("namespaces", cert.ReasonNamespaceSyncFail)
 			s.signalReady(false)
 			return ctx.Err()
 		}
@@ -432,6 +459,7 @@ func (s *Source) runSecretsDirect(ctx context.Context, sink cert.Sink, firstSync
 			// API server flakes.
 			jittered := time.Duration(float64(listBackoff) * (0.75 + rand.Float64()*0.5))
 			s.log.Error("secret list failed, will retry", "err", err, "backoff", jittered)
+			s.recordTransportErr("secrets", cert.ReasonListFailed)
 			select {
 			case <-ctx.Done():
 				return
@@ -459,6 +487,7 @@ func (s *Source) runSecretsDirect(ctx context.Context, sink cert.Sink, firstSync
 			// LIST and WATCH have independent failure modes.
 			jittered := time.Duration(float64(watchBackoff) * (0.75 + rand.Float64()*0.5))
 			s.log.Warn("secret watch flapped, backing off before re-list", "wait", jittered)
+			s.recordTransportErr("secrets", cert.ReasonWatchFlapped)
 			select {
 			case <-ctx.Done():
 				return
@@ -554,6 +583,7 @@ func (s *Source) watchSecretLoop(ctx context.Context, sink cert.Sink, rv string,
 			return false, false
 		}
 		s.log.Error("secret watch start failed, triggering resync", "err", err)
+		s.recordTransportErr("secrets", cert.ReasonWatchStartFailed)
 		return true, true // failed to even open the stream — treat like a flap
 	}
 	defer watcher.Stop()
@@ -595,6 +625,7 @@ func (s *Source) watchSecretLoop(ctx context.Context, sink cert.Sink, rv string,
 				flap := time.Since(started) < WatchFlapThreshold
 				s.log.Error("secret watch error event, triggering resync",
 					"event", fmt.Sprintf("%v", event.Object), "flap", flap)
+				s.recordTransportErr("secrets", cert.ReasonWatchErrorEvent)
 				return true, flap
 			}
 		}
@@ -656,6 +687,7 @@ func (s *Source) runConfigMapsDirect(ctx context.Context, sink cert.Sink, firstS
 			}
 			jittered := time.Duration(float64(listBackoff) * (0.75 + rand.Float64()*0.5))
 			s.log.Error("configmap list failed, will retry", "err", err, "backoff", jittered)
+			s.recordTransportErr("configmaps", cert.ReasonListFailed)
 			select {
 			case <-ctx.Done():
 				return
@@ -678,6 +710,7 @@ func (s *Source) runConfigMapsDirect(ctx context.Context, sink cert.Sink, firstS
 		if flap {
 			jittered := time.Duration(float64(watchBackoff) * (0.75 + rand.Float64()*0.5))
 			s.log.Warn("configmap watch flapped, backing off before re-list", "wait", jittered)
+			s.recordTransportErr("configmaps", cert.ReasonWatchFlapped)
 			select {
 			case <-ctx.Done():
 				return
@@ -755,6 +788,7 @@ func (s *Source) watchConfigMapLoop(ctx context.Context, sink cert.Sink, rv stri
 			return false, false
 		}
 		s.log.Error("configmap watch start failed, triggering resync", "err", err)
+		s.recordTransportErr("configmaps", cert.ReasonWatchStartFailed)
 		return true, true
 	}
 	defer watcher.Stop()
@@ -793,6 +827,7 @@ func (s *Source) watchConfigMapLoop(ctx context.Context, sink cert.Sink, rv stri
 				flap := time.Since(started) < WatchFlapThreshold
 				s.log.Error("configmap watch error event, triggering resync",
 					"event", fmt.Sprintf("%v", event.Object), "flap", flap)
+				s.recordTransportErr("configmaps", cert.ReasonWatchErrorEvent)
 				return true, flap
 			}
 		}

@@ -51,6 +51,52 @@ spec:
         {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
         {{- end }}
     {{- end }}
+    {{- if .Values.prometheusRules.alertOnKubeTransportErrors }}
+    # Two-band alert on x509_kube_transport_errors_total.
+    #
+    # The warning band trips on >5 events in 15 minutes per (source,
+    # resource, reason). The threshold filters out routine control-plane
+    # noise: a rolling kube-apiserver upgrade typically produces 1–3
+    # watch_flapped events per series and resolves on its own; a
+    # transient leader election or network blip is usually under 5
+    # events. Sustained issues (token rotation drift, persistent
+    # apiserver unreachability, watch-flap storm) cross >5 within
+    # minutes.
+    #
+    # The critical band shares the same expression but only fires once
+    # the condition has held continuously for 30 minutes, meaning the
+    # issue isn't self-recovering and the cluster has likely been
+    # operating with degraded certificate observability for half an
+    # hour. At that point the operator should be paged.
+    - alert: '{{ printf "%s %s" $rulePrefix "KubeTransportErrors" | trim }}'
+      expr: increase(x509_kube_transport_errors_total[15m]) > 5
+      for: 5m
+      labels:
+        severity: {{ .Values.prometheusRules.kubeTransportErrorsSeverity }}
+        {{- if .Values.prometheusRules.alertExtraLabels }}
+        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        summary: x509-certificate-exporter is having trouble talking to the Kubernetes API
+        description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` recorded more than 5 transport-level errors (`{{ "{{" }} $labels.reason {{ "}}" }}`) against resource `{{ "{{" }} $labels.resource {{ "}}" }}` over the last 15 minutes. While this lasts, certificate observations from that resource may be stale or missing. Typical causes are auth failures (token rotation, RBAC drift), apiserver throttling, or persistent network issues to the control plane.
+        {{- if .Values.prometheusRules.alertExtraAnnotations }}
+        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
+        {{- end }}
+    - alert: '{{ printf "%s %s" $rulePrefix "KubeTransportErrorsSustained" | trim }}'
+      expr: increase(x509_kube_transport_errors_total[15m]) > 5
+      for: 30m
+      labels:
+        severity: {{ .Values.prometheusRules.kubeTransportErrorsSustainedSeverity }}
+        {{- if .Values.prometheusRules.alertExtraLabels }}
+        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
+        {{- end }}
+      annotations:
+        summary: x509-certificate-exporter cannot reach the Kubernetes API reliably
+        description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` has been recording more than 5 transport-level errors (`{{ "{{" }} $labels.reason {{ "}}" }}`) against resource `{{ "{{" }} $labels.resource {{ "}}" }}` continuously for at least 30 minutes. This is no longer a transient control-plane event — the certificates this source watches have been missing fresh observations for that whole window. Investigate apiserver reachability, RBAC, and token/cert rotation drift.
+        {{- if .Values.prometheusRules.alertExtraAnnotations }}
+        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
+        {{- end }}
+    {{- end }}
     {{- if .Values.prometheusRules.alertOnPassphraseFailures }}
     - alert: '{{ printf "%s %s" $rulePrefix "KeystorePassphraseFailures" | trim }}'
       expr: (increase(x509_pkcs12_passphrase_failures_total[15m]) > 0) or (increase(x509_jks_passphrase_failures_total[15m]) > 0)

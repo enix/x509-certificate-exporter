@@ -106,6 +106,7 @@ func (r *Registry) Describe(ch chan<- *prometheus.Desc) {
 	ch <- r.scrapeDuration.Desc()
 	r.panicTotal.Describe(ch)
 	r.watchResyncs.Describe(ch)
+	r.transportErrors.Describe(ch)
 	if r.parseDuration != nil {
 		r.parseDuration.Describe(ch)
 	}
@@ -147,6 +148,7 @@ func (r *Registry) Collect(ch chan<- prometheus.Metric) {
 	r.collisionDropped.Collect(ch)
 	r.panicTotal.Collect(ch)
 	r.watchResyncs.Collect(ch)
+	r.transportErrors.Collect(ch)
 	if r.parseDuration != nil {
 		r.parseDuration.Collect(ch)
 	}

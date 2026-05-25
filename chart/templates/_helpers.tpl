@@ -183,6 +183,32 @@ Secrets exporter Deployment
 {{- end -}}
 
 {{/*
+PrometheusRule helpers. Every alert in templates/prometheusrule.yaml emits
+the same `if .Values.prometheusRules.alertExtraLabels` / `…ExtraAnnotations`
+pair, and every cert/CRL alert emits the same `{{if $labels.secret_name}}…
+in Kubernetes secret …{{else}}at location …{{end}}` literal block — the
+latter has to escape both `{{` and `}}` so Helm passes it through to
+AlertManager unchanged. Centralising both keeps drift impossible: when we
+changed the surrounding quotes to backticks in one PR, 5 alert blocks had
+to be edited; with these helpers, it's one site.
+*/}}
+{{- define "x509-certificate-exporter.alertExtraLabels" -}}
+{{- with .Values.prometheusRules.alertExtraLabels }}
+{{- toYaml . | nindent 8 }}
+{{- end }}
+{{- end -}}
+
+{{- define "x509-certificate-exporter.alertExtraAnnotations" -}}
+{{- with .Values.prometheusRules.alertExtraAnnotations }}
+{{- toYaml . | nindent 8 }}
+{{- end }}
+{{- end -}}
+
+{{- define "x509-certificate-exporter.alertLocationSuffix" -}}
+{{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
+{{- end -}}
+
+{{/*
 Web configuration Secret name
 */}}
 {{- define "x509-certificate-exporter.webConfigurationSecretName" -}}

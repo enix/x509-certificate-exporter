@@ -1,0 +1,2 @@
+prometheusRules:
+  sourceErrorsSeverity: warn

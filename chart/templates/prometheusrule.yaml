@@ -1,5 +1,8 @@
 {{- if .Values.prometheusRules.create }}
-{{- $rulePrefix:= .Values.prometheusRules.rulePrefix }}
+{{- $rulePrefix := .Values.prometheusRules.rulePrefix }}
+{{- $extraLabels := include "x509-certificate-exporter.alertExtraLabels" . }}
+{{- $extraAnnotations := include "x509-certificate-exporter.alertExtraAnnotations" . }}
+{{- $loc := include "x509-certificate-exporter.alertLocationSuffix" . }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -17,23 +20,38 @@ spec:
       {{ fail "Extra alert groups (extraAlertGroups) are required when disableBuiltinAlertGroup is set!" }}
     {{- end }}
   {{- else }}
+
   - name: x509-certificate-exporter.rules
     rules:
-    {{- if .Values.prometheusRules.alertOnReadErrors }}
-    - alert: '{{ printf "%s %s" $rulePrefix "X509ExporterReadErrors" | trim }}'
-      expr: increase(x509_source_errors_total[15m]) > 0
+    {{- if .Values.prometheusRules.alertOnSourceErrors }}
+    # Two-band alert on x509_source_errors_total. Same shape as
+    # KubeTransportErrors below: warning fires on >5 errors in 15min
+    # (filters single-event noise like one malformed PEM in one Secret);
+    # critical fires once the warning has held for 30min, signalling a
+    # persistent decode problem rather than a transient blip.
+    #
+    # Aggregated over `reason` so the alert routes by source — the
+    # reason breakdown stays available on the metric itself for triage.
+    - alert: '{{ printf "%s %s" $rulePrefix "SourceErrors" | trim }}'
+      expr: sum without (reason) (increase(x509_source_errors_total[15m])) > 5
       for: 5m
       labels:
-        severity: {{ .Values.prometheusRules.readErrorsSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        severity: {{ .Values.prometheusRules.sourceErrorsSeverity }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
-        summary: Increasing read errors for x509-certificate-exporter
-        description: Over the last 15 minutes, this x509-certificate-exporter instance has experienced errors reading certificate files or querying the Kubernetes API. This could be caused by a misconfiguration if triggered when the exporter starts.
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        summary: x509-certificate-exporter source is producing errors
+        description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` (kind `{{ "{{" }} $labels.source_kind {{ "}}" }}`) recorded more than 5 errors over the last 15 minutes. This covers both bundle-level failures (parse errors on PEM/PKCS#12/JKS/DER, missing certs, bad passphrase) and transport-level failures from the Kubernetes API. Inspect `x509_source_errors_total` broken down by `reason` for the specific cause.
+        {{- $extraAnnotations | nindent 0 }}
+    - alert: '{{ printf "%s %s" $rulePrefix "SourceErrorsSustained" | trim }}'
+      expr: sum without (reason) (increase(x509_source_errors_total[15m])) > 5
+      for: 30m
+      labels:
+        severity: {{ .Values.prometheusRules.sourceErrorsSustainedSeverity }}
+        {{- $extraLabels | nindent 0 }}
+      annotations:
+        summary: x509-certificate-exporter source has been producing errors for 30+ minutes
+        description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` has had a sustained error rate (>5 events per 15min, continuously for 30 minutes). This is no longer a transient state — investigate the breakdown of `x509_source_errors_total` by reason to find the root cause.
+        {{- $extraAnnotations | nindent 0 }}
     {{- end }}
     {{- if .Values.prometheusRules.alertOnSourceDown }}
     - alert: '{{ printf "%s %s" $rulePrefix "SourceDown" | trim }}'
@@ -41,193 +59,158 @@ spec:
       for: 5m
       labels:
         severity: {{ .Values.prometheusRules.sourceDownSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
         summary: x509-certificate-exporter source is not reporting healthy
         description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` (kind `{{ "{{" }} $labels.source_kind {{ "}}" }}`) failed its initial sync or has gone unhealthy. While this lasts, certificates it normally watches are not being checked — a silently expired cert is possible. Common causes are RBAC denials, persistent K8s API errors, or unreadable file paths.
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        {{- $extraAnnotations | nindent 0 }}
     {{- end }}
     {{- if .Values.prometheusRules.alertOnKubeTransportErrors }}
-    # Two-band alert on x509_kube_transport_errors_total.
-    #
-    # The warning band trips on >5 events in 15 minutes per (source,
-    # resource, reason). The threshold filters out routine control-plane
-    # noise: a rolling kube-apiserver upgrade typically produces 1–3
-    # watch_flapped events per series and resolves on its own; a
-    # transient leader election or network blip is usually under 5
-    # events. Sustained issues (token rotation drift, persistent
-    # apiserver unreachability, watch-flap storm) cross >5 within
-    # minutes.
-    #
-    # The critical band shares the same expression but only fires once
-    # the condition has held continuously for 30 minutes, meaning the
-    # issue isn't self-recovering and the cluster has likely been
-    # operating with degraded certificate observability for half an
-    # hour. At that point the operator should be paged.
+    # Two-band alert on x509_kube_transport_errors_total — same pattern
+    # as SourceErrors. Warning fires on >5 events in 15min per source
+    # (aggregated over resource/reason), filtering routine control-plane
+    # events: a rolling kube-apiserver upgrade typically produces 1–3
+    # watch_flapped events per series and resolves on its own. Critical
+    # fires once the condition has held continuously for 30 minutes.
     - alert: '{{ printf "%s %s" $rulePrefix "KubeTransportErrors" | trim }}'
-      expr: increase(x509_kube_transport_errors_total[15m]) > 5
+      expr: sum without (resource, reason) (increase(x509_kube_transport_errors_total[15m])) > 5
       for: 5m
       labels:
         severity: {{ .Values.prometheusRules.kubeTransportErrorsSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
         summary: x509-certificate-exporter is having trouble talking to the Kubernetes API
-        description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` recorded more than 5 transport-level errors (`{{ "{{" }} $labels.reason {{ "}}" }}`) against resource `{{ "{{" }} $labels.resource {{ "}}" }}` over the last 15 minutes. While this lasts, certificate observations from that resource may be stale or missing. Typical causes are auth failures (token rotation, RBAC drift), apiserver throttling, or persistent network issues to the control plane.
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` recorded more than 5 Kubernetes API transport-level errors (LIST/WATCH/informer failures) over the last 15 minutes. While this lasts, certificate observations from affected resources may be stale or missing. Typical causes are auth failures (token rotation, RBAC drift), apiserver throttling, or persistent network issues to the control plane.
+        {{- $extraAnnotations | nindent 0 }}
     - alert: '{{ printf "%s %s" $rulePrefix "KubeTransportErrorsSustained" | trim }}'
-      expr: increase(x509_kube_transport_errors_total[15m]) > 5
+      expr: sum without (resource, reason) (increase(x509_kube_transport_errors_total[15m])) > 5
       for: 30m
       labels:
         severity: {{ .Values.prometheusRules.kubeTransportErrorsSustainedSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
         summary: x509-certificate-exporter cannot reach the Kubernetes API reliably
-        description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` has been recording more than 5 transport-level errors (`{{ "{{" }} $labels.reason {{ "}}" }}`) against resource `{{ "{{" }} $labels.resource {{ "}}" }}` continuously for at least 30 minutes. This is no longer a transient control-plane event — the certificates this source watches have been missing fresh observations for that whole window. Investigate apiserver reachability, RBAC, and token/cert rotation drift.
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` has been recording sustained Kubernetes API transport-level errors continuously for at least 30 minutes. Certificate observations have likely been missing fresh updates for that whole window. Investigate apiserver reachability, RBAC, and token/cert rotation drift.
+        {{- $extraAnnotations | nindent 0 }}
     {{- end }}
-    {{- if .Values.prometheusRules.alertOnPassphraseFailures }}
+    {{- if .Values.prometheusRules.alertOnKeystorePassphraseFailures }}
     - alert: '{{ printf "%s %s" $rulePrefix "KeystorePassphraseFailures" | trim }}'
       expr: (increase(x509_pkcs12_passphrase_failures_total[15m]) > 0) or (increase(x509_jks_passphrase_failures_total[15m]) > 0)
       for: 15m
       labels:
-        severity: {{ .Values.prometheusRules.passphraseFailuresSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        severity: {{ .Values.prometheusRules.keystorePassphraseFailuresSeverity }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
         summary: Keystore passphrase failures observed
         description: Source `{{ "{{" }} $labels.source_name {{ "}}" }}` recorded PKCS#12 or JKS/JCEKS decode failures with reason `bad_passphrase` over the last 15 minutes. The configured passphrase is wrong, missing, or pointing at the wrong key — the affected keystores are not contributing any certificate metrics.
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        {{- $extraAnnotations | nindent 0 }}
     {{- end }}
-    {{- if .Values.prometheusRules.alertOnCertificateErrors }}
+
+    # CertificateRenewal and CertificateExpiration below are intentionally
+    # always-on (no toggle): expiration monitoring is the exporter's core
+    # value, disabling them would defeat the purpose of installing the
+    # chart. CertificateError, CertificateNotYetValid and CertificateCollision
+    # are opt-out via toggles because they each guard against a specific
+    # operational failure mode rather than the base "your cert is dying"
+    # signal.
+    {{- if .Values.prometheusRules.alertOnCertificateError }}
+    # Depends on `exposePerCertificateErrorMetrics: true`. Without it the
+    # `x509_cert_error` series isn't emitted and this rule is a silent
+    # no-op — documented in values.yaml alongside the toggle.
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateError" | trim }}'
       expr: x509_cert_error > 0
       for: 15m
       labels:
-        severity: {{ .Values.prometheusRules.certificateErrorsSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        severity: {{ .Values.prometheusRules.certificateErrorSeverity }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
         summary: Certificate cannot be decoded
-        description: Certificate could not be decoded {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        description: Certificate could not be decoded {{ $loc }}
+        {{- $extraAnnotations | nindent 0 }}
     {{- end }}
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateRenewal" | trim }}'
-      expr: (x509_cert_not_after - time()) < ({{ .Values.prometheusRules.warningDaysLeft }} * 86400)
+      expr: (x509_cert_not_after - time()) < ({{ .Values.prometheusRules.warningDaysLeft }} * 86400) and (x509_cert_not_after - time()) > 0
       for: 15m
       labels:
         severity: {{ .Values.prometheusRules.certificateRenewalsSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
         summary: Certificate should be renewed
-        description: Certificate for `{{ "{{" }} $labels.subject_CN {{ "}}" }}` should be renewed as it expires in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        description: Certificate for `{{ "{{" }} $labels.subject_CN {{ "}}" }}` should be renewed as it expires in {{`{{`}} humanizeDuration $value {{`}}`}} {{ $loc }}
+        {{- $extraAnnotations | nindent 0 }}
+    # The expression keeps firing once the cert is past NotAfter (the
+    # difference goes negative but stays below the threshold), so the
+    # description distinguishes "about to expire" from "already expired"
+    # via humanizeDuration's sign. AlertManager preserves the same
+    # series identity through the transition; no flapping.
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateExpiration" | trim }}'
       expr: (x509_cert_not_after - time()) < ({{ .Values.prometheusRules.criticalDaysLeft }} * 86400)
       for: 15m
       labels:
         severity: {{ .Values.prometheusRules.certificateExpirationsSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
-        summary: Certificate is about to expire
-        description: Certificate for `{{ "{{" }} $labels.subject_CN {{ "}}" }}` is about to expire in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        summary: Certificate is expiring or expired
+        description: Certificate for `{{ "{{" }} $labels.subject_CN {{ "}}" }}` {{ "{{if lt $value 0.0}}" }}expired {{`{{`}} humanizeDuration $value {{`}}`}} ago{{ "{{else}}" }}expires in {{`{{`}} humanizeDuration $value {{`}}`}}{{ "{{end}}" }} {{ $loc }}
+        {{- $extraAnnotations | nindent 0 }}
     {{- if .Values.prometheusRules.alertOnCertificateNotYetValid }}
+    # Depends on `exposeNotBeforeMetric: true`. Without it the
+    # `x509_cert_not_before` series isn't emitted and this rule is a
+    # silent no-op — documented in values.yaml alongside the toggle.
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateNotYetValid" | trim }}'
-      # Depends on `exposeNotBeforeMetric: true` — without it the
-      # `x509_cert_not_before` series isn't emitted and this rule is a
-      # silent no-op. Documented in the values comment alongside.
       expr: (x509_cert_not_before - time()) > 0
       for: 15m
       labels:
         severity: {{ .Values.prometheusRules.certificateNotYetValidSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
         summary: Certificate is not yet valid
-        description: Certificate for `{{ "{{" }} $labels.subject_CN {{ "}}" }}` becomes valid in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}. Likely a clock drift, a misdated issuance, or a planned-future cert that shipped early.
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        description: Certificate for `{{ "{{" }} $labels.subject_CN {{ "}}" }}` becomes valid in {{`{{`}} humanizeDuration $value {{`}}`}} {{ $loc }}. Likely a clock drift, a misdated issuance, or a planned-future cert that shipped early.
+        {{- $extraAnnotations | nindent 0 }}
     {{- end }}
-    {{- if .Values.prometheusRules.alertOnCertificateCollisions }}
+    {{- if .Values.prometheusRules.alertOnCertificateCollision }}
+    # Targets the `_dropped_total` counter so the alert only fires for
+    # actual data-loss (registry CollisionNever policy). The detect-only
+    # counter `x509_cert_collision_total` keeps ticking under the default
+    # CollisionAuto policy, where the discriminator resolves the overlap
+    # and no data is lost — that signal stays available as a diagnostic
+    # on dashboards but doesn't page.
     - alert: '{{ printf "%s %s" $rulePrefix "CertificateCollision" | trim }}'
-      # Targets the `_dropped_total` counter so the alert only fires for
-      # actual data-loss (registry CollisionNever policy). The detect-only
-      # counter `x509_cert_collision_total` keeps ticking under the
-      # default CollisionAuto policy, where the discriminator resolves
-      # the overlap and no data is lost — that signal stays available as
-      # a diagnostic on dashboards but doesn't page.
       expr: increase(x509_cert_collision_dropped_total[1h]) > 0
       for: 15m
       labels:
-        severity: {{ .Values.prometheusRules.certificateCollisionsSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        severity: {{ .Values.prometheusRules.certificateCollisionSeverity }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
         summary: Certificate label collision dropped a series
         description: At least one certificate observed by source kind `{{ "{{" }} $labels.source_kind {{ "}}" }}` was dropped because it shared its Prometheus label set with another and the registry is configured with `Collision=Never`. Its expiration will not raise an alert. Typically caused by overlapping `secretTypes` / `configMapKeys` patterns, or identical subjects in two distinct keystores; either disambiguate the source config or switch the registry to the default `Auto` policy so the discriminator label disambiguates the series instead.
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        {{- $extraAnnotations | nindent 0 }}
     {{- end }}
-    {{- if .Values.prometheusRules.alertOnCRLs }}
+
+    # CRLs below follow the same always-on pattern as certificate
+    # renewal/expiration — the alerts are noise-free when no CRL is
+    # being watched (the underlying `x509_crl_*` series simply don't
+    # exist), so there's no benefit to a toggle.
     - alert: '{{ printf "%s %s" $rulePrefix "CRLNeedsRefresh" | trim }}'
       expr: (x509_crl_next_update - time()) < ({{ .Values.prometheusRules.crlWarningDaysLeft }} * 86400) and x509_crl_stale == 0
       for: 15m
       labels:
         severity: {{ .Values.prometheusRules.crlNeedsRefreshSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
         summary: CRL needs to be refreshed
-        description: CRL issued by `{{ "{{" }} $labels.issuer_CN {{ "}}" }}` reaches its nextUpdate in {{`{{`}} humanizeDuration $value {{`}}`}} {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
+        description: CRL issued by `{{ "{{" }} $labels.issuer_CN {{ "}}" }}` reaches its nextUpdate in {{`{{`}} humanizeDuration $value {{`}}`}} {{ $loc }}
+        {{- $extraAnnotations | nindent 0 }}
     - alert: '{{ printf "%s %s" $rulePrefix "CRLStale" | trim }}'
       expr: x509_crl_stale > 0
       for: 15m
       labels:
         severity: {{ .Values.prometheusRules.crlStaleSeverity }}
-        {{- if .Values.prometheusRules.alertExtraLabels }}
-        {{- toYaml .Values.prometheusRules.alertExtraLabels | nindent 8 }}
-        {{- end }}
+        {{- $extraLabels | nindent 0 }}
       annotations:
         summary: CRL is stale (past its nextUpdate)
-        description: CRL issued by `{{ "{{" }} $labels.issuer_CN {{ "}}" }}` is past its nextUpdate — clients validating against this CRL are likely to reject the issuer's certs {{ "{{if" }} $labels.secret_name {{ "}}" }}in Kubernetes secret `{{ "{{" }} $labels.secret_namespace {{ "}}" }}/{{ "{{" }} $labels.secret_name {{ "}}" }}`{{ "{{else}}" }}at location `{{ "{{" }} $labels.filepath {{ "}}" }}`{{ "{{end}}" }}
-        {{- if .Values.prometheusRules.alertExtraAnnotations }}
-        {{- toYaml .Values.prometheusRules.alertExtraAnnotations | nindent 8 }}
-        {{- end }}
-    {{- end }}
+        description: CRL issued by `{{ "{{" }} $labels.issuer_CN {{ "}}" }}` is past its nextUpdate — clients validating against this CRL are likely to reject the issuer's certs {{ $loc }}
+        {{- $extraAnnotations | nindent 0 }}
   {{- end }}
 {{- range .Values.prometheusRules.extraAlertGroups }}
   - {{ tpl (toYaml .) $ | indent 4 | trim }}

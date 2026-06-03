@@ -160,8 +160,15 @@
           "type": "boolean"
         },
         "dashboardNamespace": {
-          "default": null,
-          "type": ["string", "null"]
+          "default": "null",
+          "maxLength": 63,
+          "minLength": 1,
+          "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$",
+          "required": [],
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "extraLabels": {
           "additionalProperties": true,

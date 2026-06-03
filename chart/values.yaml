@@ -124,6 +124,8 @@ metricLabelsFilterList: null
 grafana:
   # -- Should the Grafana dashboard be deployed as a ConfigMap (requires Grafana sidecar)
   createDashboard: false
+  # -- Namespace to create ConfigMap if. Omit to use same namespace as release.
+  dashboardNamespace: ~
   # -- ConfigMap label name the Grafana sidecar is looking for
   sidecarLabel: grafana_dashboard
   # -- ConfigMap label value the Grafana sidecar is looking for

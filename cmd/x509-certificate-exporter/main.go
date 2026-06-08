@@ -198,6 +198,7 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("source %q: %w", s.Name, err)
 		}
+		preInitSourceMetrics(reg, s)
 		logger.Debug("starting source", "source_name", s.Name, "source_kind", s.Kind)
 		go func() {
 			defer recoverPanic(reg, "source/"+s.Name, logger)
@@ -293,6 +294,48 @@ func recoverPanic(r *registry.Registry, component string, logger *slog.Logger) {
 	if rv := recover(); rv != nil {
 		logger.Error("goroutine panic", "component", component, "panic", fmt.Sprint(rv))
 		r.MarkPanic(component)
+	}
+}
+
+// preInitSourceMetrics materialises the counter series a source is
+// expected to emit, at zero, before any actual event has fired. Without
+// this, an exporter running cleanly shows no series at all for
+// x509_source_errors_total / x509_kube_transport_errors_total / etc.
+// — dashboards display gaps, `rate()` produces nothing until the
+// second event, and operators can't distinguish "healthy" from "metric
+// not reporting".
+//
+// Mapping from a config.Source kind to the registry kinds it emits to:
+//   - kubernetes: kube-secret + kube-configmap (and the kube transport
+//     metrics under (source_name, resource, reason)).
+//   - file:       file
+//   - kubeconfig: kubeconfig
+//   - cabundle:   kube-cabundle
+//
+// For kubernetes sources we additionally pre-init the watch_resyncs /
+// transport_errors families for every resource the source is wired to
+// watch (Secrets, ConfigMaps, and the namespace informer when label-
+// based namespace filters require it).
+func preInitSourceMetrics(reg *registry.Registry, s config.Source) {
+	switch s.Kind {
+	case config.KindKubernetes:
+		var resources []string
+		if s.Secrets != nil {
+			reg.PreInitBundleSource(cert.KindKubeSecret, s.Name)
+			resources = append(resources, "secrets")
+		}
+		if s.ConfigMaps != nil {
+			reg.PreInitBundleSource(cert.KindKubeConfigMap, s.Name)
+			resources = append(resources, "configmaps")
+		}
+		nsInformer := s.Namespaces != nil && (len(s.Namespaces.IncludeLabels) > 0 || len(s.Namespaces.ExcludeLabels) > 0)
+		reg.PreInitKubeTransport(s.Name, resources, nsInformer)
+	case config.KindFile:
+		reg.PreInitBundleSource(cert.KindFile, s.Name)
+	case config.KindKubeconfig:
+		reg.PreInitBundleSource(cert.KindKubeconfig, s.Name)
+	case config.KindCABundle:
+		reg.PreInitBundleSource(cert.KindKubeCABundle, s.Name)
 	}
 }
 

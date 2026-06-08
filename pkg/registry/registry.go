@@ -455,6 +455,69 @@ func (r *Registry) MarkTransportError(sourceName, resource, reason string) {
 	r.transportErrors.WithLabelValues(sourceName, resource, reason).Inc()
 }
 
+// PreInitBundleSource materialises counter series at zero for a source
+// that emits bundles under (kind, name). Without this, a CounterVec
+// series only appears the first time an event fires — so an exporter
+// that has been running cleanly shows no `x509_source_errors_total`
+// series at all, which dashboards and `rate()`/`increase()` cannot
+// distinguish from "metric not reporting". After pre-init the alert
+// query already sees a baseline of 0 for every static reason; the
+// first real event makes `increase()` jump immediately on the next
+// scrape rather than waiting for two samples.
+//
+// Materialises:
+//   - x509_source_errors_total{source_kind=kind, source_name=name,
+//     reason=...} for every reason in cert.BundleReasons.
+//   - x509_cert_collision_total{source_kind=kind} and
+//     x509_cert_collision_dropped_total{source_kind=kind}.
+//   - x509_{pkcs12,jks}_passphrase_failures_total{source_name=name}
+//     when the corresponding format is in use cluster-wide
+//     (Pkcs12InUse / JksInUse on Config). The conservative choice is
+//     to pre-init for every source even though only sources that
+//     actually parse those formats will ever bump them — series
+//     cardinality is bounded by source count, which is small.
+//
+// Safe to call multiple times; WithLabelValues is idempotent.
+func (r *Registry) PreInitBundleSource(kind, name string) {
+	for _, reason := range cert.BundleReasons {
+		r.sourceErrors.WithLabelValues(kind, name, reason)
+	}
+	r.collisionTotal.WithLabelValues(kind)
+	r.collisionDropped.WithLabelValues(kind)
+	if r.pkcs12PassphraseFailures != nil {
+		r.pkcs12PassphraseFailures.WithLabelValues(name)
+	}
+	if r.jksPassphraseFailures != nil {
+		r.jksPassphraseFailures.WithLabelValues(name)
+	}
+}
+
+// PreInitKubeTransport materialises the Kubernetes-source transport
+// counter series at zero for the given source name. Companion to
+// PreInitBundleSource for k8s sources.
+//
+// Materialises:
+//   - x509_kube_watch_resyncs_total{source_name=name, resource=...}
+//   - x509_kube_transport_errors_total{source_name=name, resource=...,
+//     reason=...} for every reason in cert.KubeTransportPerResourceReasons.
+//   - When namespaceInformer is true, additionally materialises the
+//     namespace-informer resync + transport-error series
+//     (resource="namespaces", reason="namespace_sync_failed").
+//
+// Safe to call multiple times.
+func (r *Registry) PreInitKubeTransport(name string, resources []string, namespaceInformer bool) {
+	for _, resource := range resources {
+		r.watchResyncs.WithLabelValues(name, resource)
+		for _, reason := range cert.KubeTransportPerResourceReasons {
+			r.transportErrors.WithLabelValues(name, resource, reason)
+		}
+	}
+	if namespaceInformer {
+		r.watchResyncs.WithLabelValues(name, "namespaces")
+		r.transportErrors.WithLabelValues(name, "namespaces", cert.ReasonNamespaceSyncFail)
+	}
+}
+
 // snapshot copies the bundles map under the read lock.
 func (r *Registry) snapshot() []cert.Bundle {
 	r.mu.RLock()

@@ -368,6 +368,105 @@ func TestMarkTransportError(t *testing.T) {
 	}
 }
 
+// TestPreInitMaterializesZeroSeries is the regression net for the
+// "no series until first event" UX hit: it asserts that every counter
+// series we promise to expose for a given (kind, name) exists at zero
+// after PreInitBundleSource + PreInitKubeTransport, so dashboards and
+// alerts see a defined baseline before any error has fired.
+func TestPreInitMaterializesZeroSeries(t *testing.T) {
+	reasons := len(cert.KubeTransportPerResourceReasons)
+	cases := []struct {
+		name          string
+		resources     []string
+		nsInformer    bool
+		wantTransport int // x509_kube_transport_errors_total series
+		wantResyncs   int // x509_kube_watch_resyncs_total series
+	}{
+		{
+			name:          "secrets+configmaps with namespace informer",
+			resources:     []string{"secrets", "configmaps"},
+			nsInformer:    true,
+			wantTransport: reasons*2 + 1, // 2 resources × reasons + namespaces
+			wantResyncs:   3,             // 2 resources + namespaces
+		},
+		{
+			name:          "secrets only, no namespace informer",
+			resources:     []string{"secrets"},
+			nsInformer:    false,
+			wantTransport: reasons,
+			wantResyncs:   1,
+		},
+		{
+			name:          "configmaps only, no namespace informer",
+			resources:     []string{"configmaps"},
+			nsInformer:    false,
+			wantTransport: reasons,
+			wantResyncs:   1,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := New(Config{Pkcs12InUse: true, JksInUse: true}, nopLogger())
+			r.PreInitBundleSource(cert.KindKubeSecret, "kube")
+			r.PreInitKubeTransport("kube", tc.resources, tc.nsInformer)
+
+			reg := prometheus.NewRegistry()
+			if err := reg.Register(r); err != nil {
+				t.Fatal(err)
+			}
+			mfs, err := reg.Gather()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := map[string]int{} // metric name → series count
+			for _, mf := range mfs {
+				got[*mf.Name] = len(mf.Metric)
+			}
+
+			// Bundle-source series are independent of the transport
+			// permutation: one series per reason, one collision pair per
+			// source_kind, one passphrase series per source_name.
+			if n := got["x509_source_errors_total"]; n != len(cert.BundleReasons) {
+				t.Errorf("x509_source_errors_total: got %d series, want %d", n, len(cert.BundleReasons))
+			}
+			if n := got["x509_cert_collision_total"]; n != 1 {
+				t.Errorf("x509_cert_collision_total: got %d, want 1", n)
+			}
+			if n := got["x509_cert_collision_dropped_total"]; n != 1 {
+				t.Errorf("x509_cert_collision_dropped_total: got %d, want 1", n)
+			}
+			if n := got["x509_pkcs12_passphrase_failures_total"]; n != 1 {
+				t.Errorf("x509_pkcs12_passphrase_failures_total: got %d, want 1", n)
+			}
+			if n := got["x509_jks_passphrase_failures_total"]; n != 1 {
+				t.Errorf("x509_jks_passphrase_failures_total: got %d, want 1", n)
+			}
+			if n := got["x509_kube_transport_errors_total"]; n != tc.wantTransport {
+				t.Errorf("x509_kube_transport_errors_total: got %d series, want %d", n, tc.wantTransport)
+			}
+			if n := got["x509_kube_watch_resyncs_total"]; n != tc.wantResyncs {
+				t.Errorf("x509_kube_watch_resyncs_total: got %d, want %d", n, tc.wantResyncs)
+			}
+
+			// All pre-init'd series must be at value 0 (never incremented).
+			for _, mf := range mfs {
+				if !strings.HasPrefix(*mf.Name, "x509_") {
+					continue
+				}
+				for _, m := range mf.Metric {
+					if m.Counter == nil {
+						continue
+					}
+					if v := m.Counter.GetValue(); v != 0 {
+						t.Errorf("%s: pre-init'd series has value %v, want 0", *mf.Name, v)
+					}
+				}
+			}
+		})
+	}
+}
+
 // TestStatsCacheTracksAllCounters is the regression guard for the
 // `/` stats page: every field of CacheStats is fed by its canonical
 // setter. A future setter that writes directly to the prometheus vec

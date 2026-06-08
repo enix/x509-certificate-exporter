@@ -44,3 +44,48 @@ const (
 	ReasonWatchFlapped       = "watch_flapped"
 	ReasonNamespaceSyncFail  = "namespace_sync_failed"
 )
+
+// BundleReasons enumerates every static reason that may appear as a
+// label on `x509_source_errors_total`. Used by Registry pre-init to
+// materialise counter series at zero so they show up in /metrics and
+// in rate()/increase() the moment the first event lands — without
+// it, the absence-of-series ambiguity ("counter at 0" vs. "metric not
+// reporting") leaks into dashboards and alerts.
+//
+// HTTP-status reasons (`http_NNN`) are deliberately excluded — they're
+// dynamic and would require enumerating every code that the kube
+// apiserver might surface. Alerts aggregating across `reason` (the
+// pattern used by the chart's SourceErrors[Sustained] alert) still see
+// the static-reason baseline series, so the alert query is well-defined
+// before any error has fired.
+var BundleReasons = []string{
+	ReasonBadPEM,
+	ReasonBadCRL,
+	ReasonBadDER,
+	ReasonBadJKS,
+	ReasonBadPKCS12,
+	ReasonBadPassphrase,
+	ReasonNoCertificateFound,
+	ReasonReadFailed,
+	ReasonPermissionDenied,
+	ReasonNotFound,
+	ReasonAPIError,
+	ReasonDecodeFailed,
+	ReasonBrokenSymlink,
+	ReasonOutOfScopeSymlink,
+	ReasonParseTimeout,
+	ReasonWalkError,
+	ReasonRateLimited,
+}
+
+// KubeTransportPerResourceReasons enumerates the static reasons that
+// may appear as the `reason` label of `x509_kube_transport_errors_total`
+// for `resource in {secrets, configmaps}`. The namespace-informer
+// reason is separate (a single `namespace_sync_failed` value bound to
+// `resource="namespaces"`); see Registry.PreInitKubeTransport.
+var KubeTransportPerResourceReasons = []string{
+	ReasonListFailed,
+	ReasonWatchStartFailed,
+	ReasonWatchErrorEvent,
+	ReasonWatchFlapped,
+}

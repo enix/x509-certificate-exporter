@@ -107,6 +107,38 @@ func TestParseTrustStore(t *testing.T) {
 	}
 }
 
+func TestParseTrustStoreAliasOrderDeterministic(t *testing.T) {
+	// keystore-go's Aliases() walks an internal map, which Go iterates
+	// in randomized order. The parser sorts aliases before emitting so
+	// item order (and therefore Prometheus series ordering) is stable
+	// across exporter restarts. Build a store whose sorted-alias order
+	// is known (buildTrustStoreJKS assigns trust-a, trust-b, … in cert
+	// order) and assert every parse yields that exact CN sequence.
+	cas := make([]*x509.Certificate, 6)
+	wantCN := make([]string, 6)
+	for i := range cas {
+		cn := "Anchor-" + string(rune('A'+i))
+		c, _, _ := makeCert(t, cn, true)
+		cas[i] = c
+		wantCN[i] = cn
+	}
+	data := buildTrustStoreJKS(t, "changeit", cas...)
+
+	// Many iterations: a map-order regression would surface as a
+	// flaky mismatch on at least one of them.
+	for iter := 0; iter < 20; iter++ {
+		b := New().Parse(data, cert.SourceRef{Kind: "file"}, cert.ParseOptions{JksPassphrase: "changeit"})
+		if len(b.Items) != len(wantCN) {
+			t.Fatalf("iter %d: want %d items, got %d", iter, len(wantCN), len(b.Items))
+		}
+		for i, want := range wantCN {
+			if got := b.Items[i].Cert.Subject.CommonName; got != want {
+				t.Fatalf("iter %d: item %d CN = %q, want %q (alias order not deterministic)", iter, i, got, want)
+			}
+		}
+	}
+}
+
 func TestParseKeyStoreChain(t *testing.T) {
 	leaf, _, leafKey := makeCert(t, "leaf.example.test", false)
 	inter, _, _ := makeCert(t, "intermediate", true)

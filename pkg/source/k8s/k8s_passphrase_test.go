@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 
@@ -279,5 +280,197 @@ func TestJksPassphraseSecretRefExplicitNamespace(t *testing.T) {
 
 	if got := parser.lastOpts(t).JksPassphrase; got != "cross-ns-jks" {
 		t.Fatalf("JksPassphrase = %q, want %q", got, "cross-ns-jks")
+	}
+}
+
+// soleUpsert returns the single Bundle a fakeSink received, failing if
+// the count isn't exactly one. The fail-fast tests use it to inspect
+// the bad_passphrase bundle the source emits instead of calling the
+// parser.
+func soleUpsert(t *testing.T, sink *fakeSink) cert.Bundle {
+	t.Helper()
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	if len(sink.upsert) != 1 {
+		t.Fatalf("want exactly 1 upsert, got %d", len(sink.upsert))
+	}
+	return sink.upsert[0]
+}
+
+// TestPassphraseFailFastEmitsBadPassphraseBundle pins the output of the
+// skip-parse path: one bundle carrying a bundle-level (Index -1)
+// bad_passphrase error whose Err names the concrete cause. The earlier
+// tests asserted only "parser not called", leaving the emitted metric
+// and its reason invisible to the suite.
+func TestPassphraseFailFastEmitsBadPassphraseBundle(t *testing.T) {
+	certSec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "ns"},
+		Type:       corev1.SecretType("kubernetes.io/tls"),
+		Data:       map[string][]byte{"keystore.p12": []byte("blob")},
+	}
+	parser := &recordingParser{}
+	rule := SecretTypeRule{
+		Type:          "kubernetes.io/tls",
+		KeyRe:         regexp.MustCompile(`^keystore\.p12$`),
+		PassphraseKey: "missing-key", // not present in the cert Secret
+		Parser:        parser,
+	}
+	src := newSource(t, rule, certSec)
+	sink := &fakeSink{}
+	src.onSecret(context.Background(), sink, certSec, false)
+
+	parser.assertNotCalled(t)
+	b := soleUpsert(t, sink)
+	if len(b.Errors) != 1 {
+		t.Fatalf("want 1 bundle error, got %d (%v)", len(b.Errors), b.Errors)
+	}
+	e := b.Errors[0]
+	if e.Index != -1 {
+		t.Errorf("Index = %d, want -1 (bundle-level)", e.Index)
+	}
+	if e.Reason != cert.ReasonBadPassphrase {
+		t.Errorf("Reason = %q, want bad_passphrase", e.Reason)
+	}
+	if e.Err == nil || !strings.Contains(e.Err.Error(), "missing-key") {
+		t.Errorf("Err = %v, want it to name the missing key", e.Err)
+	}
+}
+
+// TestPassphraseTwoSourcesOneSucceedsStillParses covers the
+// passphraseObtained accumulation: when two passphrase sources are
+// configured and at least one yields a value, the parser must be
+// called — a regression to "fail if any source fails" would skip it.
+func TestPassphraseTwoSourcesOneSucceedsStillParses(t *testing.T) {
+	certSec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "ns"},
+		Type:       corev1.SecretType("kubernetes.io/tls"),
+		Data: map[string][]byte{
+			"keystore.p12":    []byte("blob"),
+			"inline-pass-key": []byte("from-inline"),
+		},
+	}
+	parser := &recordingParser{}
+	rule := SecretTypeRule{
+		Type:                "kubernetes.io/tls",
+		KeyRe:               regexp.MustCompile(`^keystore\.p12$`),
+		PassphraseKey:       "inline-pass-key",                         // present → succeeds
+		PassphraseSecretRef: &PassphraseSecretRef{Name: "absent", Key: "pp"}, // fails
+		Parser:              parser,
+	}
+	src := newSource(t, rule, certSec)
+	src.onSecret(context.Background(), &fakeSink{}, certSec, false)
+
+	// The inline key won; the failed ref must not have overwritten it.
+	if got := parser.lastOpts(t).Pkcs12Passphrase; got != "from-inline" {
+		t.Fatalf("Pkcs12Passphrase = %q, want %q (sticky obtained value)", got, "from-inline")
+	}
+}
+
+// TestPassphraseTwoSourcesBothFailEmitsLastCause verifies that when
+// every configured source fails, the emitted bundle error carries the
+// last failure's cause (the SecretRef lookup here).
+func TestPassphraseTwoSourcesBothFailEmitsLastCause(t *testing.T) {
+	certSec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "ns"},
+		Type:       corev1.SecretType("kubernetes.io/tls"),
+		Data:       map[string][]byte{"keystore.p12": []byte("blob")},
+	}
+	parser := &recordingParser{}
+	rule := SecretTypeRule{
+		Type:                "kubernetes.io/tls",
+		KeyRe:               regexp.MustCompile(`^keystore\.p12$`),
+		PassphraseKey:       "missing-key",                              // fails first
+		PassphraseSecretRef: &PassphraseSecretRef{Name: "absent", Key: "pp"}, // fails last
+		Parser:              parser,
+	}
+	src := newSource(t, rule, certSec)
+	sink := &fakeSink{}
+	src.onSecret(context.Background(), sink, certSec, false)
+
+	parser.assertNotCalled(t)
+	b := soleUpsert(t, sink)
+	if len(b.Errors) != 1 || b.Errors[0].Err == nil {
+		t.Fatalf("want 1 bundle error with a cause, got %v", b.Errors)
+	}
+	if got := b.Errors[0].Err.Error(); !strings.Contains(got, "absent") {
+		t.Errorf("Err = %q, want last cause (SecretRef lookup of 'absent')", got)
+	}
+}
+
+// TestJksTryEmptyDrivesFailFast pins the format switch in onSecret:
+// for a JKS rule the skip-parse decision must read JksTryEmpty, not
+// Pkcs12TryEmpty. The two cases below would both break if the switch
+// arms were swapped.
+func TestJksTryEmptyDrivesFailFast(t *testing.T) {
+	mkCertSec := func() *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "ks", Namespace: "ns"},
+			Type:       corev1.SecretType("Opaque"),
+			Data:       map[string][]byte{"truststore.jks": []byte("blob")},
+		}
+	}
+
+	t.Run("JksTryEmpty=true parses despite missing key", func(t *testing.T) {
+		parser := &recordingParser{format: cert.FormatJKS}
+		rule := SecretTypeRule{
+			Type:             "Opaque",
+			KeyRe:            regexp.MustCompile(`^truststore\.jks$`),
+			JksPassphraseKey: "missing",
+			// Pkcs12TryEmpty deliberately false: if the switch read it
+			// instead of JksTryEmpty, this would wrongly skip the parser.
+			ParseOpts: cert.ParseOptions{JksTryEmpty: true},
+			Parser:    parser,
+		}
+		src := newSource(t, rule, mkCertSec())
+		src.onSecret(context.Background(), &fakeSink{}, mkCertSec(), false)
+		if got := parser.lastOpts(t).JksPassphrase; got != "" {
+			t.Fatalf("JksPassphrase = %q, want empty", got)
+		}
+	})
+
+	t.Run("JksTryEmpty=false skips parse even if Pkcs12TryEmpty=true", func(t *testing.T) {
+		parser := &recordingParser{format: cert.FormatJKS}
+		rule := SecretTypeRule{
+			Type:             "Opaque",
+			KeyRe:            regexp.MustCompile(`^truststore\.jks$`),
+			JksPassphraseKey: "missing",
+			// Trap: Pkcs12TryEmpty true must be ignored for a JKS rule.
+			ParseOpts: cert.ParseOptions{Pkcs12TryEmpty: true, JksTryEmpty: false},
+			Parser:    parser,
+		}
+		src := newSource(t, rule, mkCertSec())
+		sink := &fakeSink{}
+		src.onSecret(context.Background(), sink, mkCertSec(), false)
+		parser.assertNotCalled(t)
+		if b := soleUpsert(t, sink); b.Errors[0].Reason != cert.ReasonBadPassphrase {
+			t.Fatalf("reason = %q, want bad_passphrase", b.Errors[0].Reason)
+		}
+	})
+}
+
+// TestPassphraseKeyTrimsOnlyCRLF verifies the secret-sourced passphrase
+// is trimmed of trailing CR/LF only — interior and significant spaces
+// must survive (a passphrase legitimately containing spaces).
+func TestPassphraseKeyTrimsOnlyCRLF(t *testing.T) {
+	certSec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "ns"},
+		Type:       corev1.SecretType("kubernetes.io/tls"),
+		Data: map[string][]byte{
+			"keystore.p12": []byte("blob"),
+			"pp":           []byte("  pass with spaces  \r\n"),
+		},
+	}
+	parser := &recordingParser{}
+	rule := SecretTypeRule{
+		Type:          "kubernetes.io/tls",
+		KeyRe:         regexp.MustCompile(`^keystore\.p12$`),
+		PassphraseKey: "pp",
+		Parser:        parser,
+	}
+	src := newSource(t, rule, certSec)
+	src.onSecret(context.Background(), &fakeSink{}, certSec, false)
+
+	if got := parser.lastOpts(t).Pkcs12Passphrase; got != "  pass with spaces  " {
+		t.Fatalf("Pkcs12Passphrase = %q, want CR/LF trimmed but spaces kept", got)
 	}
 }

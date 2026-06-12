@@ -434,7 +434,7 @@ func buildSource(ctx context.Context, s config.Source, cfg config.Config, ready 
 	case config.KindKubernetes:
 		return buildKubeSource(ctx, s, ready, reg, logger)
 	case config.KindCABundle:
-		return buildCABundleSource(s, ready, logger)
+		return buildCABundleSource(s, ready, reg, logger)
 	}
 	return nil, fmt.Errorf("unknown kind %q", s.Kind)
 }
@@ -717,7 +717,7 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 // webhook entry). Shares the kube client construction logic with
 // buildKubeSource; consider extracting if a third K8s-based source is
 // added.
-func buildCABundleSource(s config.Source, ready func(bool), logger *slog.Logger) (cert.Source, error) {
+func buildCABundleSource(s config.Source, ready func(bool), reg *registry.Registry, logger *slog.Logger) (cert.Source, error) {
 	cfg, err := buildKubeClientConfig(s.Kubeconfig, logger)
 	if err != nil {
 		return nil, err
@@ -748,6 +748,7 @@ func buildCABundleSource(s config.Source, ready func(bool), logger *slog.Logger)
 		LabelSelector: buildLabelSelector(cb.IncludeLabels, cb.ExcludeLabels),
 		ExposedLabels: cb.ExposeLabels,
 		OnReady:       ready,
+		Recorder:      reg,
 	}
 	return cabundlesource.New(opts, logger), nil
 }

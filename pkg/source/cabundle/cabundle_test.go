@@ -575,3 +575,82 @@ func TestCRDWithoutConversionSkipped(t *testing.T) {
 		t.Fatalf("want no upserts (strategy=None), got %d", len(sink.upsert))
 	}
 }
+
+func TestMalformedCABundleEmitsBundleError(t *testing.T) {
+	// A non-empty caBundle that isn't valid PEM/DER must still produce a
+	// Bundle (so the ref is tracked and observable), carrying a fatal
+	// parse error rather than being silently dropped or panicking. The
+	// input is a CERTIFICATE block with garbage base64, which the PEM
+	// parser rejects as bad_pem.
+	garbage := []byte("-----BEGIN CERTIFICATE-----\nQUFB\n-----END CERTIFICATE-----\n")
+	mwc := &admissionv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "broken-webhook"},
+		Webhooks: []admissionv1.MutatingWebhook{
+			{Name: "broken.example", ClientConfig: admissionv1.WebhookClientConfig{CABundle: garbage}},
+		},
+	}
+	src := New(Options{
+		Name:        "cabundles",
+		Client:      fake.NewSimpleClientset(mwc),
+		Resources:   Resources{Mutating: true},
+		ResyncEvery: 10 * time.Minute,
+	}, nopLogger())
+	sink := &fakeSink{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = src.Run(ctx, sink) }()
+
+	waitFor(t, func() bool {
+		sink.mu.Lock()
+		defer sink.mu.Unlock()
+		return len(sink.upsert) >= 1
+	}, "malformed caBundle upsert")
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	b := sink.upsert[0]
+	// A single garbage cert is a per-item error (Index >= 0), not a
+	// bundle-level fatal — the contract is that it surfaces as an error
+	// the registry counts, never a silent drop or a panic.
+	if len(b.Errors) == 0 {
+		t.Fatalf("malformed caBundle must surface a bundle error, got %+v", b)
+	}
+	if got := b.Errors[0].Reason; got != cert.ReasonBadPEM {
+		t.Fatalf("reason = %q, want bad_pem", got)
+	}
+	if len(b.Items) != 0 {
+		t.Fatalf("malformed caBundle must not yield items, got %d", len(b.Items))
+	}
+}
+
+type recordingRecorder struct {
+	mu    sync.Mutex
+	calls [][3]string // source_name, resource, reason
+}
+
+func (r *recordingRecorder) MarkTransportError(sourceName, resource, reason string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, [3]string{sourceName, resource, reason})
+}
+
+func TestWatchErrHandlerForwardsTransportError(t *testing.T) {
+	rec := &recordingRecorder{}
+	src := New(Options{Name: "cabundles", Recorder: rec}, nopLogger())
+	src.watchErrHandler(kindMutating)(nil, io.ErrUnexpectedEOF)
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if len(rec.calls) != 1 {
+		t.Fatalf("want 1 transport-error call, got %d", len(rec.calls))
+	}
+	if rec.calls[0] != [3]string{"cabundles", kindMutating, cert.ReasonWatchErrorEvent} {
+		t.Fatalf("call = %v, want {cabundles, %s, watch_error_event}", rec.calls[0], kindMutating)
+	}
+}
+
+func TestWatchErrHandlerNilRecorderIsSafe(t *testing.T) {
+	// No Recorder configured — the handler must no-op, not panic.
+	src := New(Options{Name: "cabundles"}, nopLogger())
+	src.watchErrHandler(kindAPIService)(nil, io.ErrUnexpectedEOF)
+}

@@ -101,6 +101,19 @@ type Options struct {
 	// OnReady is invoked once after the initial informer sync — true
 	// on success, false if sync was cancelled or hit a fatal error.
 	OnReady func(bool)
+	// Recorder receives transport-level error events from the informers'
+	// reflectors (list/watch failures, reconnect storms). Nil keeps the
+	// log-only behaviour. Mirrors the kubernetes Source's Recorder so
+	// both sources feed x509_kube_transport_errors_total identically.
+	Recorder Recorder
+}
+
+// Recorder is the subset of the registry API the cabundle source uses
+// to emit transport-level operational metrics. Local interface so the
+// source stays decoupled from *registry.Registry and tests can plug a
+// fake. Nil is valid — every call no-ops.
+type Recorder interface {
+	MarkTransportError(sourceName, resource, reason string)
 }
 
 // DefaultResyncEvery is the fallback for Options.ResyncEvery.
@@ -157,6 +170,22 @@ func New(opts Options, logger *slog.Logger) *Source {
 // label on per-source observability metrics).
 func (s *Source) Name() string { return s.opts.Name }
 
+// watchErrHandler returns a reflector WatchErrorHandler that records a
+// transport error against the given resource kind and logs it. Without
+// it, a SharedInformer reflector that loses its watch and can't
+// reconnect (RBAC revoked mid-run, apiserver unreachable) retries
+// silently — invisible in metrics, unlike the kubernetes Source which
+// surfaces the same condition via x509_kube_transport_errors_total.
+// SetWatchErrorHandler must be installed before the informer starts.
+func (s *Source) watchErrHandler(resource string) func(*cache.Reflector, error) {
+	return func(_ *cache.Reflector, err error) {
+		s.log.Debug("cabundle informer watch error", "resource", resource, "err", err)
+		if s.opts.Recorder != nil {
+			s.opts.Recorder.MarkTransportError(s.opts.Name, resource, cert.ReasonWatchErrorEvent)
+		}
+	}
+}
+
 // Run wires up the configured informers and blocks until ctx is
 // cancelled. Returns nil on clean shutdown.
 func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
@@ -194,6 +223,7 @@ func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 				UpdateFunc: func(_, obj any) { s.onMWC(sink, obj, false) },
 				DeleteFunc: func(obj any) { s.onMWC(sink, obj, true) },
 			})
+			_ = inf.SetWatchErrorHandler(s.watchErrHandler(kindMutating))
 			infs = append(infs, inf)
 		}
 		if s.opts.Resources.Validating {
@@ -203,6 +233,7 @@ func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 				UpdateFunc: func(_, obj any) { s.onVWC(sink, obj, false) },
 				DeleteFunc: func(obj any) { s.onVWC(sink, obj, true) },
 			})
+			_ = inf.SetWatchErrorHandler(s.watchErrHandler(kindValidating))
 			infs = append(infs, inf)
 		}
 		starters = append(starters, factory.Start)
@@ -217,6 +248,7 @@ func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 			UpdateFunc: func(_, obj any) { s.onAPIService(sink, obj, false) },
 			DeleteFunc: func(obj any) { s.onAPIService(sink, obj, true) },
 		})
+		_ = inf.SetWatchErrorHandler(s.watchErrHandler(kindAPIService))
 		infs = append(infs, inf)
 		starters = append(starters, factory.Start)
 	}
@@ -230,6 +262,7 @@ func (s *Source) Run(ctx context.Context, sink cert.Sink) error {
 			UpdateFunc: func(_, obj any) { s.onCRD(sink, obj, false) },
 			DeleteFunc: func(obj any) { s.onCRD(sink, obj, true) },
 		})
+		_ = inf.SetWatchErrorHandler(s.watchErrHandler(kindCRD))
 		infs = append(infs, inf)
 		starters = append(starters, factory.Start)
 	}

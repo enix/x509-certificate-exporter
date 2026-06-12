@@ -307,7 +307,8 @@ func TestCollisionNeverDedups(t *testing.T) {
 	if err := reg.Register(r); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := reg.Gather(); err != nil {
+	mfs, err := reg.Gather()
+	if err != nil {
 		t.Fatal(err)
 	}
 	if got := testutil.ToFloat64(r.collisionTotal.WithLabelValues("file")); got < 1 {
@@ -318,6 +319,61 @@ func TestCollisionNeverDedups(t *testing.T) {
 	// "silently lost certificate".
 	if got := testutil.ToFloat64(r.collisionDropped.WithLabelValues("file")); got < 1 {
 		t.Fatalf("collisionDropped = %v want >=1 (Never drops the loser)", got)
+	}
+	// Survivor identity: the registry keeps the earliest-expiring cert
+	// (pessimistic — alert on the one that dies soonest). Exactly one
+	// x509_cert_not_after series must remain, equal to c2's NotAfter.
+	var notAfter []float64
+	for _, mf := range mfs {
+		if mf.GetName() != "x509_cert_not_after" {
+			continue
+		}
+		for _, m := range mf.Metric {
+			notAfter = append(notAfter, m.Gauge.GetValue())
+		}
+	}
+	if len(notAfter) != 1 {
+		t.Fatalf("want exactly 1 surviving x509_cert_not_after series, got %d", len(notAfter))
+	}
+	if want := float64(c2.NotAfter.Unix()); notAfter[0] != want {
+		t.Fatalf("survivor not_after = %v, want %v (earliest-expiring c2)", notAfter[0], want)
+	}
+}
+
+// TestCRLMetricsGatedOff verifies the gated CRL series are absent when
+// their feature flags are off: x509_crl_stale needs ExposeExpired,
+// x509_crl_stale_in_seconds / x509_crl_fresh_since_seconds need
+// ExposeRelative. The always-on series (next_update, this_update,
+// number) must still appear. Guards against a Desc-wiring mistake that
+// would leak gated metrics regardless of config.
+func TestCRLMetricsGatedOff(t *testing.T) {
+	r := New(Config{ExposeExpired: false, ExposeRelative: false}, nopLogger())
+	crl := mkCRL(t, "ca", 3, time.Now().Add(24*time.Hour))
+	r.Upsert(cert.Bundle{
+		Source:          cert.SourceRef{Kind: "file", Location: "/etc/x.crl", Format: "pem", SourceName: "files"},
+		RevocationItems: []cert.RevocationItem{{Index: 0, CRL: crl}},
+	})
+	reg := prometheus.NewRegistry()
+	if err := reg.Register(r); err != nil {
+		t.Fatal(err)
+	}
+	mfs, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	present := map[string]bool{}
+	for _, mf := range mfs {
+		present[mf.GetName()] = true
+	}
+	for _, gated := range []string{"x509_crl_stale", "x509_crl_stale_in_seconds", "x509_crl_fresh_since_seconds"} {
+		if present[gated] {
+			t.Errorf("%s must be absent when its feature flag is off", gated)
+		}
+	}
+	for _, always := range []string{"x509_crl_next_update", "x509_crl_this_update", "x509_crl_number"} {
+		if !present[always] {
+			t.Errorf("%s must be emitted regardless of feature flags", always)
+		}
 	}
 }
 

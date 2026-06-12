@@ -621,6 +621,61 @@ func TestPkcs12FailuresGatedOff(t *testing.T) {
 	}
 }
 
+func TestJksFailuresGatedOff(t *testing.T) {
+	// Twin of TestPkcs12FailuresGatedOff: a JKS bad-passphrase bundle
+	// with JksInUse=false must not allocate the per-format counter, and
+	// the generic source_errors_total still records it. Guards the nil
+	// branch the format-aware routing relies on.
+	r := New(Config{}, nopLogger())
+	r.Upsert(cert.Bundle{
+		Source: cert.SourceRef{Kind: "file", Location: "/x.jks", SourceName: "files", Format: cert.FormatJKS},
+		Errors: []cert.ItemError{
+			{Index: -1, Reason: cert.ReasonBadPassphrase, Err: errors.New("nope")},
+		},
+	})
+	if r.jksPassphraseFailures != nil {
+		t.Fatalf("jksPassphraseFailures should be nil when JksInUse=false")
+	}
+	if got := testutil.ToFloat64(r.sourceErrors.WithLabelValues("file", "files", "bad_passphrase")); got != 1 {
+		t.Errorf("source_errors_total{reason=bad_passphrase} = %v want 1", got)
+	}
+}
+
+func TestPreInitIsIdempotent(t *testing.T) {
+	// Pre-init runs once per source at startup, but a future resync or
+	// re-registration path could call it twice. WithLabelValues is
+	// idempotent (returns the existing series), so a double call must
+	// not duplicate series nor reset counts.
+	r := New(Config{}, nopLogger())
+	r.PreInitBundleSource(cert.KindKubeSecret, "kube")
+	r.PreInitKubeTransport("kube", []string{"secrets"}, false)
+	// Bump one series, then pre-init again.
+	r.MarkTransportError("kube", "secrets", cert.ReasonWatchFlapped)
+	r.PreInitBundleSource(cert.KindKubeSecret, "kube")
+	r.PreInitKubeTransport("kube", []string{"secrets"}, false)
+
+	reg := prometheus.NewRegistry()
+	if err := reg.Register(r); err != nil {
+		t.Fatal(err)
+	}
+	mfs, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mf := range mfs {
+		if mf.GetName() != "x509_kube_transport_errors_total" {
+			continue
+		}
+		if n := len(mf.Metric); n != len(cert.KubeTransportPerResourceReasons) {
+			t.Fatalf("transport series count = %d after double pre-init, want %d (no duplication)", n, len(cert.KubeTransportPerResourceReasons))
+		}
+	}
+	// The bumped count must survive the second pre-init.
+	if got := testutil.ToFloat64(r.transportErrors.WithLabelValues("kube", "secrets", "watch_flapped")); got != 1 {
+		t.Fatalf("watch_flapped = %v after re-pre-init, want 1 (not reset)", got)
+	}
+}
+
 // TestExpiredAndNotBeforeGatedOff verifies the new defaults: with
 // neither ExposeNotBefore nor ExposeExpired set, neither
 // `x509_cert_not_before` nor `x509_cert_expired` shows up in

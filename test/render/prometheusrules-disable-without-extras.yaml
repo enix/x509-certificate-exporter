@@ -1,0 +1,8 @@
+# disableBuiltinAlertGroup drops the shipped alert group, so the user
+# MUST supply extraAlertGroups — otherwise the PrometheusRule would
+# render with an empty `groups:` list, which the prometheus-operator
+# rejects. The chart fails fast at render time instead.
+prometheusRules:
+  create: true
+  disableBuiltinAlertGroup: true
+  extraAlertGroups: []

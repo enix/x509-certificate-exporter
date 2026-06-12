@@ -1,0 +1,12 @@
+# Substrings matched verbatim against `helm template` stdout (the test
+# strips comments + blank lines, takes the rest as-is). expr/for are
+# mapping keys, not list items, so no leading "- ".
+#
+# The override expr must reach the rendered rule verbatim (proves the
+# `get $exprOverrides` lookup fires, not a silent fallback to default).
+expr: "max by (cluster) (x509_cert_not_after - time()) < (21 * 86400)"
+# The override `for:` duration must reach the rendered rule.
+for: 1h30m
+# rulePrefix prepends with a single space (printf "%s %s" | trim).
+- alert: 'MyTeam CertificateRenewal'
+- alert: 'MyTeam KubeTransportErrorsSustained'

@@ -48,6 +48,38 @@ func makeJCEKSTrustStoreForFuzz(ca *x509.Certificate, password string) []byte {
 	return buf.Bytes()
 }
 
+// makeJCEKSKeyStoreForFuzz builds a JCEKS keystore carrying a
+// PrivateKeyEntry (opaque key blob + cert chain). Seeds the corpus into
+// the entry-walker branch the truststore seed never reaches — the key
+// skip + per-chain-cert read where the length-bounds guards live.
+func makeJCEKSKeyStoreForFuzz(leaf *x509.Certificate, password string) []byte {
+	var buf bytes.Buffer
+	put := func(v interface{}) { _ = binary.Write(&buf, binary.BigEndian, v) }
+	putUTF := func(s string) { put(uint16(len(s))); buf.WriteString(s) }
+
+	put(uint32(0xCECECECE))
+	put(uint32(2))
+	put(uint32(1))
+	put(uint32(1)) // PrivateKeyEntry
+	putUTF("key-seed")
+	put(time.Now().UnixMilli())
+	put(uint32(8)) // opaque key blob
+	buf.Write([]byte("keyblob0"))
+	put(uint32(1)) // one-cert chain
+	putUTF("X.509")
+	put(uint32(len(leaf.Raw)))
+	buf.Write(leaf.Raw)
+
+	h := sha1.New()
+	for _, b := range []byte(password) {
+		h.Write([]byte{0x00, b})
+	}
+	h.Write([]byte("Mighty Aphrodite"))
+	h.Write(buf.Bytes())
+	buf.Write(h.Sum(nil))
+	return buf.Bytes()
+}
+
 func makeCertForFuzz() (*x509.Certificate, []byte, *ecdsa.PrivateKey) {
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tpl := &x509.Certificate{
@@ -80,6 +112,7 @@ func FuzzParse(f *testing.F) {
 	_ = ks.Store(&buf, []byte("seed-pw"))
 	validJKS := buf.Bytes()
 	validJCEKS := makeJCEKSTrustStoreForFuzz(ca, "seed-pw")
+	validJCEKSKeyStore := makeJCEKSKeyStoreForFuzz(ca, "seed-pw")
 
 	magicJKSBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(magicJKSBytes, magicJKS)
@@ -98,6 +131,8 @@ func FuzzParse(f *testing.F) {
 		validJCEKS,                                // valid JCEKS truststore
 		validJCEKS[:len(validJCEKS)/2],            // truncated JCEKS
 		validJCEKS[:len(validJCEKS)-1],            // JCEKS with corrupted trailing HMAC
+		validJCEKSKeyStore,                        // valid JCEKS keystore (PrivateKeyEntry)
+		validJCEKSKeyStore[:len(validJCEKSKeyStore)/2], // truncated JCEKS keystore
 		[]byte("-----BEGIN CERTIFICATE-----\n"),   // misrouted PEM
 	} {
 		f.Add(seed)

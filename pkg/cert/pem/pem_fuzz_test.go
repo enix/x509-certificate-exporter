@@ -19,6 +19,10 @@ func FuzzParse(f *testing.F) {
 		[]byte("-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n"),
 		[]byte("-----BEGIN TRUSTED CERTIFICATE-----\nQUFB\n-----END TRUSTED CERTIFICATE-----\n"),
 		[]byte("-----BEGIN PRIVATE KEY-----\nQUFB\n-----END PRIVATE KEY-----\n"),
+		// CRL blocks — the new RevocationItems path. Without a seed the
+		// fuzzer never mutates towards the X509 CRL branch.
+		[]byte("-----BEGIN X509 CRL-----\nQUFB\n-----END X509 CRL-----\n"),
+		[]byte("-----BEGIN X509 CRL-----\n-----END X509 CRL-----\n"),
 	} {
 		f.Add(seed)
 	}

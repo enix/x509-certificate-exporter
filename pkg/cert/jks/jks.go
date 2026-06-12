@@ -249,7 +249,14 @@ func decodeJCEKS(data []byte, pass string) ([]itemWithRole, error) {
 		return nil, fmt.Errorf("unsupported JCEKS version %d", version)
 	}
 
+	// Bounded skip: bytes.Reader.Seek silently allows seeking past EOF,
+	// so an attacker-controlled keyLen would move the cursor out of
+	// range and only surface as a misleading error on the *next* read.
+	// Reject oversized lengths up front against the unread remainder.
 	skip := func(n uint32) error {
+		if int64(n) > int64(r.Len()) {
+			return io.ErrUnexpectedEOF
+		}
 		_, err := r.Seek(int64(n), io.SeekCurrent)
 		return err
 	}
@@ -318,6 +325,14 @@ func readJCEKSCert(r *bytes.Reader) (*x509.Certificate, error) {
 	var certLen uint32
 	if err := binary.Read(r, binary.BigEndian, &certLen); err != nil {
 		return nil, fmt.Errorf("cert length: %w", err)
+	}
+	// Bound the allocation against the unread remainder: certLen is an
+	// attacker-controlled uint32 (up to 4 GiB) and reaches this point
+	// once the HMAC passes, which a forged keystore + tryEmptyPassphrase
+	// satisfies. Without this guard, make([]byte, certLen) is a memory
+	// DoS. The cert body cannot exceed the bytes left in the payload.
+	if int64(certLen) > int64(r.Len()) {
+		return nil, fmt.Errorf("cert length %d exceeds %d remaining bytes", certLen, r.Len())
 	}
 	der := make([]byte, certLen)
 	if _, err := io.ReadFull(r, der); err != nil {

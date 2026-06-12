@@ -42,19 +42,21 @@ func TestAllParseWithExporter(t *testing.T) {
 					if other, ok := sc.Data[PKCS12PassphraseKey]; ok {
 						pp = string(other)
 					}
-					tryEmpty := key == "keystore-empty.p12"
-					b = p12P.Parse(blob, ref, cert.ParseOptions{Pkcs12Passphrase: pp, Pkcs12TryEmpty: tryEmpty})
+					// main.go (buildKubeSource) defaults Pkcs12TryEmpty to
+					// true for every secretType with a pkcs12 block unless
+					// the user sets it false; dev/values.yaml never sets it
+					// false. Model that default-true here so the self-test
+					// stays a faithful mirror of runtime wiring rather than
+					// only flipping it on for the -empty fixture (which made
+					// the two diverge silently for the encrypted keys).
+					b = p12P.Parse(blob, ref, cert.ParseOptions{Pkcs12Passphrase: pp, Pkcs12TryEmpty: true})
 				case isJKSKey(key):
 					pp := JKSPassphrase
 					if other, ok := sc.Data[JKSPassphraseKey]; ok {
 						pp = string(other)
 					}
-					// Empty-passphrase fixture: dev/values.yaml routes
-					// `truststore-empty.jks` to a secretType with
-					// tryEmptyPassphrase, mirror that here so the
-					// self-test stays representative of runtime wiring.
-					tryEmpty := key == "truststore-empty.jks"
-					b = jksP.Parse(blob, ref, cert.ParseOptions{JksPassphrase: pp, JksTryEmpty: tryEmpty})
+					// Same default-true mirror as the pkcs12 branch above.
+					b = jksP.Parse(blob, ref, cert.ParseOptions{JksPassphrase: pp, JksTryEmpty: true})
 				case isDERKey(key):
 					b = derP.Parse(blob, ref, cert.ParseOptions{})
 				default:

@@ -1,0 +1,1 @@
+Extra alert groups (extraAlertGroups) are required when disableBuiltinAlertGroup is set

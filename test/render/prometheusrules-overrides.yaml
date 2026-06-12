@@ -1,0 +1,13 @@
+# Exercises the per-alert override maps AND rulePrefix at render time.
+# The default-alerts ratchet only matches alert names, so a template
+# typo in the override `get` lookup would silently fall back to the
+# default expr and go unnoticed. This fixture pins that an override
+# actually reaches the rendered output, and that rulePrefix prepends to
+# the alert name with a single space.
+prometheusRules:
+  create: true
+  rulePrefix: "MyTeam"
+  alertExprOverrides:
+    CertificateRenewal: "max by (cluster) (x509_cert_not_after - time()) < (21 * 86400)"
+  alertForOverrides:
+    KubeTransportErrorsSustained: "1h30m"

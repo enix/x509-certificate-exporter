@@ -8,7 +8,7 @@ require (
 	dagger.io/dagger v0.20.8
 	github.com/Khan/genqlient v0.8.1
 	github.com/dagger/otel-go v1.43.0
-	github.com/vektah/gqlparser/v2 v2.5.33
+	github.com/vektah/gqlparser/v2 v2.5.34
 	go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/trace v1.43.0
 	gopkg.in/yaml.v3 v3.0.1

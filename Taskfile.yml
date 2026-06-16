@@ -352,9 +352,15 @@ tasks:
   security:
     desc: Run all security checks
     cmds:
+      - task: security:gitleaks
       - task: security:govulncheck
       - task: security:vuln-deps
       - task: security:chart-misconfig
+
+  security:gitleaks:
+    desc: "Gitleaks — scan the working tree for committed secrets"
+    cmds:
+      - dagger call gitleaks
 
   security:govulncheck:
     desc: govulncheck — reachability-based CVE scan on Go code

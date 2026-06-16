@@ -94,7 +94,7 @@ func run() error {
 		WatchKubeconf: cli.WatchKubeconfs, WatchKubeSecrets: cli.WatchKubeSecrets,
 		Listen: cli.Listen, WebConfigFile: cli.WebConfigFile,
 		ProbeListen: cli.ProbeListen,
-		Debug: cli.Debug, Profile: cli.Profile,
+		Debug:       cli.Debug, Profile: cli.Profile,
 	})
 	if !config.HasSources(cfg) {
 		return config.ErrNoSources
@@ -575,7 +575,7 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 				}
 				if t.Pkcs12 != nil {
 					if t.Pkcs12.PassphraseKey != "" {
-						rule.PassphraseKey = t.Pkcs12.PassphraseKey
+						rule.PassphraseKey = t.Pkcs12.PassphraseKey //gitleaks:allow // field name, not a secret value
 					}
 					if t.Pkcs12.PassphraseSecretRef != nil {
 						rule.PassphraseSecretRef = &k8ssource.PassphraseSecretRef{
@@ -592,7 +592,7 @@ func buildKubeSource(ctx context.Context, s config.Source, ready func(bool), reg
 				}
 				if t.Jks != nil {
 					if t.Jks.PassphraseKey != "" {
-						rule.JksPassphraseKey = t.Jks.PassphraseKey
+						rule.JksPassphraseKey = t.Jks.PassphraseKey //gitleaks:allow // field name, not a secret value
 					}
 					if t.Jks.PassphraseSecretRef != nil {
 						rule.JksPassphraseSecretRef = &k8ssource.PassphraseSecretRef{

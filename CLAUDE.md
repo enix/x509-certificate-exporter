@@ -62,6 +62,7 @@ everything.
 | Helm schema fixtures | `task test:helm-fixtures` | `dagger call test-helm-fixtures` — regression net for `chart/values.schema.json` (positive + paired `.expect.txt` negatives under `test/schema/{valid,invalid}/`) |
 | Helm render alignment | `task test:helm-render` | `dagger call test-helm-render` — `helm template` against `test/render/all-watch-modes.yaml` and assert every ConfigMap scan path is reachable from a DaemonSet volumeMount (catches configmap↔daemonset drift) |
 | End-to-end tests | `task test:e2e` | throwaway k3d cluster, Helm install, scrape `/metrics` |
+| Secret leak scan | `task security:gitleaks` | `dagger call gitleaks` — open-source gitleaks CLI on the working tree; no license/token, so fork PRs scan identically |
 | Vuln scan | `task security:govulncheck` | `dagger call govulncheck` |
 | Vuln scan (deps) | `task security:vuln-deps` | `dagger call trivy --scan-type=fs` |
 | Chart misconfig | `task security:chart-misconfig` | `dagger call trivy --scan-type=config --scan-ref=chart` |
@@ -101,11 +102,19 @@ Layout:
   Adds `gcc` + `musl-dev` to the alpine container because `-race`
   requires CGO, which on Alpine pulls those.
 - `dagger/security.go` — `Govulncheck` (`@latest` — accepting the
-  small drift in exchange for not having to track a separate version)
-  and `Trivy` (one parameterized function for both scan families:
+  small drift in exchange for not having to track a separate version),
+  `Trivy` (one parameterized function for both scan families:
   `--scan-type=fs` for Go deps + lockfiles + OS packages; `--scan-type=config`
-  with `--scan-ref=chart` for IaC misconfig). Trivy DB cached via a
-  Dagger CacheVolume so successive runs skip the ~50 MB download.
+  with `--scan-ref=chart` for IaC misconfig; Trivy DB cached via a
+  Dagger CacheVolume so successive runs skip the ~50 MB download), and
+  `Gitleaks` (open-source gitleaks CLI, `gitleaks dir` on the tree).
+  Gitleaks runs the binary rather than gitleaks-action because the
+  action needs a paid `GITLEAKS_LICENSE` + a write token to comment,
+  and GitHub withholds both from fork `pull_request` workflows — so the
+  action failed on external PRs. Its `source` param carries its own
+  `+ignore` (drops `dist/`/`node_modules/`/`.git/` but keeps `dagger/`)
+  rather than reusing the module-wide filter, so hand-written code stays
+  in the secret scan.
 - `dagger/helm.go` — `HelmDocs` runs jnorwood/helm-docs and returns a
   `*dagger.File`. The Taskfile chains `... export --path=chart/README.md`
   to materialize it back to the working tree.

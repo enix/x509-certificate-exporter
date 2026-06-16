@@ -18,6 +18,10 @@ env:
   DAGGER_CLOUD_TOKEN: ""
   DO_NOT_TRACK: "1"
 
+# Every job here only checks out + scans; none push or need git write
+# access, so each checkout sets `persist-credentials: false` to keep the
+# GITHUB_TOKEN out of the workspace's .git/config (zizmor "artipacked").
+
 jobs:
   changes:
     name: Detect changed paths
@@ -29,6 +33,8 @@ jobs:
       chart: ${{ steps.filter.outputs.chart }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
         id: filter
         with:
@@ -54,6 +60,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          # gitleaks scans the working tree, not git history — shallow.
+          fetch-depth: 1
+          persist-credentials: false
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
         with:
           version: latest
@@ -76,6 +86,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 1
+          persist-credentials: false
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
         with:
           version: latest
@@ -96,6 +107,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
         with:
           version: latest
@@ -113,6 +126,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
       - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
         with:
           version: latest

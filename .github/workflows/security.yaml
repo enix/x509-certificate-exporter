@@ -46,25 +46,20 @@ jobs:
               - 'chart/**'
               - 'dagger/**'
 
-  # Secret leak detection on the full diff. Always runs — any file can leak.
+  # Secret leak detection. Always runs — any file can leak. Routed
+  # through the Dagger Module's `Gitleaks` function (see CLAUDE.md for
+  # why this isn't gitleaks-action).
   secrets:
     name: Secret leaks (Gitleaks)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write # gitleaks-action posts the leaks summary as a PR comment
-
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
         with:
-          fetch-depth: 0 # gitleaks needs history to walk the diff
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Required for orgs since gitleaks-action v2 (the action is free
-          # for personal accounts but org-scoped repos need a key — see
-          # https://github.com/gitleaks/gitleaks-action#-announcement).
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          version: latest
+          dagger-flags: --progress=logs
+          verb: call
+          args: gitleaks
 
   # Reachability-based vulnerability check for Go code. Routed through
   # the Dagger Module so the govulncheck version + flags stay aligned

@@ -3,7 +3,40 @@ package main
 import (
 	"context"
 	"fmt"
+
+	"dagger/x-509-ce/internal/dagger"
 )
+
+// Gitleaks scans the working tree for committed secrets (`gitleaks
+// dir`, not git history: .git is excluded from the source and the
+// delivered file contents are what matter). Exits non-zero on any
+// finding, which Dagger surfaces as an error and CI as a failed job;
+// findings print (redacted) to the log.
+func (m *X509Ce) Gitleaks(
+	ctx context.Context,
+	// Working tree to scan. Drops build artifacts and vendored trees
+	// that would only add scan noise, but — unlike the module-wide
+	// source filter — KEEPS dagger/ so hand-written code stays in scope.
+	// +defaultPath="/"
+	// +ignore=[".git/", "dist/", "node_modules/", "kubeconfig.yaml", "renovate-debug.log"]
+	source *dagger.Directory,
+) (string, error) {
+	return dag.Container().
+		From(gitleaksImage).
+		WithMountedDirectory("/scan", source).
+		// Workdir at the scan root so finding paths/fingerprints are
+		// relative (not /scan/...) and any `.gitleaks.toml` / inline
+		// `//gitleaks:allow` directives in the tree resolve correctly.
+		WithWorkdir("/scan").
+		WithExec([]string{
+			"gitleaks", "dir", ".",
+			"--no-banner",
+			"--redact",
+			"--verbose",
+			"--exit-code", "1",
+		}).
+		Stdout(ctx)
+}
 
 // Govulncheck runs Go's reachability-based CVE scanner. The
 // vulnerability database is fetched from vuln.go.dev at run time —

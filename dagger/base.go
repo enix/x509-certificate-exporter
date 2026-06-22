@@ -14,7 +14,7 @@ const (
 	helmDocsImage     = "jnorwood/helm-docs:v1.14.2@sha256:7e562b49ab6b1dbc50c3da8f2dd6ffa8a5c6bba327b1c6335cc15ce29267979c"
 	helmSchemaImage   = "ghcr.io/dadav/helm-schema:0.23.2@sha256:4807d868cb489e8160e0cece1aba51d2101a9c307b76bdda4f88929c75bd5c29"
 	markdownlintImage = "davidanson/markdownlint-cli2:v0.22.1@sha256:0ed9a5f4c77ef447da2a2ac6e67caf74b214a7f80288819565e8b7d2ac148fe5"
-	trivyImage        = "aquasec/trivy:0.71.1@sha256:53570e6911c2361ebe7995228088cf83a6b9b73e7f3cdca44bd8f8f425e80fa7"
+	trivyImage = "aquasec/trivy:0.71.2@sha256:f5d0e600ecda7449e2a9b272805aef698631d3bb3f3a739a750de2c6819acdc9"
 	gitleaksImage     = "ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f"
 	golangciLint      = "v2.12.2" // installed via `go install`
 	gotestsumModule   = "v1.13.0" // ditto

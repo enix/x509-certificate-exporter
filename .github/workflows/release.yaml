@@ -136,7 +136,7 @@ jobs:
             exit 1
           }
 
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           # GoReleaser inspects git history for the changelog. Full clone
           # avoids "shallow clone" warnings on large repos.
@@ -284,7 +284,7 @@ jobs:
             echo "::error::Set them at Settings → Environments → release → Variables"
             exit 1
           fi
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: "4.2.2"

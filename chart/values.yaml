@@ -124,6 +124,14 @@ metricLabelsFilterList: null
 grafana:
   # -- Should the Grafana dashboard be deployed as a ConfigMap (requires Grafana sidecar)
   createDashboard: false
+  # @schema
+  # type: [string, 'null']
+  # minLength: 1
+  # maxLength: 63
+  # pattern: '^[a-z]([-a-z0-9]*[a-z0-9])?$'
+  # @schema
+  # -- Namespace to create ConfigMap if. Omit to use same namespace as release.
+  dashboardNamespace: null
   # -- ConfigMap label name the Grafana sidecar is looking for
   sidecarLabel: grafana_dashboard
   # -- ConfigMap label value the Grafana sidecar is looking for

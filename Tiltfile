@@ -37,7 +37,7 @@ default_registry(
 IMAGE = "x509-certificate-exporter"
 
 # Renovate-tracked (custom regex manager in renovate.json5).
-KUBE_PROMETHEUS_VERSION = "86.2.3"
+KUBE_PROMETHEUS_VERSION = "86.3.2"
 
 # 1. Build via GoReleaser ------------------------------------------------------
 # custom_build hands the build off to GoReleaser in "tilt mode"

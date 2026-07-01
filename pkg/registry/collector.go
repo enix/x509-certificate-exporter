@@ -279,11 +279,21 @@ func (r *Registry) emitItem(ch chan<- prometheus.Metric, ki keyedItem, withDisc 
 	emit(r.descs.expiresIn, c.NotAfter.Sub(now).Seconds())
 	emit(r.descs.validSince, now.Sub(c.NotBefore).Seconds())
 	emit(r.descs.certError, 0)
+	seenSAN := make(map[string]struct{}, len(c.DNSNames)+len(c.IPAddresses))
 	for _, dns := range c.DNSNames {
+		if _, dup := seenSAN["dns\x00"+dns]; dup {
+			continue
+		}
+		seenSAN["dns\x00"+dns] = struct{}{}
 		emit(r.descs.certSAN, 1, dns, "dns")
 	}
 	for _, ip := range c.IPAddresses {
-		emit(r.descs.certSAN, 1, ip.String(), "address")
+		v := ip.String()
+		if _, dup := seenSAN["address\x00"+v]; dup {
+			continue
+		}
+		seenSAN["address\x00"+v] = struct{}{}
+		emit(r.descs.certSAN, 1, v, "address")
 	}
 }
 

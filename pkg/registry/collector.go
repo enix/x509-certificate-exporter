@@ -18,6 +18,7 @@ type descTable struct {
 	notBefore, notAfter, expired *prometheus.Desc
 	expiresIn, validSince        *prometheus.Desc
 	certError                    *prometheus.Desc
+	certSAN                      *prometheus.Desc
 	// CRL family — emitted whenever a Bundle carries RevocationItems.
 	// `stale` mirrors `expired` (gated by ExposeExpired); `staleIn` and
 	// `freshSince` are the relative counterparts gated by ExposeRelative.
@@ -52,6 +53,9 @@ func newDescTable(cfg Config) descTable {
 	if cfg.ExposePerCertError {
 		t.certError = prometheus.NewDesc("x509_cert_error", "1 if the corresponding bundle item failed to parse, 0 otherwise.", s.names, nil)
 	}
+	if cfg.ExposeSAN {
+		t.certSAN = prometheus.NewDesc("x509_cert_san", "Indicates the Subject Alternative Names (DNS or IP) present in the certificate.", append(s.names, "SAN_value", "SAN_type"), nil)
+	}
 	t.crlNextUpdate = prometheus.NewDesc("x509_crl_next_update", "Unix timestamp of the CRL's nextUpdate (RFC 5280 §5.1.2.5).", s.names, nil)
 	t.crlThisUpdate = prometheus.NewDesc("x509_crl_this_update", "Unix timestamp of the CRL's thisUpdate (RFC 5280 §5.1.2.4).", s.names, nil)
 	t.crlNumber = prometheus.NewDesc("x509_crl_number", "Value of the CRL's cRLNumber extension (RFC 5280 §5.2.3); 0 if absent.", s.names, nil)
@@ -81,6 +85,9 @@ func (t descTable) describe(ch chan<- *prometheus.Desc) {
 	}
 	if t.certError != nil {
 		ch <- t.certError
+	}
+	if t.certSAN != nil {
+		ch <- t.certSAN
 	}
 	ch <- t.crlNextUpdate
 	ch <- t.crlThisUpdate
@@ -250,11 +257,16 @@ func (r *Registry) emitItem(ch chan<- prometheus.Metric, ki keyedItem, withDisc 
 			vals[r.descs.schema.idxDiscriminator] = ""
 		}
 	}
-	emit := func(d *prometheus.Desc, v float64) {
+	emit := func(d *prometheus.Desc, v float64, extra ...string) {
 		if d == nil {
 			return
 		}
-		ch <- prometheus.MustNewConstMetric(d, prometheus.GaugeValue, v, vals...)
+		labelVals := vals
+		if len(extra) > 0 {
+			labelVals = append([]string{}, vals...)
+			labelVals = append(labelVals, extra...)
+		}
+		ch <- prometheus.MustNewConstMetric(d, prometheus.GaugeValue, v, labelVals...)
 	}
 	now := time.Now()
 	emit(r.descs.notBefore, float64(c.NotBefore.Unix()))
@@ -267,6 +279,12 @@ func (r *Registry) emitItem(ch chan<- prometheus.Metric, ki keyedItem, withDisc 
 	emit(r.descs.expiresIn, c.NotAfter.Sub(now).Seconds())
 	emit(r.descs.validSince, now.Sub(c.NotBefore).Seconds())
 	emit(r.descs.certError, 0)
+	for _, dns := range c.DNSNames {
+		emit(r.descs.certSAN, 1, dns, "dns")
+	}
+	for _, ip := range c.IPAddresses {
+		emit(r.descs.certSAN, 1, ip.String(), "address")
+	}
 }
 
 // emitCRLMetrics walks every Bundle's RevocationItems and emits the

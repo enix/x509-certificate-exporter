@@ -111,6 +111,9 @@ exposeNotBeforeMetric: false
 # -- Expose `x509_cert_expired` (1 if the certificate is expired, 0 otherwise). On by default ; turn off to halve the per-cert series count if you only alert on `x509_cert_not_after - time()`.
 exposeExpiredMetric: true
 
+# -- Expose `x509_cert_san` (one series per Subject Alternative Name with DNS or IP). Off by default ; enable to track SANs in Prometheus.
+exposeSANMetric: false
+
 # -- Expose self-introspection metrics for debugging the exporter itself (`x509_parse_duration_seconds`, `x509_kube_request_duration_seconds`, `x509_kube_informer_scope`, `x509_informer_queue_depth`). Off by default ; enable when you actually need to look inside.
 exposeDiagnosticMetrics: false
 

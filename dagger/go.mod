@@ -2,7 +2,7 @@ module dagger/x-509-ce
 
 go 1.26
 
-toolchain go1.26.4
+toolchain go1.26.5
 
 require (
 	dagger.io/dagger v0.21.7

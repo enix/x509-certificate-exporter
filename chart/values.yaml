@@ -1016,7 +1016,7 @@ rbacProxy:
     # -- kube-rbac-proxy image repository
     repository: brancz/kube-rbac-proxy
     # -- kube-rbac-proxy image tag
-    tag: v0.22.0
+    tag: v0.22.1
     # -- kube-rbac-proxy image digest. When set, takes precedence over `tag` (immutable reference)
     digest: ""
     # @schema

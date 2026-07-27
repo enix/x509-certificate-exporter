@@ -63,7 +63,7 @@
         #      `hash = "sha256-$(echo <hex> | xxd -r -p | base64)"`
         goreleaser = let
           # goreleaser version
-          version = "2.16.0";
+          version = "2.17.1";
           assets = {
             "x86_64-linux"   = { suffix = "Linux_x86_64";  hash = "sha256-6q4FteugdTO9DwaEa2jICDmVBHhN8Axi6yGVQfwE5eI="; };
             "aarch64-linux"  = { suffix = "Linux_arm64";   hash = "sha256-AQLZdDc/zet3BC0fWJfK/6GTvjZiD9xsHaQ6Ae+OENM="; };

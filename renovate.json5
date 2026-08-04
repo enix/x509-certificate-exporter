@@ -57,6 +57,18 @@
     enabled: true,
   },
 
+  // The `Dagger module` workflow pushes a follow-up commit (regenerated
+  // dagger/go.mod) onto Renovate's own dagger PR branches, authored as
+  // github-actions[bot]. Without this allowance Renovate would treat
+  // those branches as "modified by another author" and stop
+  // rebasing/updating them — every dagger bump would then need a manual
+  // rebase checkbox. Listing the bot author keeps Renovate in charge of
+  // its branches; if it rebases one, the sync commit is dropped and the
+  // workflow simply re-adds it on the next (App-token-triggered) run.
+  gitIgnoredAuthors: [
+    "41898282+github-actions[bot]@users.noreply.github.com",
+  ],
+
   customManagers: [
     // K3s image pinned for both the dev cluster bootstrap and the
     // throwaway e2e cluster (Taskfile var K3S_IMAGE). Tag format

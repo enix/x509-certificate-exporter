@@ -15,6 +15,17 @@ name: Dagger module
 # includes every renovate/** branch) it commits the result, so the PR
 # lands complete with no human step. On a fork PR it can't push, so it
 # reports the drift and fails.
+#
+# The push uses the repo's GitHub App token (same App as renovate.yaml),
+# NOT the workflow's GITHUB_TOKEN — for the same reason renovate.yaml
+# does: events caused by GITHUB_TOKEN don't trigger workflows, so a
+# GITHUB_TOKEN push would leave the PR's new head SHA with no
+# `pull_request` runs at all, and branch protection would hold the PR on
+# "expected — waiting for status" until someone re-runs checks by hand.
+# The App push retriggers CI like any human push. The companion setting
+# is `gitIgnoredAuthors` in renovate.json5: without it, Renovate treats
+# a branch carrying our bot commit as "modified by another author" and
+# stops rebasing/updating it.
 
 on:
   pull_request:
@@ -42,13 +53,25 @@ jobs:
   sync:
     name: Sync generated deps
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # commits the regenerated dagger/go.mod on same-repo refs
+    # No write permission on GITHUB_TOKEN: the push (when it happens)
+    # rides on the App token minted below, precisely so it does NOT come
+    # from GITHUB_TOKEN (see header). Inherits contents: read.
     steps:
+      # Mint an App token for the push. Skipped on fork PRs twice over:
+      # GitHub withholds the App secrets from fork-triggered runs anyway,
+      # and the fork path below never pushes — it only reports drift.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        id: app-token
+        if: ${{ !github.event.pull_request.head.repo.fork }}
+        with:
+          client-id: ${{ secrets.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
       # Checkout the PR's head branch (not the merge commit) so a commit
       # can be pushed back onto it. Credentials are deliberately
       # persisted here — unlike every other job in this repo, this one
-      # needs git write access.
+      # needs git write access. On forks the app-token step is skipped
+      # and this falls back to the (read-only) GITHUB_TOKEN.
       #
       # `repository` must follow `ref`: on a fork PR, head.ref names a
       # branch that only exists in the fork, so checking it out against
@@ -59,6 +82,7 @@ jobs:
       # is gated on IS_FORK below.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
+          token: ${{ steps.app-token.outputs.token || github.token }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
           fetch-depth: 1

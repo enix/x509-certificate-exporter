@@ -25,7 +25,7 @@
         #   3. for each (arch, hex) pair: hash = "sha256-$(echo <hex> | xxd -r -p | base64)"
         goSizeAnalyzer = let
           # gsa version
-          version = "1.12.6";
+          version = "1.13.0";
           assets = {
             "x86_64-linux"   = { suffix = "linux_amd64";  hash = "sha256-k8NBdryks8GIFpADqs0Er0uLXK9BOfg8th01GnVaILA="; };
             "aarch64-linux"  = { suffix = "linux_arm64";  hash = "sha256-hX7LtqLJIX1PTb+8tm4CVE/IuFTGUVDFWipGUMWVPWg="; };

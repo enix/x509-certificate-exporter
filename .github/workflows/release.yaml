@@ -86,17 +86,12 @@ jobs:
   # before consuming CI minutes on lint and tests.
   security:
     uses: ./.github/workflows/security.yaml
+    # security.yaml is fully read-only: every scan runs through the
+    # Dagger module (gitleaks is the open-source CLI — no license
+    # secret, no PR comments), so the called workflow needs no write
+    # permission and no secrets passed down.
     permissions:
       contents: read
-      pull-requests: write # gitleaks-action posts on PRs; no-op on tag pushes
-    # `secrets: inherit` propagates GITLEAKS_LICENSE (a repo-level
-    # secret) into the called workflow. Scope is safe: this `security`
-    # job has no `environment:` set, and neither does any job inside
-    # security.yaml — so the `environment: release` secrets used by
-    # the goreleaser/chart jobs below remain out of reach throughout
-    # this chain. `inherit` propagates the calling job's context, not
-    # the entire workflow's.
-    secrets: inherit
   lint:
     needs: security
     uses: ./.github/workflows/lint.yaml

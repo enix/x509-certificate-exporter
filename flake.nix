@@ -4,13 +4,9 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    # Dagger is not in nixpkgs; the upstream maintains its own flake.
-    # https://github.com/dagger/nix
-    dagger.url = "github:dagger/nix";
-    dagger.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-utils, dagger }:
+  outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -89,8 +85,27 @@
           # version nixpkgs currently exposes, and Go's GOTOOLCHAIN=auto
           # mechanism transparently downloads the exact toolchain declared
           # in go.mod. Single source of truth: the `go` directive in go.mod.
+          # The Dagger CLI is deliberately NOT a Nix package here. Its
+          # version must equal `dagger.json`'s engineVersion (a module
+          # refuses to run on an older CLI), and any Nix packaging —
+          # upstream's `github:dagger/nix` input or a local fetchurl —
+          # carries a *second* copy of that version (plus per-arch
+          # hashes) that nothing can derive from the manifest. That
+          # duplication is what silently drifts and breaks every
+          # `dagger call`. Instead `scripts/dagger-cli.sh` reads
+          # engineVersion, fetches the matching binary once into a
+          # per-version cache, and verifies it against the release's
+          # checksums.txt. Renovate bumps engineVersion; the shell
+          # follows with zero manual steps.
+          shellHook = ''
+            if daggerBin=$(${./scripts/dagger-cli.sh}); then
+              PATH="$daggerBin:$PATH"
+            else
+              echo "warning: Dagger CLI unavailable; 'task lint:*' / 'test:*' will fail" >&2
+            fi
+          '';
+
           packages = [
-            dagger.packages.${system}.dagger
             goSizeAnalyzer
             goreleaser
           ] ++ (with pkgs; [

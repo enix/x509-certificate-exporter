@@ -1,0 +1,42 @@
+name: "Dagger call"
+description: >-
+  Run a Dagger function at the version this repo's module requires.
+  Reads `engineVersion` from dagger.json — the single source of truth for
+  the Dagger version — so no workflow ever repeats it. Also the one place
+  dagger/dagger-for-github is referenced, so its SHA pin lives in a
+  single file for Renovate to bump.
+
+inputs:
+  args:
+    description: >-
+      Arguments passed to the verb (for `call`: the function and its
+      flags). Empty for verbs that take none, e.g. `develop`.
+    required: false
+    default: ""
+  verb:
+    description: "Dagger verb to invoke."
+    required: false
+    default: call
+
+runs:
+  using: composite
+  steps:
+    # dagger.json is read from the checked-out tree, so callers must run
+    # actions/checkout first (they all do).
+    - id: version
+      shell: bash
+      run: |
+        version=$(sed -n 's/.*"engineVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' dagger.json | head -n1)
+        if [ -z "$version" ]; then
+          echo "::error file=dagger.json::no engineVersion found" >&2
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "Dagger $version (from dagger.json)"
+
+    - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      with:
+        version: ${{ steps.version.outputs.version }}
+        dagger-flags: --progress=logs
+        verb: ${{ inputs.verb }}
+        args: ${{ inputs.args }}

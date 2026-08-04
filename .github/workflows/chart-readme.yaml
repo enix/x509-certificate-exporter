@@ -45,17 +45,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 1
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: helm-docs export --path=chart/README.md
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: chart-schema export --path=chart/values.schema.json
       - name: Fail if chart docs are stale
         run: |
@@ -79,17 +73,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 1
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: helm-docs export --path=chart/README.md
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: chart-schema export --path=chart/values.schema.json
       - name: Commit regenerated chart docs if changed
         run: |

@@ -109,11 +109,25 @@ tasks:
       - go -C dagger mod tidy
 
   go:upgrade:
-    desc: Upgrade all Go deps to latest then tidy (main module + ./dagger)
+    desc: Upgrade the main module's Go deps to latest then tidy
+    # Main module only. The dagger/ module is deliberately excluded: its
+    # `dagger.io/dagger` SDK must equal dagger.json's engineVersion (the
+    # single source of truth), and `go get -u` there would desync it and
+    # break against the generated bindings — a newer SDK relocates
+    # packages like `querybuilder`. The Dagger version moves via the
+    # Renovate "dagger SDK + engine" PR; `task dagger:develop` realigns
+    # the module afterwards (CI does it automatically on that PR).
     cmds:
       - go get -u ./...
       - go mod tidy
-      - go -C dagger get -u ./...
+
+  dagger:develop:
+    desc: "Regenerate the Dagger module bindings and realign dagger/go.mod (after a dagger.json engineVersion change)"
+    # Local counterpart of the `Dagger module` workflow. Only needed when
+    # you edit dagger.json yourself — for Renovate's bumps, CI already
+    # commits the result onto the PR.
+    cmds:
+      - dagger develop
       - go -C dagger mod tidy
 
   nix:update:

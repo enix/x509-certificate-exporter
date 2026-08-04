@@ -79,9 +79,10 @@
     // Renovate image used by the renovate:plan / renovate:patch tasks
     // (Taskfile var RENOVATE_IMAGE — single source of truth, both task
     // bodies template it in). Must stay aligned with `renovateImage` in
-    // dagger/base.go (the Dagger module image regex below tracks the
-    // latter); this manager closes the loop so the Taskfile copy
-    // doesn't drift.
+    // dagger/base.go (tracked by the Dagger module image regex below).
+    // This manager only makes the Taskfile copy *visible* to Renovate;
+    // what actually keeps the two in step is the `renovate` packageRule
+    // further down, which groups the two differing depNames into one PR.
     {
       customType: "regex",
       managerFilePatterns: ["/^Taskfile\\.ya?ml$/"],
@@ -246,12 +247,24 @@
       pinDigests: true,
     },
 
-    // Single PR for all Go-toolchain bumps: go.mod's `go X.Y.Z` and the
-    // dagger/base.go `golangImage` constant land together. CI workflows
-    // resolve the Go version via `setup-go` + `go-version-file: go.mod`,
-    // so they need no separate bump. flake.nix is intentionally unpinned
-    // (GOTOOLCHAIN=auto downloads the toolchain declared in go.mod), so
-    // no manual edit there either.
+    // Single PR for all Go-toolchain bumps. Four write-sites land
+    // together, because every one of them resolves to depName `go` or
+    // `golang`:
+    //
+    //   - go.mod          `go` / `toolchain`      (gomod manager  → `go`)
+    //   - dagger/go.mod   same                    (gomod manager  → `go`)
+    //   - dagger/base.go  `golangImage`           (regex manager  → `golang`)
+    //   - build/Dockerfile.seed-hostpath `FROM golang:` (dockerfile manager → `golang`)
+    //
+    // That last one is easy to miss: it is in the group only because its
+    // depName happens to be `golang`. Renaming the constant or moving the
+    // Dockerfile's base image would silently drop it out of the lockstep,
+    // so keep the depName in mind rather than the file list.
+    //
+    // CI workflows resolve the Go version via `setup-go` +
+    // `go-version-file: go.mod`, so they need no separate bump. flake.nix
+    // is intentionally unpinned (GOTOOLCHAIN=auto downloads the toolchain
+    // declared in go.mod), so no manual edit there either.
     {
       matchPackageNames: ["golang", "go"],
       groupName: "golang toolchain",
@@ -270,6 +283,37 @@
       matchPackageNames: ["busybox", "alpine", "registry"],
       groupName: "container base images",
       labels: ["dependencies", "docker"],
+    },
+
+    // Helm is written in two places that MUST agree: the `alpine/helm`
+    // image in dagger/base.go (lints and tests the chart — lint-helm,
+    // test-helm-{examples,fixtures,render}) and the `azure/setup-helm`
+    // `version:` in release.yaml (packages the chart and pushes it as an
+    // OCI artifact). A skew means "validated with one Helm, published
+    // with another", and it only surfaces at release time.
+    //
+    // They don't group on their own because the two managers mint
+    // different depNames: `helm` comes from base.go's `<name>Image`
+    // capture, `helm/helm` from the release.yaml regex (different
+    // datasources too — docker vs github-releases). Listing both names
+    // here is what forces one PR.
+    {
+      matchPackageNames: ["helm", "helm/helm"],
+      groupName: "helm",
+      labels: ["dependencies", "helm"],
+    },
+
+    // Same split for Renovate's own image: `renovateImage` in
+    // dagger/base.go (used by `dagger call lint-renovate`) vs the
+    // Taskfile's RENOVATE_IMAGE (`renovate:plan` / `renovate:patch`).
+    // depNames `renovate` and `renovate/renovate` respectively. Blast
+    // radius is small — debug tooling, not a shipped artifact — but the
+    // Taskfile comment promises the two stay aligned, so make that true
+    // instead of leaving it to luck.
+    {
+      matchPackageNames: ["renovate", "renovate/renovate"],
+      groupName: "renovate",
+      labels: ["dependencies"],
     },
 
     // Go modules: split patch / minor into two predictable PRs.

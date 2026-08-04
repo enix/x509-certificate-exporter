@@ -34,7 +34,7 @@ runs:
         echo "version=$version" >> "$GITHUB_OUTPUT"
         echo "Dagger $version (from dagger.json)"
 
-    - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+    - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8.4.1
       with:
         version: ${{ steps.version.outputs.version }}
         dagger-flags: --progress=logs

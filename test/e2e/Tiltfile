@@ -214,9 +214,15 @@ local_resource(
         "19793:9793",
     ]),
     resource_deps=["x509-certificate-exporter"],
+    # Probe /healthz, not /metrics: the prober only drains ~10 KB of
+    # body before closing, and the e2e /metrics payload is much bigger —
+    # every 2s probe would tear the stream down with unread data (RST),
+    # making kubectl port-forward spam "connection reset by peer" /
+    # "broken pipe" unhandled-error logs. /healthz fits in one read and
+    # closes cleanly while still proving the tunnel serves HTTP.
     readiness_probe=probe(
         period_secs=2,
-        http_get=http_get_action(port=19793, path="/metrics"),
+        http_get=http_get_action(port=19793, path="/healthz"),
     ),
 )
 local_resource(
@@ -229,9 +235,10 @@ local_resource(
         "19794:9793",
     ]),
     resource_deps=["x509-certificate-exporter"],
+    # /healthz for the same reason as secrets-port-forward above.
     readiness_probe=probe(
         period_secs=2,
-        http_get=http_get_action(port=19794, path="/metrics"),
+        http_get=http_get_action(port=19794, path="/healthz"),
     ),
 )
 

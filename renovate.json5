@@ -49,7 +49,19 @@
     // instead of "Dependencies".
     semanticCommitType: "security",
   },
-  osvVulnerabilityAlerts: true,
+  // Deliberately OFF: security PRs are driven by GitHub's Dependabot
+  // alerts alone (vulnerabilityAlerts above). OSV-sourced alerts
+  // force-enable updates on deps that packageRules disabled — with no
+  // per-package opt-out (renovatebot#40800) — which locked us into a
+  // loop on dagger/go.mod's generated `replace` pins: OSV flags the
+  // SDK-pinned otlploghttp v0.16.0, Renovate opens a "security" PR
+  // bumping the replace, `dagger develop` reverts it (see the gomod
+  // replace packageRule below), repeat. Dependabot has covered both
+  // go.mod files fine historically and doesn't parse replace
+  // directives, so it doesn't produce that false positive. Upstream
+  // dagger pins the same v0.16.0 on its own main, so this isn't
+  // resolving any time soon.
+  osvVulnerabilityAlerts: false,
 
   // Refresh flake.lock and transitive go.sum entries every time Renovate
   // runs. Inherits the top-level Monday schedule.
@@ -388,8 +400,11 @@
     // commit (as on PR #686), looping forever. The pins only really
     // move when the SDK bumps them upstream, which the `dagger SDK +
     // engine` group below picks up. `require` entries stay fair game.
-    // Security alerts on these pins can't be remediated here either —
-    // dismiss them on GitHub with that justification.
+    // This rule alone is NOT enough against security-flagged versions:
+    // OSV vulnerability alerts force-enable disabled deps (verified in
+    // debug logs — every other replace pin gets skipReason=disabled,
+    // the OSV-flagged one still built a vulnerability branch), which is
+    // why `osvVulnerabilityAlerts` is off at the top of this file.
     {
       matchManagers: ["gomod"],
       matchFileNames: ["dagger/go.mod"],

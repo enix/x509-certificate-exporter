@@ -230,12 +230,21 @@ tasks:
     # Go fuzz only targets one Fuzz* function at a time, so we list each
     # explicitly. Long-form fuzzing is a manual local activity:
     #   go test -fuzz=<name> -fuzztime=10m ./<pkg>
+    #
+    # -parallel=4 caps the fuzz workers (default GOMAXPROCS): when the
+    # -fuzztime deadline hits, the coordinator cancels the workers'
+    # context and a loaded machine (e.g. `task check` right after the
+    # Dagger unit tests) can miss the grace window, failing the run
+    # with a spurious `context deadline exceeded`. The smoke only
+    # guards against seed-corpus crashes — random-exploration
+    # throughput is not what it's for — so fewer, snappier workers is
+    # the right trade.
     cmds:
-      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/pem/
-      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/pkcs12/
-      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/der/
-      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s ./pkg/cert/jks/
-      - go test -run=^$ -fuzz=FuzzCompile -fuzztime=5s ./pkg/fileglob/
+      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s -parallel=4 ./pkg/cert/pem/
+      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s -parallel=4 ./pkg/cert/pkcs12/
+      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s -parallel=4 ./pkg/cert/der/
+      - go test -run=^$ -fuzz=FuzzParse   -fuzztime=5s -parallel=4 ./pkg/cert/jks/
+      - go test -run=^$ -fuzz=FuzzCompile -fuzztime=5s -parallel=4 ./pkg/fileglob/
 
   test:helm-examples:
     desc: "Assert every docs/examples/**/*.values.yaml is accepted by the chart"

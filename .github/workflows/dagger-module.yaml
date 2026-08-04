@@ -49,8 +49,17 @@ jobs:
       # can be pushed back onto it. Credentials are deliberately
       # persisted here — unlike every other job in this repo, this one
       # needs git write access.
+      #
+      # `repository` must follow `ref`: on a fork PR, head.ref names a
+      # branch that only exists in the fork, so checking it out against
+      # the base repo would fail (or resolve a same-named base branch).
+      # Safe under `pull_request` — the token is read-only and no secrets
+      # are exposed, and the default checkout already contains the fork's
+      # code via the merge commit. The fork path only ever reads: pushing
+      # is gated on IS_FORK below.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
           fetch-depth: 1
 

@@ -64,11 +64,8 @@ jobs:
           # gitleaks scans the working tree, not git history — shallow.
           fetch-depth: 1
           persist-credentials: false
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: gitleaks
 
   # Reachability-based vulnerability check for Go code. Routed through
@@ -87,11 +84,8 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: govulncheck
 
   # Filesystem scan: Go module deps + lockfiles. Catches CVEs that
@@ -109,11 +103,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: trivy --scan-type=fs
 
   # Helm/Kubernetes misconfig scan against the rendered chart.
@@ -128,9 +119,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: trivy --scan-type=config --scan-ref=chart

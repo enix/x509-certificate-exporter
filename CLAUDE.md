@@ -67,7 +67,8 @@ everything.
 | Vuln scan (deps) | `task security:vuln-deps` | `dagger call trivy --scan-type=fs` |
 | Chart misconfig | `task security:chart-misconfig` | `dagger call trivy --scan-type=config --scan-ref=chart` |
 | Tidy go.mod | `task go:tidy` | `go mod tidy` on main + `dagger/` (direct, no Dagger) |
-| Bump Go deps | `task go:upgrade` | `go get -u ./...` + tidy on main + `dagger/` (direct) |
+| Bump Go deps | `task go:upgrade` | `go get -u ./...` + tidy on the **main module only** — the dagger module's SDK is tied to `dagger.json` engineVersion |
+| Realign dagger module | `task dagger:develop` | `dagger develop` + tidy — only needed if you edit `dagger.json` by hand; CI does it for Renovate's bumps |
 | Renovate dry-run | `task renovate:plan` | extracts deps + lists planned bumps without modifying files (debug `renovate.json5`) |
 | Renovate apply | `task renovate:patch` | applies the same bumps to the working tree, format-preserving, best-effort (skips ambiguous cases) |
 | Render chart README | `task doc:helm` | `dagger call helm-docs export --path=chart/README.md` |
@@ -298,6 +299,47 @@ Every other reference is intentionally loose:
 
 To bump Go: change `go.mod`'s `go` directive (or let Renovate do it).
 Everything else either auto-updates or auto-resolves at build time.
+
+## Dagger version: single source of truth
+
+`dagger.json`'s `engineVersion` is the only place the Dagger version is
+written. A module refuses to run on a CLI older than that value, so every
+consumer **reads** it instead of repeating it:
+
+- `dagger/go.mod`'s `dagger.io/dagger` SDK — bumped by Renovate in the
+  same PR (the `dagger SDK + engine` group), then realigned by
+  `dagger develop`, which also settles the transitive deps the generated
+  bindings pull in (e.g. `querybuilder`, whose import path moves between
+  SDK versions).
+- The dev shell — `flake.nix`'s `shellHook` runs
+  `scripts/dagger-cli.sh`, which reads `engineVersion`, fetches that
+  exact CLI once into `${XDG_CACHE_HOME}/x509-certificate-exporter/`,
+  and verifies it against the release's `checksums.txt` before use.
+  Cache hit is a `test -x`, so the shell stays instant and works offline
+  once warm.
+- CI — `.github/actions/dagger` (a local composite action) reads
+  `engineVersion` and passes it to `dagger/dagger-for-github`. That
+  action's SHA pin lives in that one file; workflows just say
+  `uses: ./.github/actions/dagger` + `args:`.
+
+Deliberate non-choices, so nobody "fixes" them back:
+
+- **The CLI is not a Nix package.** Neither the `github:dagger/nix`
+  input (a separate release train that lags core, so it silently drifts
+  below `engineVersion`) nor a local `fetchurl` (version + four per-arch
+  hashes to hand-maintain). Both store a *second* copy of the version
+  that nothing can derive from the manifest — precisely what drifts and
+  breaks every `dagger call`. Fetching the binary costs nothing in
+  reproducibility terms anyway: Dagger pulls its engine as an OCI image
+  by tag at run time, in CI and locally.
+- **No version pinned in workflows.** 15 copies of `version:` is 15
+  chances to drift.
+
+To bump Dagger: let the Renovate `dagger SDK + engine` PR land. The
+`Dagger module` workflow commits the regenerated `dagger/go.mod` onto
+that PR branch, shell and CI follow from `engineVersion`, and there is
+nothing to do by hand. If you edit `dagger.json` yourself, run
+`task dagger:develop`.
 
 ## Release pipeline
 

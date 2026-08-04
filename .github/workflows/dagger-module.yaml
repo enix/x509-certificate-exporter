@@ -1,0 +1,87 @@
+name: Dagger module
+
+# Keeps dagger/go.mod + go.sum consistent with the module's bindings.
+#
+# Why this exists: Renovate bumps the Dagger version strings (dagger.json
+# engineVersion + the dagger.io/dagger SDK, grouped into one PR) but
+# cannot regenerate the module's bindings. The generated code drives
+# dagger/go.mod's transitive deps — a newer SDK relocates packages like
+# `querybuilder` — so after a bump the committed go.mod is stale. Nothing
+# in CI notices, because `dagger call` regenerates inside its own sandbox;
+# only host `go` tooling (`task go:tidy`, `go build ./dagger`) breaks, on
+# maintainers' machines, days later.
+#
+# So this job runs `dagger develop` for them: on a same-repo PR (which
+# includes every renovate/** branch) it commits the result, so the PR
+# lands complete with no human step. On a fork PR it can't push, so it
+# reports the drift and fails.
+
+on:
+  pull_request:
+    paths:
+      - "dagger.json"
+      - "dagger/**"
+  push:
+    branches: [main]
+    paths:
+      - "dagger.json"
+      - "dagger/**"
+  # Lets a maintainer exercise this job on any branch without waiting for
+  # a Dagger bump to touch the trigger paths.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DAGGER_NO_NAG: "1"
+  DAGGER_CLOUD_TOKEN: ""
+  DO_NOT_TRACK: "1"
+
+jobs:
+  sync:
+    name: Sync generated deps
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # commits the regenerated dagger/go.mod on same-repo refs
+    steps:
+      # Checkout the PR's head branch (not the merge commit) so a commit
+      # can be pushed back onto it. Credentials are deliberately
+      # persisted here — unlike every other job in this repo, this one
+      # needs git write access.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          fetch-depth: 1
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+
+      # Regenerates dagger.gen.go + internal/ (both gitignored) and
+      # realigns dagger/go.mod with what they import.
+      - uses: ./.github/actions/dagger
+        with:
+          verb: develop
+
+      - run: go -C dagger mod tidy
+
+      - name: Commit regenerated module deps if changed
+        env:
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork || false }}
+        run: |
+          if git diff --quiet -- dagger/go.mod dagger/go.sum; then
+            echo "dagger/go.mod already in sync."
+            exit 0
+          fi
+          git --no-pager diff --stat -- dagger/go.mod dagger/go.sum
+          if [ "$IS_FORK" = "true" ]; then
+            echo "::error::dagger/go.mod is out of sync with the module bindings." \
+                 "Run 'task dagger:develop' and commit the result." >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dagger/go.mod dagger/go.sum
+          git commit -m "build(dagger): regenerate module deps"
+          git push

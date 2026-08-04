@@ -85,11 +85,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 1
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: test
 
   helm-examples:
@@ -103,11 +100,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 1
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: test-helm-examples
 
   helm-fixtures:
@@ -121,11 +115,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 1
-      - uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77 # v8
+      - uses: ./.github/actions/dagger
         with:
-          version: latest
-          dagger-flags: --progress=logs
-          verb: call
           args: test-helm-fixtures
 
   e2e:

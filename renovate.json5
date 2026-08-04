@@ -159,13 +159,19 @@
       depNameTemplate: "gotest.tools/gotestsum",
       datasourceTemplate: "go",
     },
-    // Dagger engine version pinned in dagger.json. Must stay in lockstep
-    // with the `dagger.io/dagger` SDK in dagger/go.mod — when the SDK
-    // bumps but the engine doesn't, `dagger develop` runs implicitly on
-    // every `dagger call` and fails to fetch the matching SDK, breaking
-    // every `task lint:*` / `task test:unit` / etc. The matching
-    // packageRule below groups this regex bump with the gomod bump into
-    // one PR.
+    // Dagger engine version pinned in dagger.json — the SINGLE source of
+    // truth for the Dagger version repo-wide. Must stay in lockstep with
+    // the `dagger.io/dagger` SDK in dagger/go.mod: when the SDK bumps but
+    // the engine doesn't, `dagger develop` runs implicitly on every
+    // `dagger call` and fails to fetch the matching SDK, breaking every
+    // `task lint:*` / `task test:unit` / etc. The packageRule below groups
+    // this regex bump with the gomod bump into one PR.
+    //
+    // Nothing else needs a manager: the dev-shell CLI
+    // (scripts/dagger-cli.sh, via the flake) and CI
+    // (.github/actions/dagger) both READ engineVersion at run time
+    // instead of repeating it. Don't add pins for them — a second copy of
+    // the version is exactly what drifts.
     {
       customType: "regex",
       managerFilePatterns: ["/^dagger\\.json$/"],
@@ -342,6 +348,11 @@
     // dagger/go.mod and the engineVersion in dagger.json must land
     // together (see the engine regex manager comment for the failure
     // mode). Listed AFTER the gomod groupings so this rule wins.
+    //
+    // That single PR is enough to move the whole toolchain: the dev shell
+    // and CI derive the CLI version from engineVersion, and the
+    // `Dagger module` workflow commits the regenerated dagger/go.mod onto
+    // the PR branch. No follow-up commit, no maintainer step.
     {
       matchPackageNames: ["dagger.io/dagger"],
       groupName: "dagger SDK + engine",

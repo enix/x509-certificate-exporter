@@ -1,11 +1,10 @@
 module dagger/x-509-ce
 
-go 1.26
+go 1.26.1
 
 toolchain go1.26.5
 
 require (
-	dagger.io/dagger v0.21.7
 	github.com/Khan/genqlient v0.8.1
 	github.com/dagger/otel-go v1.43.0
 	github.com/vektah/gqlparser/v2 v2.5.36
@@ -18,6 +17,7 @@ require (
 	github.com/99designs/gqlgen v0.17.91 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/dagger/querybuilder v0.0.0-20260402040506-574a5e81cb59
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -46,3 +46,11 @@ require (
 	google.golang.org/grpc v1.81.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc => go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.16.0
+
+replace go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp => go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.16.0
+
+replace go.opentelemetry.io/otel/log => go.opentelemetry.io/otel/log v0.16.0
+
+replace go.opentelemetry.io/otel/sdk/log => go.opentelemetry.io/otel/sdk/log v0.16.0

@@ -82,7 +82,8 @@
     // dagger/base.go (tracked by the Dagger module image regex below).
     // This manager only makes the Taskfile copy *visible* to Renovate;
     // what actually keeps the two in step is the `renovate` packageRule
-    // further down, which groups the two differing depNames into one PR.
+    // further down, which groups both write-sites into one PR via their
+    // shared packageName.
     {
       customType: "regex",
       managerFilePatterns: ["/^Taskfile\\.ya?ml$/"],
@@ -248,18 +249,19 @@
     },
 
     // Single PR for all Go-toolchain bumps. Four write-sites land
-    // together, because every one of them resolves to depName `go` or
-    // `golang`:
+    // together, because every one of them resolves to packageName `go`
+    // or `golang` (matchPackageNames matches packageName; its depName
+    // fallback is deprecated and will be removed — never rely on it):
     //
     //   - go.mod          `go` / `toolchain`      (gomod manager  → `go`)
     //   - dagger/go.mod   same                    (gomod manager  → `go`)
-    //   - dagger/base.go  `golangImage`           (regex manager  → `golang`)
+    //   - dagger/base.go  `golangImage`           (regex manager  → image `golang`)
     //   - build/Dockerfile.seed-hostpath `FROM golang:` (dockerfile manager → `golang`)
     //
-    // That last one is easy to miss: it is in the group only because its
-    // depName happens to be `golang`. Renaming the constant or moving the
-    // Dockerfile's base image would silently drop it out of the lockstep,
-    // so keep the depName in mind rather than the file list.
+    // That last two are easy to miss: they are in the group only because
+    // the image is literally named `golang`. Switching either to a
+    // different base image would silently drop it out of the lockstep,
+    // so keep the packageName in mind rather than the file list.
     //
     // CI workflows resolve the Go version via `setup-go` +
     // `go-version-file: go.mod`, so they need no separate bump. flake.nix
@@ -293,12 +295,16 @@
     // with another", and it only surfaces at release time.
     //
     // They don't group on their own because the two managers mint
-    // different depNames: `helm` comes from base.go's `<name>Image`
-    // capture, `helm/helm` from the release.yaml regex (different
-    // datasources too — docker vs github-releases). Listing both names
-    // here is what forces one PR.
+    // different coordinates: base.go's `<name>Image` capture yields
+    // packageName `alpine/helm`, the release.yaml regex yields
+    // `helm/helm` (different datasources too — docker vs
+    // github-releases). Listing both PACKAGE names here is what forces
+    // one PR. Not the depNames (`helm`): matchPackageNames matches
+    // packageName, and its depName fallback is deprecated — relying on
+    // it would split this group again, silently, on a future Renovate
+    // release.
     {
-      matchPackageNames: ["helm", "helm/helm"],
+      matchPackageNames: ["alpine/helm", "helm/helm"],
       groupName: "helm",
       labels: ["dependencies", "helm"],
     },
@@ -306,12 +312,14 @@
     // Same split for Renovate's own image: `renovateImage` in
     // dagger/base.go (used by `dagger call lint-renovate`) vs the
     // Taskfile's RENOVATE_IMAGE (`renovate:plan` / `renovate:patch`).
-    // depNames `renovate` and `renovate/renovate` respectively. Blast
+    // Both resolve to packageName `renovate/renovate` (the Taskfile
+    // regex manager sets no packageNameTemplate, so packageName falls
+    // back to its depName), so a single entry covers the pair. Blast
     // radius is small — debug tooling, not a shipped artifact — but the
     // Taskfile comment promises the two stay aligned, so make that true
     // instead of leaving it to luck.
     {
-      matchPackageNames: ["renovate", "renovate/renovate"],
+      matchPackageNames: ["renovate/renovate"],
       groupName: "renovate",
       labels: ["dependencies"],
     },

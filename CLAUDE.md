@@ -288,8 +288,8 @@ Every other reference is intentionally loose:
 - `build/Dockerfile.seed-hostpath`'s `FROM golang:X.Y.Z-alpine` is the
   same deal (it compiles the e2e seed binary). It rides in the same
   Renovate PR as the two above — not because it's listed anywhere, but
-  because the dockerfile manager gives it depName `golang`, which the
-  `golang toolchain` group matches.
+  because the image is literally named `golang`, which the
+  `golang toolchain` group matches on packageName.
 - `flake.nix` uses unpinned `pkgs.go` for the same reason — the dev shell
   runs whatever Go nixpkgs ships, and `GOTOOLCHAIN=auto` handles the rest.
 - The CI workflows use `actions/setup-go@v5` with `go-version-file: go.mod`,
@@ -440,21 +440,22 @@ inside the official Renovate image, sandboxed by Dagger). Highlights:
   `golangciLint` / `gotestsumModule` Go install versions in the same
   file.
 - Go-toolchain bumps land in a single PR via `groupName: "golang
-  toolchain"`: `go.mod` + `dagger/go.mod` (depName `go`), plus
+  toolchain"`: `go.mod` + `dagger/go.mod` (packageName `go`), plus
   `dagger/base.go`'s `golangImage` and
-  `build/Dockerfile.seed-hostpath`'s `FROM golang:` (depName `golang`).
+  `build/Dockerfile.seed-hostpath`'s `FROM golang:` (packageName `golang`).
   CI workflows pick up the Go version from `go.mod` directly via
   `setup-go`'s `go-version-file`.
 - **Version lockstep groups.** When one tool's version is written in two
-  places, the two managers usually mint *different* depNames — so they
-  land in separate PRs and drift unless a packageRule lists both names
-  under one `groupName`. In place today:
+  places, the two managers usually mint *different* package names — so
+  they land in separate PRs and drift unless a packageRule lists both
+  under one `groupName`. Match on **packageName** (`matchPackageNames`);
+  its depName fallback is deprecated and will be removed. In place today:
   `dagger` (`dagger.json` engineVersion + the `dagger.io/dagger` SDK),
   `helm` (`helmImage` in `dagger/base.go`, which lints/tests the chart,
   + `setup-helm` in `release.yaml`, which packages and publishes it —
-  depNames `helm` vs `helm/helm`), and
-  `renovate` (`renovateImage` + the Taskfile's `RENOVATE_IMAGE` —
-  depNames `renovate` vs `renovate/renovate`).
+  packageNames `alpine/helm` vs `helm/helm`), and
+  `renovate` (`renovateImage` + the Taskfile's `RENOVATE_IMAGE` — both
+  resolve to packageName `renovate/renovate`).
   Adding a second write-site for any tool means adding it to its group.
 - `flake.lock` and transitive `go.sum` entries refreshed on every
   Renovate run via `lockFileMaintenance`.

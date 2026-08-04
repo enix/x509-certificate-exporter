@@ -63,10 +63,10 @@
           # goreleaser version
           version = "2.17.1";
           assets = {
-            "x86_64-linux"   = { suffix = "Linux_x86_64";  hash = "sha256-6q4FteugdTO9DwaEa2jICDmVBHhN8Axi6yGVQfwE5eI="; };
-            "aarch64-linux"  = { suffix = "Linux_arm64";   hash = "sha256-AQLZdDc/zet3BC0fWJfK/6GTvjZiD9xsHaQ6Ae+OENM="; };
-            "x86_64-darwin"  = { suffix = "Darwin_x86_64"; hash = "sha256-K4LYMZ7lF9QkK0ioWBFLJnxiHx3R/lGhRoCQKxil2sg="; };
-            "aarch64-darwin" = { suffix = "Darwin_arm64";  hash = "sha256-j2iYJW81UxFl2Q8ttYHF7g0yvag+vCWsIx/1vbnSBxo="; };
+            "x86_64-linux"   = { suffix = "Linux_x86_64";  hash = "sha256-qZu8euDY2JewfExJepti8iJViARxXvIZ0a8Fp+QXvIA="; };
+            "aarch64-linux"  = { suffix = "Linux_arm64";   hash = "sha256-cC8DdprIvLDkeDnIIkPMYUrplWM1mamMYwYuE+qF+Ck="; };
+            "x86_64-darwin"  = { suffix = "Darwin_x86_64"; hash = "sha256-qSpoxhpoM/9ndI9TLL68e45JujDeBiq0Y7IhIR7mNo8="; };
+            "aarch64-darwin" = { suffix = "Darwin_arm64";  hash = "sha256-tlYkiFwl2ppne3rRHPhqAhI8xaVq9m9rTrtXRljq2i4="; };
           };
           asset = assets.${system} or (throw "goreleaser: unsupported system ${system}");
         in pkgs.stdenvNoCC.mkDerivation {

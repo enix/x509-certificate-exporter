@@ -197,11 +197,17 @@
     // goreleaser/goreleaser-action in release.yaml. The github-actions
     // manager SHA-pins the action ref itself but doesn't parse arbitrary
     // `with:` values, so a separate regex manager is needed.
+    //
+    // Anchored on the action name (same shape as the setup-helm manager
+    // below) — an unanchored `version: "vX"` would claim ANY v-prefixed
+    // version field in the file as goreleaser's and rewrite it to
+    // goreleaser releases. It only ever worked unanchored because
+    // setup-helm's value happens to lack the `v` prefix.
     {
       customType: "regex",
       managerFilePatterns: ["/^\\.github/workflows/release\\.ya?ml$/"],
       matchStrings: [
-        "version:\\s*\"(?<currentValue>v\\d[\\w.-]*)\"",
+        "goreleaser-action[^\\n]+\\n\\s+with:\\n\\s+version:\\s*\"(?<currentValue>v\\d[\\w.-]*)\"",
       ],
       depNameTemplate: "goreleaser/goreleaser",
       datasourceTemplate: "github-releases",
@@ -219,6 +225,21 @@
         "# goreleaser version\\s*\\n\\s*version\\s*=\\s*\"(?<currentValue>\\d[\\w.-]*)\"",
       ],
       depNameTemplate: "goreleaser/goreleaser",
+      datasourceTemplate: "github-releases",
+      extractVersionTemplate: "^v(?<version>.*)$",
+    },
+    // go-size-analyzer pinned in flake.nix, same recipe as goreleaser
+    // above: Renovate proposes the version bump, the four per-arch
+    // fetchurl hashes are refreshed by hand (procedure in the flake
+    // comment). Without this manager no bump is ever even *proposed* —
+    // the version only moves when someone thinks of it.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^flake\\.nix$/"],
+      matchStrings: [
+        "# gsa version\\s*\\n\\s*version\\s*=\\s*\"(?<currentValue>\\d[\\w.-]*)\"",
+      ],
+      depNameTemplate: "Zxilly/go-size-analyzer",
       datasourceTemplate: "github-releases",
       extractVersionTemplate: "^v(?<version>.*)$",
     },
@@ -298,9 +319,12 @@
       dependencyDashboardApproval: true,
     },
 
-    // Group all variant base images (busybox, alpine, registry) together.
+    // Group all variant base images together: busybox (the shell-enabled
+    // image variant's Dockerfile) and alpine (dagger/base.go's
+    // `alpineImage`). Only images actually present in the tree belong
+    // here — a stale entry reads as "this is tracked" when nothing is.
     {
-      matchPackageNames: ["busybox", "alpine", "registry"],
+      matchPackageNames: ["busybox", "alpine"],
       groupName: "container base images",
       labels: ["dependencies", "docker"],
     },

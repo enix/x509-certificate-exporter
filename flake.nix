@@ -17,12 +17,14 @@
         # source would require also setting up the JS toolchain.
         # Acceptable trade-off for a dev/diagnostic tool.
         #
-        # Bump procedure (manual — Renovate can't refresh the four
-        # per-arch hashes on a `fetchurl` bump):
+        # Bump procedure (Renovate proposes `version` bumps via the regex
+        # manager in renovate.json5, but cannot recompute the four
+        # per-arch hashes on a `fetchurl` bump — refresh those by hand):
         #   1. update `version` below
         #   2. curl -sL https://github.com/Zxilly/go-size-analyzer/releases/download/v<v>/checksums.txt
         #   3. for each (arch, hex) pair: hash = "sha256-$(echo <hex> | xxd -r -p | base64)"
         goSizeAnalyzer = let
+          # gsa version
           version = "1.12.6";
           assets = {
             "x86_64-linux"   = { suffix = "linux_amd64";  hash = "sha256-k8NBdryks8GIFpADqs0Er0uLXK9BOfg8th01GnVaILA="; };

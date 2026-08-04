@@ -380,6 +380,23 @@
       labels: ["dependencies", "go"],
     },
 
+    // Never touch the `replace` directives in dagger/go.mod: they are
+    // GENERATED — `dagger develop` pins the otel packages to the exact
+    // versions the Dagger SDK requires and rewrites them on every run.
+    // Any Renovate bump there (PR #682 moved otlploghttp to v0.19.0 as
+    // a security update) is reverted by the next `Dagger module` sync
+    // commit (as on PR #686), looping forever. The pins only really
+    // move when the SDK bumps them upstream, which the `dagger SDK +
+    // engine` group below picks up. `require` entries stay fair game.
+    // Security alerts on these pins can't be remediated here either —
+    // dismiss them on GitHub with that justification.
+    {
+      matchManagers: ["gomod"],
+      matchFileNames: ["dagger/go.mod"],
+      matchDepTypes: ["replace"],
+      enabled: false,
+    },
+
     // Pull dagger.io/dagger out of the broad gomod groups: the SDK in
     // dagger/go.mod and the engineVersion in dagger.json must land
     // together (see the engine regex manager comment for the failure

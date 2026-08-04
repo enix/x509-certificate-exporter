@@ -35,7 +35,7 @@ jobs:
       actions: read
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Don't persist GITHUB_TOKEN in .git/config — Scorecard re-reads
           # the repo via API and any persisted token broadens our exposure.
@@ -57,6 +57,6 @@ jobs:
       # Surface findings as alerts in the repo's Security tab. The
       # upload-sarif action lives under the codeql-action repo but
       # works for any tool's SARIF output — it isn't tied to CodeQL.
-      - uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4
+      - uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43 # v4
         with:
           sarif_file: results.sarif

@@ -25,6 +25,9 @@ spec:
     bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     {{- end }}
     scheme: {{ .Values.prometheusServiceMonitor.scheme }}
+    {{- if and .Values.rbacProxy.enabled .Values.prometheusServiceMonitor.basicAuth }}
+    {{- fail "prometheusServiceMonitor.basicAuth cannot be combined with rbacProxy.enabled: kube-rbac-proxy authenticates scrapes with the Prometheus ServiceAccount bearer token, and a monitor endpoint must define a single authentication method" }}
+    {{- end }}
     {{- with .Values.prometheusServiceMonitor.basicAuth }}
     basicAuth:
     {{- . | toYaml | nindent 6 }}

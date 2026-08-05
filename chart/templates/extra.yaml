@@ -1,16 +1,23 @@
+{{/*
+Each entry renders as its own YAML document. The document separator
+must be followed by a real newline: `{{-` on the emitting action would
+chomp it and glue the manifest onto `---` (helm template/install paper
+over that by re-splitting documents, but helm lint parses the raw
+stream and rejects it).
+*/}}
 {{- range .Values.extraDeploy }}
 ---
-    {{- if typeIs "string" . }}
-        {{- tpl . $ }}
-    {{- else }}
-        {{- tpl (. | toYaml) $ }}
-    {{- end }}
+{{ if typeIs "string" . -}}
+{{ tpl . $ }}
+{{- else -}}
+{{ tpl (. | toYaml) $ }}
+{{- end }}
 {{- end }}
 {{- range .Values.extraDeployVerbatim }}
 ---
-    {{- if typeIs "string" . }}
-        {{- . }}
-    {{- else }}
-        {{- . | toYaml }}
-    {{- end }}
+{{ if typeIs "string" . -}}
+{{ . }}
+{{- else -}}
+{{ . | toYaml }}
+{{- end }}
 {{- end }}

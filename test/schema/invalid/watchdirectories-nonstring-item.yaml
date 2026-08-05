@@ -1,0 +1,5 @@
+# watch lists are arrays of path strings — a bare number is a typo'd
+# path and must be rejected instead of being stringified downstream.
+hostPathsExporter:
+  watchDirectories:
+    - 42

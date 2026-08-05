@@ -1,0 +1,5 @@
+# `prometheusServiceMonitor` is now a closed object: a typoed key must
+# be rejected instead of silently ignored — before 4.2.0 `enbled` here
+# would deploy with the default and nobody would notice.
+prometheusServiceMonitor:
+  enbled: false

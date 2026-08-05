@@ -1,0 +1,4 @@
+# Label maps are string→string: a numeric value renders an invalid K8s
+# object (labels must be strings) — reject it at install time instead.
+extraLabels:
+  team: 42

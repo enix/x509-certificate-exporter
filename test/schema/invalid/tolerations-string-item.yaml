@@ -1,0 +1,5 @@
+# Tolerations are objects (K8s Toleration) — a bare string is a
+# malformed entry that kubectl would reject much later.
+secretsExporter:
+  tolerations:
+    - "node-role.kubernetes.io/control-plane"

@@ -1,0 +1,6 @@
+# `hostPathsExporter.daemonSets` is a map of override *objects* — a
+# scalar value is always a config mistake (the chart would range over
+# it and produce a broken DaemonSet).
+hostPathsExporter:
+  daemonSets:
+    edge: "oops"

@@ -1,0 +1,23 @@
+# Lock-down: extraDeploy accepts BOTH raw-string manifests (run through
+# `tpl`) and structured objects — the template branches on `typeIs
+# "string"`. A future schema tightening to objects-only would break the
+# documented string form.
+extraDeploy:
+  - |
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: {{ .Release.Name }}-extra
+    data: {}
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: extra-object
+    data: {}
+extraDeployVerbatim:
+  - |
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: verbatim-extra
+    data: {}

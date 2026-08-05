@@ -1,0 +1,41 @@
+# Lock-down for the 4.2.0 strictness pass: every newly-typed container
+# keeps accepting its legitimate documented shape — string label/
+# annotation maps, K8s object arrays (tolerations, env, volumes,
+# relabelings), string path lists.
+extraLabels:
+  team: platform
+podAnnotations:
+  prometheus.io/scrape: "true"
+secretsExporter:
+  nodeSelector:
+    kubernetes.io/os: linux
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+  env:
+    - name: GOMAXPROCS
+      value: "1"
+  extraArgs:
+    - --watch-file=/extra-cert/tls.crt
+  extraVolumes:
+    - name: extra-cert
+      secret:
+        secretName: extra-cert
+  extraVolumeMounts:
+    - name: extra-cert
+      mountPath: /extra-cert
+      readOnly: true
+hostPathsExporter:
+  watchDirectories:
+    - /etc/kubernetes/pki
+    - /var/lib/kubelet/pods/**/*.crt
+prometheusServiceMonitor:
+  extraLabels:
+    release: kube-prometheus-stack
+  metricRelabelings:
+    - action: labeldrop
+      regex: temporary_label
+  relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: node

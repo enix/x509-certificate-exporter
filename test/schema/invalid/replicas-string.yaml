@@ -1,0 +1,4 @@
+# `replicas` is an integer — a quoted number is a string and must be
+# rejected instead of coerced.
+secretsExporter:
+  replicas: "2"

@@ -408,6 +408,7 @@ exporter-toolkit is the recommended path on new installs.
 | prometheusServiceMonitor.metricRelabelings | list | `[]` | Metric relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusServiceMonitor.relabelings | list | `[]` | Relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusServiceMonitor.scheme | string | `"http"` | Scheme config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusServiceMonitor.basicAuth | object | `{}` | BasicAuth credentials for the ServiceMonitor endpoint (Secret key selectors for `username` and `password`), see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.BasicAuth |
 | prometheusServiceMonitor.tlsConfig | object | `{}` | Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig |
 | prometheusPodMonitor.create | bool | `false` | Should a PodMonitor object be installed to scrape this exporter. For prometheus-operator (kube-prometheus) users. |
 | prometheusPodMonitor.scrapeInterval | string | `"60s"` | Target scrape interval set in the PodMonitor |
@@ -416,6 +417,7 @@ exporter-toolkit is the recommended path on new installs.
 | prometheusPodMonitor.metricRelabelings | list | `[]` | Metric relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusPodMonitor.relabelings | list | `[]` | Relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
 | prometheusPodMonitor.scheme | string | `"http"` | Scheme config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint |
+| prometheusPodMonitor.basicAuth | object | `{}` | BasicAuth credentials for the PodMonitor endpoint (Secret key selectors for `username` and `password`), see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.BasicAuth |
 | prometheusPodMonitor.tlsConfig | object | `{}` | Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig |
 | prometheusRules.create | bool | `true` | Should a PrometheusRule object be installed to alert on certificate expiration. For prometheus-operator (kube-prometheus) users. |
 | prometheusRules.rulePrefix | string | `""` | Prefix prepended to the alert rule names of PrometheusRule rules |
@@ -469,7 +471,7 @@ exporter-toolkit is the recommended path on new installs.
 | rbacProxy.tls.existingSecretName | string | `""` | Pre-provisioned Secret carrying `tls.crt` + `tls.key` for the kube-rbac-proxy serving cert. When empty, the chart auto-generates a self-signed cert at install time and reuses it across upgrades via `lookup`. Set this to a cert-manager-managed Secret (or similar) for a cert with a real chain you can rotate independently. |
 | rbacProxy.image.registry | string | `"quay.io"` | kube-rbac-proxy image registry. Empty string opts out of the registry prefix and lets the CRI fall back to its configured default (typically docker.io). |
 | rbacProxy.image.repository | string | `"brancz/kube-rbac-proxy"` | kube-rbac-proxy image repository |
-| rbacProxy.image.tag | string | `"v0.22.0"` | kube-rbac-proxy image tag |
+| rbacProxy.image.tag | string | `"v0.22.1"` | kube-rbac-proxy image tag |
 | rbacProxy.image.digest | string | `""` | kube-rbac-proxy image digest. When set, takes precedence over `tag` (immutable reference) |
 | rbacProxy.image.pullPolicy | string | `"IfNotPresent"` | kube-rbac-proxy image pull policy |
 | rbacProxy.upstreamListenPort | int | `9091` | Listen port for the exporter running inside kube-rbac-proxy exposed Pods |

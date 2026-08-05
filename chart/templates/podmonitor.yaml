@@ -21,6 +21,10 @@ spec:
     bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     {{- end }}
     scheme: {{ .Values.prometheusPodMonitor.scheme }}
+    {{- with .Values.prometheusPodMonitor.basicAuth }}
+    basicAuth:
+    {{- . | toYaml | nindent 6 }}
+    {{- end }}
     {{- with .Values.prometheusPodMonitor.tlsConfig }}
     tlsConfig:
     {{- . | toYaml | nindent 6 }}

@@ -1,0 +1,12 @@
+# Lock-down: daemonSets values are free-form override objects — any
+# subset of the hostPathsExporter knobs must be accepted per entry.
+hostPathsExporter:
+  daemonSets:
+    nodes:
+      debugMode: true
+      watchDirectories:
+        - /etc/kubernetes/pki
+    edge:
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule

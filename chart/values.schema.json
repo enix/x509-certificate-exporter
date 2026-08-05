@@ -84,7 +84,8 @@
             "validating",
             "apiservice",
             "crdConversion"
-          ]
+          ],
+          "type": "object"
         }
       },
       "required": [
@@ -114,29 +115,42 @@
     },
     "extraDeploy": {
       "items": {
-        "required": []
+        "required": [],
+        "type": [
+          "object",
+          "string"
+        ]
       },
       "type": "array"
     },
     "extraDeployVerbatim": {
       "items": {
-        "required": []
+        "required": [],
+        "type": [
+          "object",
+          "string"
+        ]
       },
       "type": "array"
     },
     "extraLabels": {
-      "additionalProperties": true,
-      "required": []
+      "additionalProperties": {
+        "type": "string"
+      },
+      "required": [],
+      "type": "object"
     },
     "extraVolumeMounts": {
       "items": {
-        "required": []
+        "required": [],
+        "type": "object"
       },
       "type": "array"
     },
     "extraVolumes": {
       "items": {
-        "required": []
+        "required": [],
+        "type": "object"
       },
       "type": "array"
     },
@@ -152,16 +166,22 @@
       "additionalProperties": false,
       "properties": {
         "annotations": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "createDashboard": {
           "default": false,
           "type": "boolean"
         },
         "extraLabels": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "sidecarLabel": {
           "default": "grafana_dashboard",
@@ -188,15 +208,22 @@
       "properties": {
         "affinity": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "annotations": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "daemonSets": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "object"
+          },
+          "required": [],
+          "type": "object"
         },
         "debugMode": {
           "default": false,
@@ -204,19 +231,22 @@
         },
         "env": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
         "extraVolumeMounts": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
         "extraVolumes": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
@@ -236,23 +266,34 @@
         },
         "livenessProbe": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "nodeSelector": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "podAnnotations": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "podExtraLabels": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "podSecurityContext": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "priorityClassName": {
           "default": "",
@@ -260,7 +301,8 @@
         },
         "readinessProbe": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "refreshInterval": {
           "default": "300s",
@@ -268,7 +310,8 @@
         },
         "resources": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "restartPolicy": {
           "default": "Always",
@@ -287,7 +330,8 @@
         },
         "securityContext": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "skipSymlinks": {
           "default": false,
@@ -295,35 +339,37 @@
         },
         "tolerations": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
         "updateStrategy": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "watchDirectories": {
           "items": {
-            "required": []
+            "type": "string"
           },
           "type": "array"
         },
         "watchFiles": {
           "items": {
-            "required": []
+            "type": "string"
           },
           "type": "array"
         },
         "watchKubeconfFiles": {
           "items": {
-            "required": []
+            "type": "string"
           },
           "type": "array"
         },
         "watchSpecificExtensionDirectories": {
           "items": {
-            "required": []
+            "type": "string"
           },
           "type": "array"
         }
@@ -332,15 +378,7 @@
         "debugMode",
         "skipSymlinks",
         "refreshInterval",
-        "tolerations",
-        "priorityClassName",
-        "extraVolumes",
-        "extraVolumeMounts",
-        "watchDirectories",
-        "watchSpecificExtensionDirectories",
-        "watchFiles",
-        "watchKubeconfFiles",
-        "env"
+        "priorityClassName"
       ],
       "type": "object"
     },
@@ -388,7 +426,8 @@
     },
     "imagePullSecrets": {
       "items": {
-        "required": []
+        "required": [],
+        "type": "object"
       },
       "type": "array"
     },
@@ -407,12 +446,18 @@
       "additionalProperties": false,
       "properties": {
         "annotations": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "extraLabels": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "image": {
           "additionalProperties": false,
@@ -453,15 +498,18 @@
         },
         "podSecurityContext": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "resources": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "securityContext": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         }
       },
       "required": [
@@ -478,49 +526,65 @@
       "type": "string"
     },
     "podAnnotations": {
-      "additionalProperties": true,
-      "required": []
+      "additionalProperties": {
+        "type": "string"
+      },
+      "required": [],
+      "type": "object"
     },
     "podExtraLabels": {
-      "additionalProperties": true,
-      "required": []
+      "additionalProperties": {
+        "type": "string"
+      },
+      "required": [],
+      "type": "object"
     },
     "podListenPort": {
-      "default": "9793",
+      "default": 9793,
       "maximum": 65535,
       "minimum": 1,
-      "required": []
+      "type": "integer"
     },
     "priorityClassName": {
       "default": "",
       "type": "string"
     },
     "probeListenPort": {
-      "default": "0",
+      "default": 0,
       "maximum": 65535,
       "minimum": 0,
-      "required": []
+      "type": "integer"
     },
     "prometheusPodMonitor": {
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
+        "basicAuth": {
+          "additionalProperties": true,
+          "required": [],
+          "type": "object"
+        },
         "create": {
           "default": false,
           "type": "boolean"
         },
         "extraLabels": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "metricRelabelings": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
         "relabelings": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
@@ -542,16 +606,16 @@
         },
         "tlsConfig": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         }
       },
       "required": [
         "create",
         "scrapeInterval",
-        "scrapeTimeout",
-        "metricRelabelings",
-        "relabelings"
-      ]
+        "scrapeTimeout"
+      ],
+      "type": "object"
     },
     "prometheusRules": {
       "additionalProperties": false,
@@ -564,12 +628,18 @@
           "type": "object"
         },
         "alertExtraAnnotations": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "alertExtraLabels": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "alertForOverrides": {
           "additionalProperties": {
@@ -657,9 +727,9 @@
           "type": "boolean"
         },
         "criticalDaysLeft": {
-          "default": "14",
+          "default": 14,
           "minimum": 0,
-          "required": []
+          "type": "integer"
         },
         "crlNeedsRefreshSeverity": {
           "default": "warning",
@@ -680,9 +750,9 @@
           "required": []
         },
         "crlWarningDaysLeft": {
-          "default": "7",
+          "default": 7,
           "minimum": 0,
-          "required": []
+          "type": "integer"
         },
         "disableBuiltinAlertGroup": {
           "default": false,
@@ -690,13 +760,17 @@
         },
         "extraAlertGroups": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
         "extraLabels": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "keystorePassphraseFailuresSeverity": {
           "default": "warning",
@@ -757,9 +831,9 @@
           "required": []
         },
         "warningDaysLeft": {
-          "default": "28",
+          "default": 28,
           "minimum": 0,
-          "required": []
+          "type": "integer"
         }
       },
       "required": [
@@ -772,35 +846,47 @@
         "alertOnCertificateError",
         "alertOnCertificateNotYetValid",
         "alertOnCertificateCollision",
-        "disableBuiltinAlertGroup",
-        "extraAlertGroups"
+        "disableBuiltinAlertGroup"
       ],
       "type": "object"
     },
     "prometheusServiceMonitor": {
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
+        "basicAuth": {
+          "additionalProperties": true,
+          "required": [],
+          "type": "object"
+        },
         "create": {
           "default": true,
           "type": "boolean"
         },
         "extraAnnotations": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "extraLabels": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "metricRelabelings": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
         "relabelings": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
@@ -822,16 +908,16 @@
         },
         "tlsConfig": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         }
       },
       "required": [
         "create",
         "scrapeInterval",
-        "scrapeTimeout",
-        "metricRelabelings",
-        "relabelings"
-      ]
+        "scrapeTimeout"
+      ],
+      "type": "object"
     },
     "psp": {
       "additionalProperties": false,
@@ -857,16 +943,25 @@
           "additionalProperties": false,
           "properties": {
             "clusterRoleAnnotations": {
-              "additionalProperties": true,
-              "required": []
+              "additionalProperties": {
+                "type": "string"
+              },
+              "required": [],
+              "type": "object"
             },
             "clusterRoleBindingAnnotations": {
-              "additionalProperties": true,
-              "required": []
+              "additionalProperties": {
+                "type": "string"
+              },
+              "required": [],
+              "type": "object"
             },
             "serviceAccountAnnotations": {
-              "additionalProperties": true,
-              "required": []
+              "additionalProperties": {
+                "type": "string"
+              },
+              "required": [],
+              "type": "object"
             },
             "serviceAccountName": {
               "default": "",
@@ -884,16 +979,25 @@
           "additionalProperties": false,
           "properties": {
             "clusterRoleAnnotations": {
-              "additionalProperties": true,
-              "required": []
+              "additionalProperties": {
+                "type": "string"
+              },
+              "required": [],
+              "type": "object"
             },
             "clusterRoleBindingAnnotations": {
-              "additionalProperties": true,
-              "required": []
+              "additionalProperties": {
+                "type": "string"
+              },
+              "required": [],
+              "type": "object"
             },
             "serviceAccountAnnotations": {
-              "additionalProperties": true,
-              "required": []
+              "additionalProperties": {
+                "type": "string"
+              },
+              "required": [],
+              "type": "object"
             },
             "serviceAccountName": {
               "default": "",
@@ -948,7 +1052,7 @@
               "type": "string"
             },
             "tag": {
-              "default": "v0.22.0",
+              "default": "v0.22.1",
               "type": "string"
             }
           },
@@ -961,11 +1065,13 @@
         },
         "resources": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "securityContext": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "tls": {
           "additionalProperties": false,
@@ -981,10 +1087,10 @@
           "type": "object"
         },
         "upstreamListenPort": {
-          "default": "9091",
+          "default": 9091,
           "maximum": 65535,
           "minimum": 1,
-          "required": []
+          "type": "integer"
         }
       },
       "required": [
@@ -999,11 +1105,15 @@
       "properties": {
         "affinity": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "annotations": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "cache": {
           "additionalProperties": false,
@@ -1013,9 +1123,9 @@
               "type": "boolean"
             },
             "maxDuration": {
-              "default": "300",
+              "default": 300,
               "minimum": 1,
-              "required": []
+              "type": "integer"
             }
           },
           "required": [
@@ -1025,7 +1135,7 @@
         },
         "configMapKeys": {
           "items": {
-            "required": []
+            "type": "string"
           },
           "type": "array"
         },
@@ -1039,7 +1149,8 @@
         },
         "env": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
@@ -1115,19 +1226,21 @@
         },
         "extraArgs": {
           "items": {
-            "required": []
+            "type": "string"
           },
           "type": "array"
         },
         "extraVolumeMounts": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
         "extraVolumes": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         },
@@ -1185,18 +1298,18 @@
           "additionalProperties": false,
           "properties": {
             "burstQueries": {
-              "default": "10",
+              "default": 10,
               "minimum": 1,
-              "required": []
+              "type": "integer"
             },
             "enabled": {
               "default": false,
               "type": "boolean"
             },
             "queriesPerSecond": {
-              "default": "5",
+              "default": 5,
               "minimum": 0,
-              "required": []
+              "type": "number"
             }
           },
           "required": [
@@ -1205,29 +1318,40 @@
           "type": "object"
         },
         "listPageSize": {
-          "default": "0",
+          "default": 0,
           "minimum": 0,
-          "required": []
+          "type": "integer"
         },
         "livenessProbe": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "nodeSelector": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "podAnnotations": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "podExtraLabels": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "podSecurityContext": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "priorityClassName": {
           "default": "",
@@ -1235,16 +1359,18 @@
         },
         "readinessProbe": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "replicas": {
-          "default": "1",
+          "default": 1,
           "minimum": 1,
-          "required": []
+          "type": "integer"
         },
         "resources": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "restartPolicy": {
           "default": "Always",
@@ -1381,19 +1507,22 @@
             ],
             "type": "object"
           },
-          "required": []
+          "type": "array"
         },
         "securityContext": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "strategy": {
           "additionalProperties": true,
-          "required": []
+          "required": [],
+          "type": "object"
         },
         "tolerations": {
           "items": {
-            "required": []
+            "required": [],
+            "type": "object"
           },
           "type": "array"
         }
@@ -1401,15 +1530,9 @@
       "required": [
         "enabled",
         "debugMode",
-        "tolerations",
         "priorityClassName",
-        "extraVolumes",
-        "extraVolumeMounts",
-        "configMapKeys",
-        "extraArgs",
         "cache",
-        "kubeApiRateLimits",
-        "env"
+        "kubeApiRateLimits"
       ],
       "type": "object"
     },
@@ -1417,26 +1540,32 @@
       "additionalProperties": false,
       "properties": {
         "annotations": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "create": {
           "default": true,
           "type": "boolean"
         },
         "extraLabels": {
-          "additionalProperties": true,
-          "required": []
+          "additionalProperties": {
+            "type": "string"
+          },
+          "required": [],
+          "type": "object"
         },
         "headless": {
           "default": true,
           "type": "boolean"
         },
         "port": {
-          "default": "9793",
+          "default": 9793,
           "maximum": 65535,
           "minimum": 1,
-          "required": []
+          "type": "integer"
         }
       },
       "required": [
@@ -1471,9 +1600,6 @@
     "nameOverride",
     "fullnameOverride",
     "namespaceOverride",
-    "extraDeploy",
-    "extraDeployVerbatim",
-    "imagePullSecrets",
     "image",
     "migration",
     "exposePerCertificateErrorMetrics",
@@ -1492,8 +1618,6 @@
     "service",
     "prometheusRules",
     "priorityClassName",
-    "extraVolumes",
-    "extraVolumeMounts",
     "psp",
     "rbac",
     "rbacProxy"

@@ -826,7 +826,7 @@ prometheusServiceMonitor:
   # type: object
   # additionalProperties: true
   # @schema
-  # -- BasicAuth credentials for the ServiceMonitor endpoint (Secret key selectors for `username` and `password`). Mutually exclusive with `rbacProxy.enabled`, which authenticates scrapes with the Prometheus ServiceAccount bearer token — the chart refuses to render both. See: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.BasicAuth
+  # -- BasicAuth credentials for the ServiceMonitor endpoint (Secret key selectors for `username` and `password`). Requires `scheme: https` (the chart refuses to render credentials over plaintext HTTP) and is mutually exclusive with `rbacProxy.enabled`, which authenticates scrapes with the Prometheus ServiceAccount bearer token — the chart refuses to render both. See: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.BasicAuth
   basicAuth: {}
   # @schema
   # type: object
@@ -873,7 +873,7 @@ prometheusPodMonitor:
   # type: object
   # additionalProperties: true
   # @schema
-  # -- BasicAuth credentials for the PodMonitor endpoint (Secret key selectors for `username` and `password`). Mutually exclusive with `rbacProxy.enabled`, which authenticates scrapes with the Prometheus ServiceAccount bearer token — the chart refuses to render both. See: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.BasicAuth
+  # -- BasicAuth credentials for the PodMonitor endpoint (Secret key selectors for `username` and `password`). Requires `scheme: https` (the chart refuses to render credentials over plaintext HTTP) and is mutually exclusive with `rbacProxy.enabled`, which authenticates scrapes with the Prometheus ServiceAccount bearer token — the chart refuses to render both. See: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.BasicAuth
   basicAuth: {}
   # @schema
   # type: object

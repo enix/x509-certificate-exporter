@@ -139,8 +139,16 @@ func (m *X509Ce) TestHelmFixtures(ctx context.Context) (string, error) {
 		failed = append(failed, f)
 	}
 
-	// Negative cases: helm lint must fail AND output must contain every
-	// expected substring listed in the paired .expect.txt.
+	// Negative cases: helm template must fail AND output must contain
+	// every expected substring listed in the paired .expect.txt.
+	//
+	// `template`, not `lint`: both surface values.schema.json violations
+	// identically, but helm 4's lint intercepts the `fail` template
+	// function (logged as INFO "funcMap fail", exit 0), so guard-rail
+	// rejections like basicauth-over-http only fail under template.
+	// The positive cases above keep `lint`, which is stricter on render
+	// hygiene (it caught the extraDeploy document-separator bug that
+	// template papers over by re-splitting documents).
 	for _, f := range invalidFiles {
 		fmt.Fprintf(&report, "\n== %s ==\n", f)
 		expectPath := strings.TrimSuffix("test/schema/"+f, ".yaml") + ".expect.txt"
@@ -160,7 +168,7 @@ func (m *X509Ce) TestHelmFixtures(ctx context.Context) (string, error) {
 		}
 
 		_, err = base.WithExec([]string{
-			"helm", "lint", "chart", "--values", "test/schema/" + f,
+			"helm", "template", "chart", "--values", "test/schema/" + f,
 		}).Sync(ctx)
 		if err == nil {
 			report.WriteString("  EXPECTED FAIL, GOT PASS\n")

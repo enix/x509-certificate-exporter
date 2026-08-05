@@ -1,0 +1,11 @@
+# basicAuth with the default `scheme: http` would transmit the scrape
+# credentials in cleartext — the monitor templates refuse to render it
+# (template-level `fail`, surfaced through helm lint like schema errors).
+prometheusServiceMonitor:
+  basicAuth:
+    username:
+      name: scrape-creds
+      key: username
+    password:
+      name: scrape-creds
+      key: password

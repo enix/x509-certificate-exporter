@@ -24,6 +24,9 @@ spec:
     {{- if and .Values.rbacProxy.enabled .Values.prometheusPodMonitor.basicAuth }}
     {{- fail "prometheusPodMonitor.basicAuth cannot be combined with rbacProxy.enabled: kube-rbac-proxy authenticates scrapes with the Prometheus ServiceAccount bearer token, and a monitor endpoint must define a single authentication method" }}
     {{- end }}
+    {{- if and .Values.prometheusPodMonitor.basicAuth (ne .Values.prometheusPodMonitor.scheme "https") }}
+    {{- fail "prometheusPodMonitor.basicAuth requires scheme: https — scraping with credentials over plaintext HTTP would transmit them in cleartext" }}
+    {{- end }}
     {{- with .Values.prometheusPodMonitor.basicAuth }}
     basicAuth:
     {{- . | toYaml | nindent 6 }}

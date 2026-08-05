@@ -1,0 +1,4 @@
+# Ports are `type: integer` now — a quoted value is a string and must
+# be rejected, not coerced. `podListenPort: "9793"` used to render fine
+# and break subtly wherever the chart does arithmetic on it.
+podListenPort: "9793"

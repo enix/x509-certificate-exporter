@@ -1,0 +1,42 @@
+# Lock-down: the complete declared key set of both monitor objects —
+# they are closed structures now (additionalProperties: false), so this
+# fixture fails if a template-consumed key ever goes missing from the
+# schema.
+prometheusServiceMonitor:
+  create: true
+  scrapeInterval: 30s
+  scrapeTimeout: 10s
+  extraLabels:
+    release: prom
+  extraAnnotations:
+    note: managed
+  metricRelabelings: []
+  relabelings: []
+  scheme: https
+  basicAuth:
+    username:
+      name: scrape-creds
+      key: username
+    password:
+      name: scrape-creds
+      key: password
+  tlsConfig:
+    insecureSkipVerify: true
+prometheusPodMonitor:
+  create: true
+  scrapeInterval: 30s
+  scrapeTimeout: 10s
+  extraLabels:
+    release: prom
+  metricRelabelings: []
+  relabelings: []
+  scheme: https
+  basicAuth:
+    username:
+      name: scrape-creds
+      key: username
+    password:
+      name: scrape-creds
+      key: password
+  tlsConfig:
+    insecureSkipVerify: true

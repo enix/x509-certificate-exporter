@@ -1,0 +1,3 @@
+# Annotation maps must be objects — a plain string here used to be
+# accepted by the schema and blow up only at template-render time.
+podAnnotations: "prometheus.io/scrape=true"

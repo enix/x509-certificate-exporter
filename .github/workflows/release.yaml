@@ -201,7 +201,7 @@ jobs:
       # via Sigstore (Fulcio + Rekor) using the workflow's OIDC token,
       # uploaded to GitHub's native Attestations API. Verified by
       # consumers with `gh attestation verify <archive> --owner <org>`.
-      - uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-checksums: dist/checksums.txt
 

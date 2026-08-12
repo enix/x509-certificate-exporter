@@ -1,0 +1,58 @@
+# docs/examples/distros/tkgs.values.yaml
+#
+# VMware Tanzu Kubernetes Grid Service (TKGS / vSphere with Tanzu) —
+# Workload/Guest cluster (TKC) control-plane and worker PKI layout.
+#
+# Verified against a live TKC on:
+#   - Kubernetes v1.33.3+vmware.1-fips
+#   - VMware Photon OS 5.0
+#
+# TKC nodes are provisioned via CABPK (Cluster API Bootstrap Provider
+# Kubeadm), so the on-disk PKI is the standard kubeadm layout —
+# identical to distros/kubeadm.values.yaml. If you're on an older TKr
+# (pre-1.29, Ubuntu-based node OVAs, or non-FIPS builds), the layout
+# is expected to match, but hasn't been directly verified — please
+# open an issue/PR if you find a deviation.
+#
+# Does NOT apply to the Supervisor cluster: that control plane uses
+# the proprietary CAPW provider (not CABPK/kubeadm), runs as a managed
+# VMware appliance, and does not expose node-level SSH/hostPath access.
+# There is no equivalent DaemonSet target for Supervisor.
+#
+# Two DaemonSets, same split as vanilla kubeadm:
+#   - controlplane: apiserver + etcd + admin/scheduler/controller/kubelet
+#                   kubeconfigs + kubelet client
+#   - workers:      CA + kubelet client only
+#
+# Mix with a generic secrets-* file for the cluster-watching side.
+---
+hostPathsExporter:
+  daemonSets:
+    controlplane:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      watchFiles:
+        - /etc/kubernetes/pki/apiserver.crt
+        - /etc/kubernetes/pki/apiserver-etcd-client.crt
+        - /etc/kubernetes/pki/apiserver-kubelet-client.crt
+        - /etc/kubernetes/pki/front-proxy-client.crt
+        - /etc/kubernetes/pki/ca.crt
+        - /etc/kubernetes/pki/front-proxy-ca.crt
+        - /etc/kubernetes/pki/etcd/ca.crt
+        - /etc/kubernetes/pki/etcd/server.crt
+        - /etc/kubernetes/pki/etcd/peer.crt
+        - /etc/kubernetes/pki/etcd/healthcheck-client.crt
+        - /var/lib/kubelet/pki/kubelet-client-current.pem
+      watchKubeconfFiles:
+        - /etc/kubernetes/admin.conf
+        - /etc/kubernetes/controller-manager.conf
+        - /etc/kubernetes/scheduler.conf
+        - /etc/kubernetes/kubelet.conf
+    workers:
+      watchFiles:
+        - /etc/kubernetes/pki/ca.crt
+        - /var/lib/kubelet/pki/kubelet-client-current.pem

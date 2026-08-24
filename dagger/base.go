@@ -12,7 +12,7 @@ const (
 	helmImage = "alpine/helm:4.2.3@sha256:b97ba4f9b27fe7af16ee3d37e6815783c9d4a51289b6240a9024ec471611ae9b"
 	renovateImage = "renovate/renovate:44.17.3@sha256:58f45d505a1bdcc218de2f6894b77df758d3d48e0eb32d45c69e9444677a29e8"
 	helmDocsImage     = "jnorwood/helm-docs:v1.14.2@sha256:7e562b49ab6b1dbc50c3da8f2dd6ffa8a5c6bba327b1c6335cc15ce29267979c"
-	helmSchemaImage = "ghcr.io/dadav/helm-schema:v0.23.4@sha256:dc18c88498fc5f38dd66360e3072d5f836f0e35d9f348f8ad27becead0c86559"
+	helmSchemaImage = "ghcr.io/dadav/helm-schema:v0.23.5@sha256:9b49107ed045468471823168e06cf674bceccb1f3ede499e416957781c5f7f62"
 	markdownlintImage = "davidanson/markdownlint-cli2:v0.23.2@sha256:839558fd0d36c46da0e01ea84fd1d20a2822b5a8a60c16dc9708f0bb7c9e903b"
 	trivyImage = "aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c"
 	gitleaksImage     = "ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f"

@@ -16,7 +16,7 @@ const (
 	markdownlintImage = "davidanson/markdownlint-cli2:v0.23.2@sha256:839558fd0d36c46da0e01ea84fd1d20a2822b5a8a60c16dc9708f0bb7c9e903b"
 	trivyImage = "aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969"
 	gitleaksImage     = "ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f"
-	golangciLint      = "v2.13.1" // installed via `go install`
+	golangciLint      = "v2.13.2" // installed via `go install`
 	gotestsumModule   = "v1.13.0" // ditto
 	govulncheckPath   = "latest"  // tracking latest, no Renovate pin
 )

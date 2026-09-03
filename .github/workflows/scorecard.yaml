@@ -57,6 +57,6 @@ jobs:
       # Surface findings as alerts in the repo's Security tab. The
       # upload-sarif action lives under the codeql-action repo but
       # works for any tool's SARIF output — it isn't tied to CodeQL.
-      - uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4
+      - uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
         with:
           sarif_file: results.sarif

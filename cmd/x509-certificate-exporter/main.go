@@ -144,6 +144,7 @@ func run() error {
 		ExposePerCertError:     cfg.Metrics.ExposePerCertError,
 		ExposeNotBefore:        cfg.Metrics.ExposeNotBefore,
 		ExposeExpired:          cfg.Metrics.ExposeExpired,
+		ExposeSAN:              cfg.Metrics.ExposeSAN,
 		ExposeDiagnostics:      cfg.Metrics.ExposeDiagnostics,
 		Pkcs12InUse:            pkcs12InUse(cfg),
 		JksInUse:               jksInUse(cfg),

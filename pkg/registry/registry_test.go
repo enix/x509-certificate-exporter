@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +37,71 @@ func mkCert(t *testing.T, cn string, serial int64) *x509.Certificate {
 	der, _ := x509.CreateCertificate(rand.Reader, tpl, tpl, &key.PublicKey, key)
 	x, _ := x509.ParseCertificate(der)
 	return x
+}
+
+func mkCertWithDuplicateSAN(t *testing.T, cn string, serial int64) *x509.Certificate {
+	t.Helper()
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	tpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(serial),
+		Subject:               pkix.Name{CommonName: cn, Organization: []string{"Acme"}},
+		Issuer:                pkix.Name{CommonName: "issuer", Organization: []string{"Acme"}},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		BasicConstraintsValid: true,
+		DNSNames:              []string{"example.com", "example.com", "foo.bar"},
+		IPAddresses:           []net.IP{net.ParseIP("10.0.0.1"), net.ParseIP("10.0.0.1")},
+	}
+	der, _ := x509.CreateCertificate(rand.Reader, tpl, tpl, &key.PublicKey, key)
+	x, _ := x509.ParseCertificate(der)
+	return x
+}
+
+func TestSANDedup(t *testing.T) {
+	r := New(Config{ExposeSAN: true}, nopLogger())
+	r.Upsert(bundleFile(mkCertWithDuplicateSAN(t, "leaf", 1), "/etc/leaf.pem"))
+
+	reg := prometheus.NewRegistry()
+	if err := reg.Register(r); err != nil {
+		t.Fatal(err)
+	}
+	mfs, err := reg.Gather()
+	if err != nil {
+		t.Fatalf("Gather failed (duplicate SANs not deduplicated): %v", err)
+	}
+	for _, mf := range mfs {
+		if *mf.Name != "x509_cert_san" {
+			continue
+		}
+		if len(mf.Metric) != 3 {
+			t.Fatalf("want 3 SAN series after dedup, got %d", len(mf.Metric))
+		}
+		var dnsCount, ipCount int
+		for _, m := range mf.Metric {
+			var sanType string
+			for _, l := range m.Label {
+				if *l.Name == "SAN_type" {
+					sanType = *l.Value
+				}
+			}
+			switch sanType {
+			case "dns":
+				dnsCount++
+			case "address":
+				ipCount++
+			default:
+				t.Errorf("unexpected SAN_type: %s", sanType)
+			}
+		}
+		if dnsCount != 2 {
+			t.Errorf("want 2 DNS SAN series, got %d", dnsCount)
+		}
+		if ipCount != 1 {
+			t.Errorf("want 1 IP SAN series, got %d", ipCount)
+		}
+		return
+	}
+	t.Error("x509_cert_san metric family not found")
 }
 
 func bundleFile(c *x509.Certificate, path string) cert.Bundle {

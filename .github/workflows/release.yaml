@@ -145,8 +145,8 @@ jobs:
       # Dockerfiles only do COPY, so QEMU isn't strictly required for
       # execution — but binfmt registration is needed so buildx
       # recognises linux/arm64 and linux/riscv64 as valid platforms.
-      - uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4
-      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       # Logins for the three image registries. Quay/Docker Hub are
       # skipped if their token is missing, mirroring the previous
@@ -179,7 +179,7 @@ jobs:
 
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
-          version: "v2.17.1"
+          version: "v2.18.2"
           args: release --clean
         # GITHUB_TOKEN is the credential goreleaser uses to attach
         # archives + checksums + signatures to the GitHub Release stub

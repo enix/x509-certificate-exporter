@@ -413,6 +413,27 @@
       matchDepTypes: ["replace"],
       enabled: false,
     },
+    // Same story for the `require` entries the generated bindings pull
+    // in: `dagger develop` sets them to what the vendored SDK was built
+    // against, and bumping them independently breaks the module load
+    // for every Dagger-backed CI job. Seen so far: otel v1.47 moves
+    // otel/log into an import cycle with the v0.16 `replace` pins above
+    // (#736), gqlparser v2.5.63 breaks type-def codegen (#727). Only the
+    // SDK-owned modules are frozen; the rest of dagger/go.mod (x/*, grpc,
+    // protobuf, …) stays fair game.
+    {
+      matchManagers: ["gomod"],
+      matchFileNames: ["dagger/go.mod"],
+      matchPackageNames: [
+        "github.com/99designs/gqlgen",
+        "github.com/Khan/genqlient",
+        "github.com/dagger/otel-go",
+        "github.com/dagger/querybuilder",
+        "github.com/vektah/gqlparser/v2",
+        "go.opentelemetry.io/**",
+      ],
+      enabled: false,
+    },
 
     // Pull dagger.io/dagger out of the broad gomod groups: the SDK in
     // dagger/go.mod and the engineVersion in dagger.json must land

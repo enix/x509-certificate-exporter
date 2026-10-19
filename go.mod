@@ -2,7 +2,7 @@ module github.com/enix/x509-certificate-exporter/v4
 
 go 1.26.0
 
-toolchain go1.27.0
+toolchain go1.27.2
 
 require (
 	github.com/KimMachineGun/automemlimit v1.0.0
@@ -20,7 +20,7 @@ require (
 	k8s.io/apimachinery v0.37.1
 	k8s.io/client-go v0.37.1
 	k8s.io/kube-aggregator v0.37.1
-	software.sslmate.com/src/go-pkcs12 v0.7.3
+	software.sslmate.com/src/go-pkcs12 v0.7.4
 )
 
 require (

@@ -207,8 +207,10 @@
     },
     // GoReleaser version pinned inside the `with: version:` field of
     // goreleaser/goreleaser-action in release.yaml. The github-actions
-    // manager SHA-pins the action ref itself but doesn't parse arbitrary
-    // `with:` values, so a separate regex manager is needed.
+    // manager SHA-pins the action ref itself; it now also extracts this
+    // `with: version:` value natively, but that copy is disabled in
+    // packageRules (see the github-actions group) so this regex manager
+    // stays the single owner — and keeps grouping with flake.nix below.
     //
     // Anchored on the action name (same shape as the setup-helm manager
     // below) — an unanchored `version: "vX"` would claim ANY v-prefixed
@@ -432,6 +434,17 @@
       matchManagers: ["github-actions"],
       groupName: "github-actions",
       labels: ["dependencies", "ci"],
+    },
+    // The github-actions manager natively extracts goreleaser-action's
+    // `with: version:` as `goreleaser/goreleaser` and tries to digest-pin
+    // it — on the very string the goreleaser regex manager owns. Two
+    // managers editing one string is an upgrade collision: Renovate fails
+    // the whole `github-actions` branch ("update failure"), stalling every
+    // other action bump with it. Leave that value to the regex manager.
+    {
+      matchManagers: ["github-actions"],
+      matchPackageNames: ["goreleaser/goreleaser"],
+      enabled: false,
     },
 
     // Nix flake lock maintenance.

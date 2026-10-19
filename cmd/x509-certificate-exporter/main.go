@@ -121,7 +121,7 @@ func run() error {
 	// the GC a soft target to settle below before the kernel's OOM
 	// killer fires. WithRatio(0.9) leaves 10% headroom for non-Go
 	// allocations (CGO buffers, stack growth, runtime overhead).
-	if _, err := memlimit.SetGoMemLimitWithOpts(
+	if _, err := memlimit.Set(
 		memlimit.WithRatio(0.9),
 		memlimit.WithProvider(memlimit.FromCgroup),
 		memlimit.WithLogger(logger),

@@ -471,7 +471,7 @@ exporter-toolkit is the recommended path on new installs.
 | rbacProxy.tls.existingSecretName | string | `""` | Pre-provisioned Secret carrying `tls.crt` + `tls.key` for the kube-rbac-proxy serving cert. When empty, the chart auto-generates a self-signed cert at install time and reuses it across upgrades via `lookup`. Set this to a cert-manager-managed Secret (or similar) for a cert with a real chain you can rotate independently. |
 | rbacProxy.image.registry | string | `"quay.io"` | kube-rbac-proxy image registry. Empty string opts out of the registry prefix and lets the CRI fall back to its configured default (typically docker.io). |
 | rbacProxy.image.repository | string | `"brancz/kube-rbac-proxy"` | kube-rbac-proxy image repository |
-| rbacProxy.image.tag | string | `"v0.22.1"` | kube-rbac-proxy image tag |
+| rbacProxy.image.tag | string | `"v0.23.0"` | kube-rbac-proxy image tag |
 | rbacProxy.image.digest | string | `""` | kube-rbac-proxy image digest. When set, takes precedence over `tag` (immutable reference) |
 | rbacProxy.image.pullPolicy | string | `"IfNotPresent"` | kube-rbac-proxy image pull policy |
 | rbacProxy.upstreamListenPort | int | `9091` | Listen port for the exporter running inside kube-rbac-proxy exposed Pods |

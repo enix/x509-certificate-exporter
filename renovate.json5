@@ -383,15 +383,21 @@
     },
 
     // Go modules: split patch / minor into two predictable PRs.
+    // `!go` keeps go.mod's `go` / `toolchain` directives out: these rules
+    // come after the `golang toolchain` group, so without the exclusion
+    // the later groupName wins and the toolchain bump lands in "go
+    // modules (patch)", splitting it from golangImage / Dockerfile.
     {
       matchManagers: ["gomod"],
       matchUpdateTypes: ["patch"],
+      matchPackageNames: ["!go"],
       groupName: "go modules (patch)",
       labels: ["dependencies", "go"],
     },
     {
       matchManagers: ["gomod"],
       matchUpdateTypes: ["minor"],
+      matchPackageNames: ["!go"],
       groupName: "go modules (minor)",
       labels: ["dependencies", "go"],
     },

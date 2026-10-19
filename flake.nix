@@ -27,10 +27,10 @@
           # gsa version
           version = "1.14.1";
           assets = {
-            "x86_64-linux"   = { suffix = "linux_amd64";  hash = "sha256-YQV3Hzj8lnv9pj8/WdduPgo4oXlfkE1QPr7TVh2AvNM="; };
-            "aarch64-linux"  = { suffix = "linux_arm64";  hash = "sha256-DRzh+IToB82uuwT/uA7vMHjGRf8Z0CGAKmYdKv4EgSk="; };
-            "x86_64-darwin"  = { suffix = "darwin_amd64"; hash = "sha256-EtJF7uDA8C/J+Ib0Xq/78e6GiFK3anAGVn0k1b8i774="; };
-            "aarch64-darwin" = { suffix = "darwin_arm64"; hash = "sha256-d4g1fFNpNp/OBJtt/Ppzk+Hk+0EDC87zH4zwgvsT/Ds="; };
+            "x86_64-linux"   = { suffix = "linux_amd64";  hash = "sha256-9D4bJgY4oF7mxibVvciexvis5/3xPyZYFgXX5uYDMWI="; };
+            "aarch64-linux"  = { suffix = "linux_arm64";  hash = "sha256-M+LZ39u4sP39KJUx1qTR/XiW+sx8MQ4tw4Sl2AARpZM="; };
+            "x86_64-darwin"  = { suffix = "darwin_amd64"; hash = "sha256-/DijOpfCp/NveBZwhvvjgVSRNrmnaSItZCfq6DDBynw="; };
+            "aarch64-darwin" = { suffix = "darwin_arm64"; hash = "sha256-Ay3WcJ2y4ILgeSqcoDBE/JwvoQYt+kLQnh02alnrnFk="; };
           };
           asset = assets.${system} or (throw "go-size-analyzer: unsupported system ${system}");
         in pkgs.stdenvNoCC.mkDerivation {

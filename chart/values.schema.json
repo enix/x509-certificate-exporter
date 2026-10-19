@@ -1052,7 +1052,7 @@
               "type": "string"
             },
             "tag": {
-              "default": "v0.22.1",
+              "default": "v0.23.0",
               "type": "string"
             }
           },

@@ -482,11 +482,14 @@ inside the official Renovate image, sandboxed by Dagger). Highlights:
   `golangciLint` / `gotestsumModule` Go install versions in the same
   file.
 - Go-toolchain bumps land in a single PR via `groupName: "golang
-  toolchain"`: `go.mod` + `dagger/go.mod` (packageName `go`), plus
+  toolchain"`: `go.mod` (packageName `go`), plus
   `dagger/base.go`'s `golangImage` and
   `build/Dockerfile.seed-hostpath`'s `FROM golang:` (packageName `golang`).
   CI workflows pick up the Go version from `go.mod` directly via
-  `setup-go`'s `go-version-file`.
+  `setup-go`'s `go-version-file`. `dagger/go.mod`'s `go` / `toolchain`
+  are left alone: like the other SDK-owned deps there (otel, gqlparser,
+  genqlient, …) they are pinned by `dagger develop`, and bumping them
+  breaks the module load.
 - **Version lockstep groups.** When one tool's version is written in two
   places, the two managers usually mint *different* package names — so
   they land in separate PRs and drift unless a packageRule lists both

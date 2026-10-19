@@ -301,13 +301,12 @@
       pinDigests: true,
     },
 
-    // Single PR for all Go-toolchain bumps. Four write-sites land
+    // Single PR for all Go-toolchain bumps. Three write-sites land
     // together, because every one of them resolves to packageName `go`
     // or `golang` (matchPackageNames matches packageName; its depName
     // fallback is deprecated and will be removed — never rely on it):
     //
     //   - go.mod          `go` / `toolchain`      (gomod manager  → `go`)
-    //   - dagger/go.mod   same                    (gomod manager  → `go`)
     //   - dagger/base.go  `golangImage`           (regex manager  → image `golang`)
     //   - build/Dockerfile.seed-hostpath `FROM golang:` (dockerfile manager → `golang`)
     //
@@ -315,6 +314,9 @@
     // the image is literally named `golang`. Switching either to a
     // different base image would silently drop it out of the lockstep,
     // so keep the packageName in mind rather than the file list.
+    //
+    // dagger/go.mod's `go` / `toolchain` are deliberately NOT in the
+    // list: they belong to the Dagger SDK (see the SDK-owned rule below).
     //
     // CI workflows resolve the Go version via `setup-go` +
     // `go-version-file: go.mod`, so they need no separate bump. flake.nix
@@ -418,13 +420,17 @@
     // against, and bumping them independently breaks the module load
     // for every Dagger-backed CI job. Seen so far: otel v1.47 moves
     // otel/log into an import cycle with the v0.16 `replace` pins above
-    // (#736), gqlparser v2.5.63 breaks type-def codegen (#727). Only the
-    // SDK-owned modules are frozen; the rest of dagger/go.mod (x/*, grpc,
-    // protobuf, …) stays fair game.
+    // (#736), and `toolchain go1.27.2` makes the SDK's type-def codegen
+    // fail with "can only set default path for Object, not VOID_KIND"
+    // (#727) — the `go` / `toolchain` directives track the Go the SDK's
+    // runtime image ships, not go.mod's. Only the SDK-owned modules are
+    // frozen; the rest of dagger/go.mod (x/*, grpc, protobuf, …) stays
+    // fair game.
     {
       matchManagers: ["gomod"],
       matchFileNames: ["dagger/go.mod"],
       matchPackageNames: [
+        "go",
         "github.com/99designs/gqlgen",
         "github.com/Khan/genqlient",
         "github.com/dagger/otel-go",

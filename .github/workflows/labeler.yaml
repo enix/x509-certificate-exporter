@@ -6,13 +6,23 @@ name: Labeler
 # CODEOWNERS — both must remain in lock-step with each other.
 #
 # Permissions are scoped to what the action needs: read repo metadata, write
-# PR labels. No GITHUB_TOKEN is exposed to user-controlled code from forks
-# because we use `pull_request` (not `pull_request_target`) — fork PRs run
-# with a read-only token, so this workflow cannot apply labels on them. That
-# is acceptable here: a maintainer can label manually if needed, and we lose
-# nothing security-wise.
+# PR labels.
+#
+# `pull_request_target`, not `pull_request`: on `pull_request` GitHub forces
+# the token read-only for fork PRs, so labeling fails ("Resource not
+# accessible by integration") on exactly the external PRs where `sensitive`
+# matters most. `pull_request_target` runs in the base repo's context with a
+# writable token, which is safe ONLY because this job never runs PR code:
+# there is no checkout, labeler reads the changed-file list from the API, and
+# both this workflow and .github/labeler.yml come from the base branch.
+#
+# Never add an actions/checkout of the PR head here, and never move a
+# build/lint/test workflow to `pull_request_target`: that hands the writable
+# token and the repo secrets (RENOVATE_APP_PRIVATE_KEY, …) to whoever opens
+# the PR. Those workflows stay on `pull_request`, where read-only is all they
+# need.
 on:
-  pull_request:
+  pull_request_target:
 
 permissions:
   contents: read

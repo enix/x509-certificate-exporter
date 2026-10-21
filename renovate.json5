@@ -73,8 +73,8 @@
     enabled: true,
   },
 
-  // The nix manager ships disabled by default; without this, flake.lock
-  // was never maintained and nixpkgs sat five months behind.
+  // The nix manager ships disabled by default; without this, the
+  // lockFileMaintenance above never touches flake.lock.
   nix: {
     enabled: true,
   },
@@ -217,7 +217,7 @@
     },
     // GoReleaser version pinned inside the `with: version:` field of
     // goreleaser/goreleaser-action in release.yaml. The github-actions
-    // manager SHA-pins the action ref itself; it now also extracts this
+    // manager SHA-pins the action ref itself; it also extracts this
     // `with: version:` value natively, but that copy is disabled in
     // packageRules (see the github-actions group) so this regex manager
     // stays the single owner — and keeps grouping with flake.nix below.
@@ -434,12 +434,12 @@
     // Same story for the `require` entries the generated bindings pull
     // in: `dagger develop` sets them to what the vendored SDK was built
     // against, and bumping them independently breaks the module load
-    // for every Dagger-backed CI job. Seen so far: otel v1.47 moves
-    // otel/log into an import cycle with the v0.16 `replace` pins above
-    // (#736), and `toolchain go1.27.2` makes the SDK's type-def codegen
-    // fail with "can only set default path for Object, not VOID_KIND"
-    // (#727) — the `go` / `toolchain` directives track the Go the SDK's
-    // runtime image ships, not go.mod's. Only the SDK-owned modules are
+    // for every Dagger-backed CI job: otel ≥ v1.47 puts otel/log in an
+    // import cycle with the v0.16 `replace` pins above, and a `toolchain`
+    // newer than the SDK runtime's Go makes type-def codegen fail with
+    // "can only set default path for Object, not VOID_KIND" — the `go` /
+    // `toolchain` directives track the Go the SDK's runtime image ships,
+    // not go.mod's. Only the SDK-owned modules are
     // frozen; the rest of dagger/go.mod (x/*, grpc, protobuf, …) stays
     // fair game.
     {

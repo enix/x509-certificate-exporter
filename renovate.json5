@@ -63,9 +63,19 @@
   // resolving any time soon.
   osvVulnerabilityAlerts: false,
 
-  // Refresh flake.lock and transitive go.sum entries every time Renovate
-  // runs. Inherits the top-level Monday schedule.
+  // Refresh flake.lock (nixpkgs pins the whole dev shell: tilt, k3d,
+  // kubectl, helm, cosign, …). Inherits the top-level Monday schedule.
+  // gomod has no lockFileMaintenance support, and Renovate skips indirect
+  // Go requirements by default — those are refreshed by hand with
+  // `task go:upgrade`; hold k8s.io/kube-openapi & co. at the versions
+  // client-go pins, or the `go` directive gets dragged up with them.
   lockFileMaintenance: {
+    enabled: true,
+  },
+
+  // The nix manager ships disabled by default; without this, flake.lock
+  // was never maintained and nixpkgs sat five months behind.
+  nix: {
     enabled: true,
   },
 

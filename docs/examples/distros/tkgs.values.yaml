@@ -1,5 +1,3 @@
-# docs/examples/distros/tkgs.values.yaml
-#
 # VMware Tanzu Kubernetes Grid Service (TKGS / vSphere with Tanzu) —
 # Workload/Guest cluster (TKC) control-plane and worker PKI layout.
 #
@@ -36,22 +34,27 @@ hostPathsExporter:
           operator: Exists
           effect: NoSchedule
       watchFiles:
+        # apiserver
         - /etc/kubernetes/pki/apiserver.crt
         - /etc/kubernetes/pki/apiserver-etcd-client.crt
         - /etc/kubernetes/pki/apiserver-kubelet-client.crt
         - /etc/kubernetes/pki/front-proxy-client.crt
+        # CAs
         - /etc/kubernetes/pki/ca.crt
         - /etc/kubernetes/pki/front-proxy-ca.crt
         - /etc/kubernetes/pki/etcd/ca.crt
+        # etcd
         - /etc/kubernetes/pki/etcd/server.crt
         - /etc/kubernetes/pki/etcd/peer.crt
         - /etc/kubernetes/pki/etcd/healthcheck-client.crt
+        # kubelet client (rotated symlink)
         - /var/lib/kubelet/pki/kubelet-client-current.pem
       watchKubeconfFiles:
         - /etc/kubernetes/admin.conf
         - /etc/kubernetes/controller-manager.conf
         - /etc/kubernetes/scheduler.conf
         - /etc/kubernetes/kubelet.conf
+
     workers:
       watchFiles:
         - /etc/kubernetes/pki/ca.crt

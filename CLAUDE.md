@@ -502,5 +502,11 @@ inside the official Renovate image, sandboxed by Dagger). Highlights:
   `renovate` (`renovateImage` + the Taskfile's `RENOVATE_IMAGE` — both
   resolve to packageName `renovate/renovate`).
   Adding a second write-site for any tool means adding it to its group.
-- `flake.lock` and transitive `go.sum` entries refreshed on every
-  Renovate run via `lockFileMaintenance`.
+- `flake.lock` refreshed via `lockFileMaintenance` (Monday schedule).
+  This needs `nix: { enabled: true }` — the nix manager ships disabled.
+- Indirect Go requirements are NOT maintained by Renovate (gomod skips
+  them by default and has no `lockFileMaintenance`): refresh them with
+  `task go:upgrade` before a release, holding `k8s.io/kube-openapi`,
+  `k8s.io/utils` and `sigs.k8s.io/*` at the versions `client-go` pins —
+  newer kube-openapi requires a newer Go and would raise the `go`
+  directive (the minimum Go for `pkg/` consumers).

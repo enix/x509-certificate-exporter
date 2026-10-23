@@ -104,6 +104,10 @@ jobs:
     uses: ./.github/workflows/test.yaml
     permissions:
       contents: read
+    # Every test job runs here except E2E. Its substitute: E2E gates each
+    # PR that touches the deployed flow (test.yaml path filters), and the
+    # commit about to be tagged gets a `task test:e2e` run before the tag
+    # is pushed.
     with:
       skip-e2e: true
 

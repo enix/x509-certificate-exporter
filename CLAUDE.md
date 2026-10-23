@@ -359,7 +359,10 @@ public changelog.
 
 ### Build & publish — release.yaml
 
-Triggered by a `v*` tag push. Two jobs, all driven by
+Triggered by a `v*` tag push. The tagged commit first re-runs the PR
+gates (`security.yaml`, `lint.yaml`, `test.yaml`) — every test job
+except E2E, so run `task test:e2e` on the commit before pushing its
+tag. Then two jobs, all driven by
 [`.goreleaser.yaml`](./.goreleaser.yaml) for the heavy lifting:
 
 1. **`goreleaser`** (env `release`, gated by required reviewers) —

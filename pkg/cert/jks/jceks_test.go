@@ -86,13 +86,10 @@ func buildJCEKSWithSecretKey(t *testing.T, password string) []byte {
 	return buf.Bytes()
 }
 
-// jceksMAC appends the trailing SHA-1 HMAC for a hand-built JCEKS
-// payload. Factored out so malformed payloads (wrong version,
-// oversized lengths) can still carry a *valid* digest and therefore
-// exercise the post-HMAC parsing paths instead of dying at the digest
-// check — which is exactly the attacker model the bounds guards defend
-// against (forged keystore + tryEmptyPassphrase makes the HMAC pass).
-func jceksMAC(password string, payload []byte) []byte {
+// withDigest appends the store-integrity digest (shared by JKS and
+// JCEKS) to a hand-built payload, so a malformed test store fails on
+// the field under test rather than on its digest.
+func withDigest(password string, payload []byte) []byte {
 	h := sha1.New()
 	for _, b := range []byte(password) {
 		h.Write([]byte{0x00, b})
@@ -132,7 +129,7 @@ func buildJCEKSKeyStore(t *testing.T, password string, keyBlob []byte, chain ...
 		put(uint32(len(c.Raw)))
 		buf.Write(c.Raw)
 	}
-	return jceksMAC(password, buf.Bytes())
+	return withDigest(password, buf.Bytes())
 }
 
 func TestParseJCEKSKeyStoreChain(t *testing.T) {
@@ -161,11 +158,9 @@ func TestParseJCEKSKeyStoreChain(t *testing.T) {
 }
 
 func TestParseJCEKSOversizedCertLenRejected(t *testing.T) {
-	// A truststore entry that claims a 4 GiB cert body. The HMAC is
-	// recomputed over the malformed payload so the decoder reaches the
-	// length read; without the remaining-bytes bound this would
-	// make([]byte, ~4e9) and OOM the process. We assert a graceful
-	// fatal error instead.
+	// A truststore entry that claims a 4 GiB cert body. Without the
+	// remaining-bytes bound this would make([]byte, ~4e9) and OOM the
+	// process. We assert a graceful fatal error instead.
 	var buf bytes.Buffer
 	put := func(v interface{}) {
 		if err := binary.Write(&buf, binary.BigEndian, v); err != nil {
@@ -185,7 +180,7 @@ func TestParseJCEKSOversizedCertLenRejected(t *testing.T) {
 	putUTF("X.509")
 	put(uint32(0xFFFFFFF0)) // ~4 GiB cert length, only a few bytes follow
 	buf.Write([]byte{0x01, 0x02, 0x03})
-	data := jceksMAC("changeit", buf.Bytes())
+	data := withDigest("changeit", buf.Bytes())
 
 	b := New().Parse(data, cert.SourceRef{Kind: "file"}, cert.ParseOptions{JksPassphrase: "changeit"})
 	if !b.HasFatalError() {
@@ -218,7 +213,7 @@ func TestParseJCEKSOversizedKeyLenRejected(t *testing.T) {
 	put(time.Now().UnixMilli())
 	put(uint32(0xFFFFFFF0)) // key length far past EOF
 	buf.Write([]byte{0x01, 0x02})
-	data := jceksMAC("changeit", buf.Bytes())
+	data := withDigest("changeit", buf.Bytes())
 
 	b := New().Parse(data, cert.SourceRef{Kind: "file"}, cert.ParseOptions{JksPassphrase: "changeit"})
 	if !b.HasFatalError() {
@@ -230,8 +225,8 @@ func TestParseJCEKSOversizedKeyLenRejected(t *testing.T) {
 }
 
 func TestParseJCEKSUnsupportedVersionRejected(t *testing.T) {
-	// Version != 2, HMAC recomputed so the version check (not the
-	// digest check) is what rejects the store.
+	// Version != 2, with a valid digest so the version check is what
+	// rejects the store.
 	var buf bytes.Buffer
 	put := func(v interface{}) {
 		if err := binary.Write(&buf, binary.BigEndian, v); err != nil {
@@ -241,7 +236,7 @@ func TestParseJCEKSUnsupportedVersionRejected(t *testing.T) {
 	put(uint32(0xCECECECE))
 	put(uint32(99)) // unsupported version
 	put(uint32(0))  // zero entries
-	data := jceksMAC("changeit", buf.Bytes())
+	data := withDigest("changeit", buf.Bytes())
 
 	b := New().Parse(data, cert.SourceRef{Kind: "file"}, cert.ParseOptions{JksPassphrase: "changeit"})
 	if !b.HasFatalError() {

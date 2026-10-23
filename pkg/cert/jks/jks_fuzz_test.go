@@ -19,10 +19,10 @@ import (
 )
 
 // makeJCEKSTrustStoreForFuzz builds a minimal valid JCEKS truststore so
-// the coverage-guided fuzzer has a launching point into the JCEKS
-// decoder. Without a valid seed the fuzzer would need to randomly
-// satisfy the magic + version + HMAC checks before reaching any of the
-// entry-walking code — practically unreachable.
+// the coverage-guided fuzzer has a launching point into the JCEKS side
+// of the store walker. Without a valid seed the fuzzer would need to
+// randomly satisfy the magic + version + entry layout + digest checks
+// before reaching the certificate parsing — practically unreachable.
 func makeJCEKSTrustStoreForFuzz(ca *x509.Certificate, password string) []byte {
 	var buf bytes.Buffer
 	put := func(v interface{}) { _ = binary.Write(&buf, binary.BigEndian, v) }
@@ -113,6 +113,10 @@ func FuzzParse(f *testing.F) {
 	validJKS := buf.Bytes()
 	validJCEKS := makeJCEKSTrustStoreForFuzz(ca, "seed-pw")
 	validJCEKSKeyStore := makeJCEKSKeyStoreForFuzz(ca, "seed-pw")
+	validJKSv1 := withDigest("seed-pw", new(rawStore).u32(magicJKS).u32(1).u32(1).
+		u32(entryTrustedCert).utf("v1").i64(0).u32(uint32(len(ca.Raw))).raw(ca.Raw).Bytes())
+	oversizedCert := new(rawStore).u32(magicJKS).u32(2).u32(1).
+		u32(entryTrustedCert).utf("a").i64(0).utf("X.509").u32(16 << 20).Bytes()
 
 	magicJKSBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(magicJKSBytes, magicJKS)
@@ -133,6 +137,8 @@ func FuzzParse(f *testing.F) {
 		validJCEKS[:len(validJCEKS)-1],            // JCEKS with corrupted trailing HMAC
 		validJCEKSKeyStore,                        // valid JCEKS keystore (PrivateKeyEntry)
 		validJCEKSKeyStore[:len(validJCEKSKeyStore)/2], // truncated JCEKS keystore
+		validJKSv1,                                // valid version-1 JKS (no cert type strings)
+		oversizedCert,                             // cert length far past the end of input
 		[]byte("-----BEGIN CERTIFICATE-----\n"),   // misrouted PEM
 	} {
 		f.Add(seed)

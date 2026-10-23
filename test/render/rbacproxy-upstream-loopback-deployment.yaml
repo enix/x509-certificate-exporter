@@ -1,0 +1,7 @@
+# Behind kube-rbac-proxy, the secretsExporter Deployment's plain-HTTP
+# /metrics listener must bind loopback only, so it can't be scraped
+# around the proxy. Only the Deployment's exporter config renders here,
+# so the paired .expect-pass.txt lines can't be satisfied by a DaemonSet
+# config (see rbacproxy-upstream-loopback-daemonset.yaml for that mode).
+rbacProxy:
+  enabled: true

@@ -1,0 +1,6 @@
+# The exporter's own listener: loopback only, never `:9091`.
+listen: "127.0.0.1:9091"
+# kubelet still reaches the probe listener on every interface.
+probeListen: ":8080"
+# The sidecar upstreams to that same loopback address.
+- --upstream=http://127.0.0.1:9091

@@ -15,12 +15,20 @@
 //
 //   - leading magic bytes determine the variant; mismatching bytes
 //     surface as `bad_jks`;
-//   - the passphrase is applied store-level for integrity check (and
-//     for JCEKS entry decryption when needed). A wrong passphrase
-//     surfaces as `bad_passphrase`;
+//   - both variants share one wire layout, read the way the JDK reads
+//     it: the store-integrity digest is the 20 bytes that follow the
+//     last entry, and anything after it is ignored;
+//   - the passphrase only keys that digest — private keys are skipped,
+//     never decrypted. A digest mismatch surfaces as `bad_passphrase`, a
+//     malformed layout as `bad_jks`;
 //   - JksTryEmpty retries with "" exactly like the PKCS#12 parser;
 //   - an otherwise valid keystore with zero certs (truly empty) surfaces
 //     as `no_certificate_found`.
+//
+// Every length the input declares is checked against the bytes actually
+// left before anything is allocated, so allocations stay proportional to
+// the input size whatever the store claims. Certificates are only parsed
+// once the digest matches.
 //
 // Passphrases are never logged. Private keys are never decoded.
 package jks
@@ -35,21 +43,33 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
-
-	"github.com/pavlo-v-chernykh/keystore-go/v4"
 
 	"github.com/enix/x509-certificate-exporter/v4/pkg/cert"
 )
 
 // Magic numbers as written by sun.security.provider.JavaKeyStore /
 // com.sun.crypto.provider.JceKeyStore. The first 4 bytes of the wire
-// format. Anything else is rejected with `bad_jks` before keystore-go
-// gets a chance to emit its own less-specific error.
+// format. Anything else is rejected with `bad_jks` before the store is
+// walked.
 const (
 	magicJKS   uint32 = 0xFEEDFEED
 	magicJCEKS uint32 = 0xCECECECE
 )
+
+// Entry tags. A SecretKeyEntry (JCEKS only) wraps a Java SealedObject
+// whose length isn't encoded, so it can't be stepped over: the whole
+// store is refused rather than misaligned on the entries after it.
+const (
+	entryPrivateKey  = uint32(1)
+	entryTrustedCert = uint32(2)
+	entrySecretKey   = uint32(3)
+	digestLength     = 20 // SHA-1
+	digestWhitener   = "Mighty Aphrodite"
+)
+
+// errBadDigest reports a store-integrity digest mismatch. The layout
+// has been walked successfully by then, so the passphrase is wrong.
+var errBadDigest = errors.New("invalid digest")
 
 // Parser is stateless and safe for concurrent use.
 type Parser struct{}
@@ -75,17 +95,10 @@ func (Parser) Parse(data []byte, ref cert.SourceRef, opts cert.ParseOptions) cer
 		return b
 	}
 
-	pass := opts.JksPassphrase
-	items, err := decode(data, pass)
-	if err != nil && opts.JksTryEmpty && pass != "" {
-		if items2, err2 := decode(data, ""); err2 == nil {
-			items = items2
-			err = nil
-		}
-	}
+	items, err := decode(data, opts.JksPassphrase, opts.JksTryEmpty)
 	if err != nil {
 		reason := cert.ReasonBadJKS
-		if isPasswordErr(err) {
+		if errors.Is(err, errBadDigest) {
 			reason = cert.ReasonBadPassphrase
 		}
 		b.Errors = append(b.Errors, cert.ItemError{
@@ -111,8 +124,7 @@ func (Parser) Parse(data []byte, ref cert.SourceRef, opts cert.ParseOptions) cer
 
 // looksLikeJKS rejects anything that is not at least 4 bytes starting
 // with one of the known magic numbers. This pre-filter is cheap and
-// produces a sharper error message than letting keystore-go fail
-// somewhere inside its TLV scanner.
+// produces a sharper error message than a failed header read.
 func looksLikeJKS(data []byte) bool {
 	if len(data) < 4 {
 		return false
@@ -126,223 +138,139 @@ type itemWithRole struct {
 	role cert.Role
 }
 
-// decode dispatches to the appropriate format-specific decoder based on
-// the leading magic bytes. JKS is handled by keystore-go (proven, fuzzed
-// upstream); JCEKS is parsed natively because keystore-go v4 hard-codes
-// the JKS magic in its Load() and rejects JCEKS payloads outright.
-func decode(data []byte, pass string) ([]itemWithRole, error) {
-	if len(data) < 4 {
-		return nil, fmt.Errorf("keystore too short")
-	}
-	switch binary.BigEndian.Uint32(data[:4]) {
-	case magicJKS:
-		return decodeJKS(data, pass)
-	case magicJCEKS:
-		return decodeJCEKS(data, pass)
-	default:
-		return nil, fmt.Errorf("unrecognised magic")
-	}
-}
-
-func decodeJKS(data []byte, pass string) ([]itemWithRole, error) {
-	ks := keystore.New()
-	if err := ks.Load(bytes.NewReader(data), []byte(pass)); err != nil {
+// decode walks the store layout, checks the integrity digest against
+// pass (then "" when tryEmpty), and only then parses the certificates.
+func decode(data []byte, pass string, tryEmpty bool) ([]itemWithRole, error) {
+	s, err := walk(data)
+	if err != nil {
 		return nil, err
 	}
-	var out []itemWithRole
-	// Sort aliases so the emitted item order is stable. keystore-go's
-	// Aliases() walks an internal map, which Go iterates in random
-	// order — that randomness leaks into Prometheus metric label
-	// ordering and breaks any downstream test or dashboard that
-	// assumes a stable ordering across exporter restarts.
-	aliases := ks.Aliases()
-	sort.Strings(aliases)
-	for _, alias := range aliases {
-		switch {
-		case ks.IsTrustedCertificateEntry(alias):
-			e, err := ks.GetTrustedCertificateEntry(alias)
-			if err != nil {
-				return nil, fmt.Errorf("truststore entry %q: %w", alias, err)
-			}
-			c, err := x509.ParseCertificate(e.Certificate.Content)
-			if err != nil {
-				return nil, fmt.Errorf("truststore entry %q parse: %w", alias, err)
-			}
-			out = append(out, itemWithRole{cert: c, role: classifyTrustStore(c)})
-		case ks.IsPrivateKeyEntry(alias):
-			// Read the chain only — never touch the private key.
-			// GetPrivateKeyEntryCertificateChain reads ONLY the cert
-			// chain attached to a PrivateKeyEntry, with no key
-			// decryption attempt — the right primitive for an
-			// expiry-monitoring exporter that has no business
-			// decoding production private keys.
-			chain, err := ks.GetPrivateKeyEntryCertificateChain(alias)
-			if err != nil {
-				return nil, fmt.Errorf("keystore entry %q chain: %w", alias, err)
-			}
-			for i, cc := range chain {
-				c, err := x509.ParseCertificate(cc.Content)
-				if err != nil {
-					return nil, fmt.Errorf("keystore entry %q chain[%d]: %w", alias, i, err)
-				}
-				role := cert.RoleLeaf
-				if i > 0 {
-					role = classifyChain(c)
-				}
-				out = append(out, itemWithRole{cert: c, role: role})
-			}
-		}
+	if !s.digestMatches(pass) && (!tryEmpty || pass == "" || !s.digestMatches("")) {
+		return nil, errBadDigest
 	}
-	return out, nil
+	return s.items()
 }
 
-// JCEKS entry types (RFC-equivalent: see com.sun.crypto.provider.JceKeyStore).
-// Type 3 (SecretKeyEntry) wraps a Java SealedObject and cannot be skipped
-// without implementing Java ObjectStream deserialization — we reject the
-// whole store rather than misalign on subsequent entries.
-const (
-	jceksEntryPrivateKey       = uint32(1)
-	jceksEntryTrustedCert      = uint32(2)
-	jceksEntrySecretKey        = uint32(3)
-	jceksTrailingHMACLength    = 20 // SHA-1
-	jceksMightyAphrodite       = "Mighty Aphrodite"
-)
+// store is a walked keystore: its layout fits in the input, but neither
+// the digest nor the certificates have been checked yet.
+type store struct {
+	magic   uint32
+	entries []entry
+	signed  []byte // magic through the last entry: what the digest covers
+	digest  []byte
+}
 
-// errJCEKSBadDigest mirrors the substring keystore-go surfaces for a wrong
-// JKS passphrase, so isPasswordErr classifies both paths identically.
-var errJCEKSBadDigest = errors.New("invalid digest")
+// entry is one TrustedCertificateEntry (a single cert) or one
+// PrivateKeyEntry chain (leaf first). certs holds the raw DER.
+type entry struct {
+	alias   string
+	trusted bool
+	certs   [][]byte
+}
 
-// decodeJCEKS parses a JCEKS keystore natively. The wire format is byte-
-// identical to JKS for our purposes — same `version=2` header, same
-// TrustedCertificateEntry (type=2) and PrivateKeyEntry (type=1) layout,
-// same trailing SHA-1 HMAC over `utf16be(pass)+"Mighty Aphrodite"+payload`.
-// The only meaningful difference is the leading magic (0xCECECECE) and an
-// additional entry kind (SecretKeyEntry, type=3) which we refuse rather
-// than try to skip past — its length isn't encoded directly, it ends inside
-// a serialized Java SealedObject.
-//
-// Private-key blobs are skipped (length-prefixed) without any decryption
-// attempt, matching the JKS path: the exporter only ever reads cert chains.
-func decodeJCEKS(data []byte, pass string) ([]itemWithRole, error) {
-	if len(data) < 12+jceksTrailingHMACLength {
-		return nil, fmt.Errorf("keystore too short")
-	}
-	payload := data[:len(data)-jceksTrailingHMACLength]
-	storedMAC := data[len(data)-jceksTrailingHMACLength:]
-
-	// Verify HMAC before trusting any bytes we're about to interpret.
-	if !hmac.Equal(jceksHMAC(pass, payload), storedMAC) {
-		return nil, errJCEKSBadDigest
-	}
-
-	r := bytes.NewReader(payload)
+// walk reads the header and every entry, then locates the digest.
+// Only lengths and offsets are interpreted; no certificate is parsed.
+func walk(data []byte) (*store, error) {
+	r := bytes.NewReader(data)
 	var magic, version, count uint32
 	for _, dst := range []*uint32{&magic, &version, &count} {
 		if err := binary.Read(r, binary.BigEndian, dst); err != nil {
 			return nil, fmt.Errorf("header: %w", err)
 		}
 	}
-	if magic != magicJCEKS {
-		return nil, fmt.Errorf("unexpected magic 0x%X after pre-filter", magic)
-	}
-	if version != 2 {
-		return nil, fmt.Errorf("unsupported JCEKS version %d", version)
-	}
-
-	// Bounded skip: bytes.Reader.Seek silently allows seeking past EOF,
-	// so an attacker-controlled keyLen would move the cursor out of
-	// range and only surface as a misleading error on the *next* read.
-	// Reject oversized lengths up front against the unread remainder.
-	skip := func(n uint32) error {
-		if int64(n) > int64(r.Len()) {
-			return io.ErrUnexpectedEOF
-		}
-		_, err := r.Seek(int64(n), io.SeekCurrent)
-		return err
+	switch {
+	case magic == magicJKS && (version == 1 || version == 2):
+	case magic == magicJCEKS && version == 2:
+	default:
+		return nil, fmt.Errorf("unsupported keystore version %d (magic 0x%X)", version, magic)
 	}
 
-	var out []itemWithRole
+	s := &store{magic: magic}
 	for i := uint32(0); i < count; i++ {
-		var entryType uint32
-		if err := binary.Read(r, binary.BigEndian, &entryType); err != nil {
+		e, err := walkEntry(r, magic, version)
+		if err != nil {
 			return nil, fmt.Errorf("entry %d: %w", i, err)
 		}
-		if _, err := readJavaUTF(r); err != nil { // alias
-			return nil, fmt.Errorf("entry %d alias: %w", i, err)
-		}
-		var ts int64
-		if err := binary.Read(r, binary.BigEndian, &ts); err != nil {
-			return nil, fmt.Errorf("entry %d ts: %w", i, err)
-		}
-		switch entryType {
-		case jceksEntryTrustedCert:
-			c, err := readJCEKSCert(r)
-			if err != nil {
-				return nil, fmt.Errorf("entry %d trusted cert: %w", i, err)
-			}
-			out = append(out, itemWithRole{cert: c, role: classifyTrustStore(c)})
-		case jceksEntryPrivateKey:
-			var keyLen uint32
-			if err := binary.Read(r, binary.BigEndian, &keyLen); err != nil {
-				return nil, fmt.Errorf("entry %d key length: %w", i, err)
-			}
-			if err := skip(keyLen); err != nil {
-				return nil, fmt.Errorf("entry %d skip key: %w", i, err)
-			}
-			var chainLen uint32
-			if err := binary.Read(r, binary.BigEndian, &chainLen); err != nil {
-				return nil, fmt.Errorf("entry %d chain length: %w", i, err)
-			}
-			for j := uint32(0); j < chainLen; j++ {
-				c, err := readJCEKSCert(r)
-				if err != nil {
-					return nil, fmt.Errorf("entry %d chain[%d]: %w", i, j, err)
-				}
-				role := cert.RoleLeaf
-				if j > 0 {
-					role = classifyChain(c)
-				}
-				out = append(out, itemWithRole{cert: c, role: role})
-			}
-		case jceksEntrySecretKey:
-			return nil, fmt.Errorf("entry %d: JCEKS SecretKey entries are not supported (Java SealedObject deserialization required to locate subsequent entries)", i)
-		default:
-			return nil, fmt.Errorf("entry %d: unknown entry type %d", i, entryType)
-		}
+		s.entries = append(s.entries, e)
 	}
-	return out, nil
+
+	end := len(data) - r.Len()
+	if r.Len() < digestLength {
+		return nil, fmt.Errorf("digest: %w", io.ErrUnexpectedEOF)
+	}
+	s.signed = data[:end]
+	s.digest = data[end : end+digestLength]
+	return s, nil
 }
 
-// readJCEKSCert reads a single X.509 cert: "X.509" UTF tag + uint32 length + DER.
-func readJCEKSCert(r *bytes.Reader) (*x509.Certificate, error) {
-	certType, err := readJavaUTF(r)
+func walkEntry(r *bytes.Reader, magic, version uint32) (entry, error) {
+	var e entry
+	var tag uint32
+	if err := binary.Read(r, binary.BigEndian, &tag); err != nil {
+		return e, fmt.Errorf("tag: %w", err)
+	}
+	alias, err := readJavaUTF(r)
 	if err != nil {
-		return nil, fmt.Errorf("cert type: %w", err)
+		return e, fmt.Errorf("alias: %w", err)
 	}
-	if certType != "X.509" {
-		return nil, fmt.Errorf("unsupported cert type %q", certType)
+	e.alias = alias
+	if err := skip(r, 8); err != nil {
+		return e, fmt.Errorf("creation time: %w", err)
 	}
-	var certLen uint32
-	if err := binary.Read(r, binary.BigEndian, &certLen); err != nil {
+
+	switch {
+	case tag == entryTrustedCert:
+		e.trusted = true
+		der, err := readCert(r, version)
+		if err != nil {
+			return e, fmt.Errorf("trusted cert: %w", err)
+		}
+		e.certs = [][]byte{der}
+	case tag == entryPrivateKey:
+		var keyLen uint32
+		if err := binary.Read(r, binary.BigEndian, &keyLen); err != nil {
+			return e, fmt.Errorf("key length: %w", err)
+		}
+		if err := skip(r, keyLen); err != nil {
+			return e, fmt.Errorf("skip key: %w", err)
+		}
+		var chainLen uint32
+		if err := binary.Read(r, binary.BigEndian, &chainLen); err != nil {
+			return e, fmt.Errorf("chain length: %w", err)
+		}
+		for j := uint32(0); j < chainLen; j++ {
+			der, err := readCert(r, version)
+			if err != nil {
+				return e, fmt.Errorf("chain[%d]: %w", j, err)
+			}
+			e.certs = append(e.certs, der)
+		}
+	case tag == entrySecretKey && magic == magicJCEKS:
+		return e, errors.New("JCEKS SecretKey entries are not supported (Java SealedObject deserialization required to locate subsequent entries)")
+	default:
+		return e, fmt.Errorf("unknown entry type %d", tag)
+	}
+	return e, nil
+}
+
+// readCert reads one certificate: a type string (version 2 only — the
+// body is parsed as X.509 whatever it says) then a uint32-length DER
+// body.
+func readCert(r *bytes.Reader, version uint32) ([]byte, error) {
+	if version == 2 {
+		if _, err := readJavaUTF(r); err != nil {
+			return nil, fmt.Errorf("cert type: %w", err)
+		}
+	}
+	var n uint32
+	if err := binary.Read(r, binary.BigEndian, &n); err != nil {
 		return nil, fmt.Errorf("cert length: %w", err)
 	}
-	// Bound the allocation against the unread remainder: certLen is an
-	// attacker-controlled uint32 (up to 4 GiB) and reaches this point
-	// once the HMAC passes, which a forged keystore + tryEmptyPassphrase
-	// satisfies. Without this guard, make([]byte, certLen) is a memory
-	// DoS. The cert body cannot exceed the bytes left in the payload.
-	if int64(certLen) > int64(r.Len()) {
-		return nil, fmt.Errorf("cert length %d exceeds %d remaining bytes", certLen, r.Len())
-	}
-	der := make([]byte, certLen)
-	if _, err := io.ReadFull(r, der); err != nil {
+	der, err := readBytes(r, n)
+	if err != nil {
 		return nil, fmt.Errorf("cert body: %w", err)
 	}
-	c, err := x509.ParseCertificate(der)
-	if err != nil {
-		return nil, fmt.Errorf("cert parse: %w", err)
-	}
-	return c, nil
+	return der, nil
 }
 
 // readJavaUTF reads a Java DataOutputStream.writeUTF()-encoded string:
@@ -354,39 +282,96 @@ func readJavaUTF(r *bytes.Reader) (string, error) {
 	if err := binary.Read(r, binary.BigEndian, &n); err != nil {
 		return "", err
 	}
-	buf := make([]byte, n)
-	if _, err := io.ReadFull(r, buf); err != nil {
+	b, err := readBytes(r, uint32(n))
+	if err != nil {
 		return "", err
 	}
-	return string(buf), nil
+	return string(b), nil
 }
 
-// jceksHMAC computes SHA1( utf16be(pass) || "Mighty Aphrodite" || payload ).
-// Matches the algorithm shared by JKS and JCEKS (com.sun.crypto.provider.
-// JceKeyStore.getPreKeyedHash). Each input byte is widened to UTF-16BE by
-// prepending 0x00 — strictly correct for ASCII passphrases, which mirrors
-// keystore-go's behaviour and the universe of passphrases configured in
-// real Java apps.
-func jceksHMAC(pass string, payload []byte) []byte {
-	h := sha1.New() //nolint:gosec // protocol-mandated: JKS/JCEKS HMAC uses SHA-1
+// readBytes copies the next n bytes. n comes from the input, so it is
+// checked against what is left before allocating: a short store can't
+// claim a huge field.
+func readBytes(r *bytes.Reader, n uint32) ([]byte, error) {
+	if int64(n) > int64(r.Len()) {
+		return nil, fmt.Errorf("length %d exceeds %d remaining bytes", n, r.Len())
+	}
+	b := make([]byte, n)
+	if _, err := io.ReadFull(r, b); err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+// skip advances past n bytes under the same bound as readBytes —
+// bytes.Reader.Seek would otherwise move past the end silently and only
+// fail on the next read, with a misleading error.
+func skip(r *bytes.Reader, n uint32) error {
+	if int64(n) > int64(r.Len()) {
+		return io.ErrUnexpectedEOF
+	}
+	_, err := r.Seek(int64(n), io.SeekCurrent)
+	return err
+}
+
+// digestMatches checks the store-integrity digest,
+// SHA1( utf16be(pass) || "Mighty Aphrodite" || signed ), the algorithm
+// shared by JKS and JCEKS (JavaKeyStore / JceKeyStore getPreKeyedHash).
+// Each passphrase byte is widened to UTF-16BE by prepending 0x00 —
+// exact for ASCII passphrases, which is what real Java apps configure.
+func (s *store) digestMatches(pass string) bool {
+	h := sha1.New() //nolint:gosec // protocol-mandated: JKS/JCEKS integrity uses SHA-1
 	for _, b := range []byte(pass) {
 		h.Write([]byte{0x00, b})
 	}
-	h.Write([]byte(jceksMightyAphrodite))
-	h.Write(payload)
-	return h.Sum(nil)
+	h.Write([]byte(digestWhitener))
+	h.Write(s.signed)
+	return hmac.Equal(h.Sum(nil), s.digest)
 }
 
-// isPasswordErr distinguishes a wrong-passphrase outcome from other
-// failure modes. keystore-go does not export a sentinel for the
-// HMAC-based store-integrity check, so we match on the substring
-// "invalid digest" surfaced by Load(). Since the magic-byte pre-filter
-// above already rules out non-JKS / non-JCEKS inputs, a digest
-// mismatch at this stage overwhelmingly indicates a wrong password
-// (the alternative is store corruption, which is rare in practice and
-// surfaces with the same operator action: investigate the file).
-func isPasswordErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "invalid digest")
+// items parses the walked certificates. JKS entries are keyed by alias
+// (a later duplicate replaces an earlier one) and come out in alias
+// order; JCEKS entries come out in file order. Item order feeds the
+// series discriminator, so it must not depend on anything but the store.
+func (s *store) items() ([]itemWithRole, error) {
+	entries := s.entries
+	if s.magic == magicJKS {
+		entries = byAlias(entries)
+	}
+	var out []itemWithRole
+	for _, e := range entries {
+		for i, der := range e.certs {
+			c, err := x509.ParseCertificate(der)
+			if err != nil {
+				return nil, fmt.Errorf("entry %q cert[%d]: %w", e.alias, i, err)
+			}
+			role := cert.RoleLeaf
+			switch {
+			case e.trusted:
+				role = classifyTrustStore(c)
+			case i > 0:
+				role = classifyChain(c)
+			}
+			out = append(out, itemWithRole{cert: c, role: role})
+		}
+	}
+	return out, nil
+}
+
+// byAlias keeps the last entry of each alias and sorts them by alias.
+func byAlias(entries []entry) []entry {
+	last := make(map[string]int, len(entries))
+	for i, e := range entries {
+		last[e.alias] = i
+	}
+	out := make([]entry, 0, len(last))
+	for i, e := range entries {
+		if last[e.alias] == i {
+			out = append(out, e)
+		}
+	}
+	sort.Slice(out, func(a, b int) bool { return out[a].alias < out[b].alias })
+	return out
 }
 
 func classifyTrustStore(c *x509.Certificate) cert.Role {

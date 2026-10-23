@@ -30,9 +30,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.filter.outputs.go }}
+      fuzz: ${{ steps.filter.outputs.fuzz }}
       e2e: ${{ steps.filter.outputs.e2e }}
       helm_examples: ${{ steps.filter.outputs.helm_examples }}
       helm_fixtures: ${{ steps.filter.outputs.helm_fixtures }}
+      helm_render: ${{ steps.filter.outputs.helm_render }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -42,13 +44,28 @@ jobs:
         with:
           # Unit tests fire on any Go change; e2e additionally on
           # anything that materially affects the deployed flow — chart
-          # templates, fixtures, the Tiltfile, and the seeders.
+          # templates, fixtures, the Tiltfile, and the seeders. Each job
+          # also fires on the fixtures it consumes (testdata/,
+          # test/render/, test/schema/) and on its own definition (this
+          # file, the Dagger action, the Taskfile / dev shell it runs).
           filters: |
             go:
               - '**/*.go'
+              - '**/testdata/**'
               - 'go.mod'
               - 'go.sum'
               - 'dagger/**'
+              - '.github/actions/dagger/**'
+              - '.github/workflows/test.yaml'
+            fuzz:
+              - '**/*.go'
+              - '**/testdata/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Taskfile.yml'
+              - 'flake.nix'
+              - 'flake.lock'
+              - '.github/workflows/test.yaml'
             e2e:
               - '**/*.go'
               - 'go.mod'
@@ -64,14 +81,26 @@ jobs:
               - '.goreleaser.yaml'
               - 'flake.nix'
               - 'flake.lock'
+              - 'Taskfile.yml'
+              - '.github/workflows/test.yaml'
             helm_examples:
               - 'chart/**'
               - 'docs/examples/**'
               - 'dagger/**'
+              - '.github/actions/dagger/**'
+              - '.github/workflows/test.yaml'
             helm_fixtures:
               - 'chart/**'
               - 'test/schema/**'
               - 'dagger/**'
+              - '.github/actions/dagger/**'
+              - '.github/workflows/test.yaml'
+            helm_render:
+              - 'chart/**'
+              - 'test/render/**'
+              - 'dagger/**'
+              - '.github/actions/dagger/**'
+              - '.github/workflows/test.yaml'
 
   unit:
     name: Unit tests
@@ -88,6 +117,32 @@ jobs:
       - uses: ./.github/actions/dagger
         with:
           args: test
+
+  fuzz:
+    name: Fuzz smoke
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.fuzz == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+      # Same dev shell as the E2E job, so `task test:fuzz` stays the one
+      # place that lists the Fuzz* targets.
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      - run: nix develop --command task test:fuzz
+      # A crash leaves its input under <pkg>/testdata/fuzz/<Fuzz*>/:
+      # commit it with the fix, where it becomes a regression test.
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: fuzz-crashers
+          path: "**/testdata/fuzz/**"
+          if-no-files-found: ignore
 
   helm-examples:
     name: Helm examples
@@ -118,6 +173,21 @@ jobs:
       - uses: ./.github/actions/dagger
         with:
           args: test-helm-fixtures
+
+  helm-render:
+    name: Helm render
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.helm_render == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+      - uses: ./.github/actions/dagger
+        with:
+          args: test-helm-render
 
   e2e:
     name: E2E tests

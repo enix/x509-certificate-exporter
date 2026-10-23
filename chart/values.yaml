@@ -1201,7 +1201,7 @@ rbacProxy:
   # minimum: 1
   # maximum: 65535
   # @schema
-  # -- Listen port for the exporter running inside kube-rbac-proxy exposed Pods
+  # -- Listen port for the exporter running inside kube-rbac-proxy exposed Pods. Bound to `127.0.0.1` only: kube-rbac-proxy is its sole client, so `/metrics` can't be scraped around the proxy. The probe listener (`probeListenPort`) still binds every interface.
   upstreamListenPort: 9091
   # @schema
   # type: object

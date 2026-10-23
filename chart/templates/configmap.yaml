@@ -12,7 +12,7 @@ data:
       enableStats: {{ .Values.web.enableStats }}
 
     server:
-      listen: ":{{ if .Values.rbacProxy.enabled }}{{ .Values.rbacProxy.upstreamListenPort }}{{ else }}{{ .Values.podListenPort }}{{ end }}"
+      listen: {{ include "x509-certificate-exporter.listenAddress" . | quote }}
       {{- if or .Values.webConfiguration .Values.webConfigurationExistingSecret }}
       webConfigFile: "/mnt/webconfig.yaml"
       {{- end }}
@@ -120,7 +120,7 @@ data:
       enableStats: {{ $.Values.web.enableStats }}
 
     server:
-      listen: ":{{ if $.Values.rbacProxy.enabled }}{{ $.Values.rbacProxy.upstreamListenPort }}{{ else }}{{ $.Values.podListenPort }}{{ end }}"
+      listen: {{ include "x509-certificate-exporter.listenAddress" $ | quote }}
       {{- if or $.Values.webConfiguration $.Values.webConfigurationExistingSecret }}
       webConfigFile: "/mnt/webconfig.yaml"
       {{- end }}

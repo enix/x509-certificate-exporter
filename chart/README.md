@@ -474,6 +474,6 @@ exporter-toolkit is the recommended path on new installs.
 | rbacProxy.image.tag | string | `"v0.23.0"` | kube-rbac-proxy image tag |
 | rbacProxy.image.digest | string | `""` | kube-rbac-proxy image digest. When set, takes precedence over `tag` (immutable reference) |
 | rbacProxy.image.pullPolicy | string | `"IfNotPresent"` | kube-rbac-proxy image pull policy |
-| rbacProxy.upstreamListenPort | int | `9091` | Listen port for the exporter running inside kube-rbac-proxy exposed Pods |
+| rbacProxy.upstreamListenPort | int | `9091` | Listen port for the exporter running inside kube-rbac-proxy exposed Pods. Bound to `127.0.0.1` only: kube-rbac-proxy is its sole client, so `/metrics` can't be scraped around the proxy. The probe listener (`probeListenPort`) still binds every interface. |
 | rbacProxy.resources | object | see `values.yaml` | ResourceRequirements for all containers of kube-rbac-proxy |
 | rbacProxy.securityContext | object | see `values.yaml` | SecurityContext for all containers of kube-rbac-proxy |

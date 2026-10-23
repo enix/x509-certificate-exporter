@@ -27,6 +27,21 @@ probeListenPort > 0 takes precedence.
 {{- end -}}
 {{- end -}}
 
+{{/*
+Exporter main listen address (the plain-HTTP /metrics server). Behind
+kube-rbac-proxy it binds to loopback only: the sidecar reaches it over
+the Pod's shared network namespace, and nothing else may, since this
+listener does no authn/authz of its own. The probe listener keeps
+binding every interface so kubelet can reach it.
+*/}}
+{{- define "x509-certificate-exporter.listenAddress" -}}
+{{- if .Values.rbacProxy.enabled -}}
+127.0.0.1:{{ .Values.rbacProxy.upstreamListenPort }}
+{{- else -}}
+:{{ .Values.podListenPort }}
+{{- end -}}
+{{- end -}}
+
 {{- define "x509-certificate-exporter.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}

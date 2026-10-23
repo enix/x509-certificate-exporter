@@ -1,0 +1,14 @@
+# Same guarantee as rbacproxy-upstream-loopback-deployment.yaml, for a
+# hostPathsExporter DaemonSet on hostNetwork — the mode where a
+# wildcard bind would expose /metrics on the node's own addresses.
+# secretsExporter is disabled so only the DaemonSet's config renders.
+secretsExporter:
+  enabled: false
+rbacProxy:
+  enabled: true
+hostNetwork: true
+hostPathsExporter:
+  daemonSets:
+    nodes:
+      watchFiles:
+        - /var/lib/kubelet/pki/kubelet-client-current.pem

@@ -11,13 +11,22 @@
 // `x509ce-rbacproxy` namespace (one bound to a ClusterRole that allows
 // GET /metrics, one not). We fetch a Bearer token for each via the
 // TokenRequest API and assert the matching response code.
+//
+// It also asserts the proxy can't be bypassed: the exporter's own
+// plain-HTTP listener must not answer on the Pod IP, only on loopback
+// for the sidecar.
 package e2e
 
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,6 +41,14 @@ const (
 	rbacproxyNamespace      = "x509ce-rbacproxy"
 	rbacproxyAuthorizedSA   = "e2e-scraper-authorized"
 	rbacproxyUnauthorizedSA = "e2e-scraper-unauthorized"
+	// Chart defaults: `rbacProxy.upstreamListenPort`, and the probe port
+	// auto-enabled whenever `rbacProxy.enabled`.
+	rbacproxyUpstreamPort = 9091
+	rbacproxyProbePort    = 8080
+	// Where the bypass attempt runs from: a Pod of the main e2e release,
+	// i.e. another Pod in another namespace. Its busybox image ships wget.
+	outsiderNamespace = "x509ce-e2e"
+	outsiderWorkload  = "deployment/x509-certificate-exporter"
 )
 
 func rbacproxyURL() string {
@@ -148,6 +165,62 @@ func TestRbacproxy(t *testing.T) {
 		defer resp.Body.Close()
 		if resp.StatusCode != 403 {
 			t.Errorf("status: got %d, want 403", resp.StatusCode)
+		}
+	})
+}
+
+// TestRbacproxyUpstreamLoopback dials the rbacproxy exporter Pod's IP
+// from another Pod. The upstream port must refuse the connection: the
+// exporter binds it to loopback, so /metrics is only reachable through
+// kube-rbac-proxy. The probe port on that same IP must answer — it
+// proves the route and the client tooling work, so a refusal can only
+// come from the bind address.
+func TestRbacproxyUpstreamLoopback(t *testing.T) {
+	cs := k8sClient(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	pods, err := cs.CoreV1().Pods(rbacproxyNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "app.kubernetes.io/instance=x509ce-rbacproxy,app.kubernetes.io/component=secrets",
+		FieldSelector: "status.phase=Running",
+	})
+	if err != nil {
+		t.Fatalf("list rbacproxy pods: %v", err)
+	}
+	if len(pods.Items) == 0 || pods.Items[0].Status.PodIP == "" {
+		t.Fatalf("no running rbacproxy exporter Pod with an IP in %s", rbacproxyNamespace)
+	}
+	podIP := pods.Items[0].Status.PodIP
+
+	wget := func(port int, path string) (string, error) {
+		url := fmt.Sprintf("http://%s%s", net.JoinHostPort(podIP, strconv.Itoa(port)), path)
+		out, err := exec.CommandContext(ctx, "kubectl", "--namespace="+outsiderNamespace,
+			"exec", outsiderWorkload, "--", "wget", "-q", "-T", "5", "-O", "-", url).CombinedOutput()
+		return string(out), err
+	}
+
+	if !t.Run("ProbeReachable", func(t *testing.T) {
+		var out string
+		var err error
+		deadline := time.Now().Add(30 * time.Second)
+		for time.Now().Before(deadline) {
+			if out, err = wget(rbacproxyProbePort, "/healthz"); err == nil {
+				return
+			}
+			time.Sleep(2 * time.Second)
+		}
+		t.Fatalf("probe port %d on %s unreachable from another Pod: %v\n%s", rbacproxyProbePort, podIP, err, out)
+	}) {
+		t.Fatal("no working path from another Pod; the upstream check would be meaningless")
+	}
+
+	t.Run("UpstreamRefused", func(t *testing.T) {
+		out, err := wget(rbacproxyUpstreamPort, "/metrics")
+		if err == nil {
+			t.Fatalf("upstream port %d on %s served /metrics to another Pod, bypassing kube-rbac-proxy", rbacproxyUpstreamPort, podIP)
+		}
+		if !strings.Contains(out, "Connection refused") {
+			t.Fatalf("upstream port %d on %s: want connection refused, got %v\n%s", rbacproxyUpstreamPort, podIP, err, out)
 		}
 	})
 }

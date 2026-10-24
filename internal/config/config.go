@@ -237,6 +237,10 @@ type Metrics struct {
 	// per-cert series count for users who alert exclusively on
 	// `not_after - time()`.
 	ExposeExpired                bool     `yaml:"exposeExpired"`
+	// ExposeSAN controls the per-cert `x509_cert_san` metric, which
+	// emits one series per Subject Alternative Name (DNS or IP).
+	// Off by default to keep `/metrics` lean.
+	ExposeSAN                    bool     `yaml:"exposeSAN"`
 	// ExposeDiagnostics gates a group of self-introspection metrics
 	// (parse latency, kube API latency, source scope, namespace
 	// informer queue depth) that help debugging the exporter itself

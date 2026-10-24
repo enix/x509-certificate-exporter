@@ -69,12 +69,18 @@ jobs:
               - 'go.sum'
               - '.golangci.yml'
               - 'dagger/**'
+              - 'dagger.json'
+              - '.github/actions/dagger/**'
             helm:
               - 'chart/**'
               - 'dagger/**'
+              - 'dagger.json'
+              - '.github/actions/dagger/**'
             renovate:
               - 'renovate.json5'
               - 'dagger/**'
+              - 'dagger.json'
+              - '.github/actions/dagger/**'
             markdown:
               # Mirror the `ignores` list in .markdownlint-cli2.jsonc so a
               # change to one of those files doesn't pointlessly fire the
@@ -90,6 +96,8 @@ jobs:
               - '!AGENTS.md'
               - '.markdownlint-cli2.jsonc'
               - 'dagger/**'
+              - 'dagger.json'
+              - '.github/actions/dagger/**'
 
   lint-go:
     name: Go

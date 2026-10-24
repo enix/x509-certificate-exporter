@@ -268,7 +268,10 @@
       extractVersionTemplate: "^v(?<version>.*)$",
     },
     // Helm version pinned inside the `with: version:` field of
-    // azure/setup-helm in release.yaml (same blind spot as goreleaser above).
+    // azure/setup-helm in release.yaml. As for goreleaser above, the
+    // github-actions manager's native copy of this value is disabled in
+    // packageRules, so this regex manager owns it (and the `helm` group
+    // pairs it with alpine/helm).
     {
       customType: "regex",
       managerFilePatterns: ["/^\\.github/workflows/release\\.ya?ml$/"],
@@ -478,15 +481,19 @@
       groupName: "github-actions",
       labels: ["dependencies", "ci"],
     },
-    // The github-actions manager natively extracts goreleaser-action's
-    // `with: version:` as `goreleaser/goreleaser` and tries to digest-pin
-    // it — on the very string the goreleaser regex manager owns. Two
-    // managers editing one string is an upgrade collision: Renovate fails
-    // the whole `github-actions` branch ("update failure"), stalling every
-    // other action bump with it. Leave that value to the regex manager.
+    // The github-actions manager also reads known actions' `with:` inputs
+    // (depType `uses-with`): goreleaser-action and setup-helm `version:`,
+    // dagger-for-github `version:`. Each of those values already has an
+    // owner — the goreleaser and helm regex managers above, and
+    // dagger.json for the Dagger CLI (an expression this manager can't
+    // update). The native copy would only get in the way: two managers
+    // editing one string is an upgrade collision that fails the whole
+    // `github-actions` branch ("update failure"), and its digest pinning
+    // looks up a tag without the `v` prefix ("Could not determine new
+    // digest"). Action refs (depType `action`) stay with this manager.
     {
       matchManagers: ["github-actions"],
-      matchPackageNames: ["goreleaser/goreleaser"],
+      matchDepTypes: ["uses-with"],
       enabled: false,
     },
 

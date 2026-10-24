@@ -305,6 +305,7 @@ exporter-toolkit is the recommended path on new installs.
 | exposeDiagnosticMetrics | bool | `false` | Expose self-introspection metrics for debugging the exporter itself (`x509_parse_duration_seconds`, `x509_kube_request_duration_seconds`, `x509_kube_informer_scope`, `x509_informer_queue_depth`). Off by default ; enable when you actually need to look inside. |
 | metricLabelsFilterList | list | `nil` | Restrict metric labels to this list if set. **Warning** : use with caution as reducing cardinality may yield metrics collisions and force the exporter to ignore certificates. This will also degrade the usability of the Grafana dashboard. This list should always include at least `filepath`, `secret_namespace` and `secret_name`. Also `subject_CN` is highly recommended for when a file contains multiple certificates. |
 | grafana.createDashboard | bool | `false` | Should the Grafana dashboard be deployed as a ConfigMap (requires Grafana sidecar) |
+| grafana.dashboardNamespace | string | `nil` | Namespace to create ConfigMap if. Omit to use same namespace as release. |
 | grafana.sidecarLabel | string | `"grafana_dashboard"` | ConfigMap label name the Grafana sidecar is looking for |
 | grafana.sidecarLabelValue | string | `"1"` | ConfigMap label value the Grafana sidecar is looking for |
 | grafana.annotations | object | `{}` | Annotations added to the Grafana dashboard ConfigMap (example in `values.yaml`) |

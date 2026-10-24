@@ -44,13 +44,19 @@ jobs:
               - 'go.mod'
               - 'go.sum'
               - 'dagger/**'
+              - 'dagger.json'
+              - '.github/actions/dagger/**'
             deps:
               - 'go.mod'
               - 'go.sum'
               - 'dagger/**'
+              - 'dagger.json'
+              - '.github/actions/dagger/**'
             chart:
               - 'chart/**'
               - 'dagger/**'
+              - 'dagger.json'
+              - '.github/actions/dagger/**'
 
   # Secret leak detection. Always runs — any file can leak. Routed
   # through the Dagger Module's `Gitleaks` function (see CLAUDE.md for

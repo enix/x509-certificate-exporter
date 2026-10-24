@@ -47,7 +47,9 @@ jobs:
           # templates, fixtures, the Tiltfile, and the seeders. Each job
           # also fires on the fixtures it consumes (testdata/,
           # test/render/, test/schema/) and on its own definition (this
-          # file, the Dagger action, the Taskfile / dev shell it runs).
+          # file; for Dagger-backed jobs the Dagger action and dagger.json,
+          # whose engineVersion picks the engine; the Taskfile / dev shell
+          # for the Nix-backed ones).
           filters: |
             go:
               - '**/*.go'
@@ -56,6 +58,7 @@ jobs:
               - 'go.sum'
               - 'dagger/**'
               - '.github/actions/dagger/**'
+              - 'dagger.json'
               - '.github/workflows/test.yaml'
             fuzz:
               - '**/*.go'
@@ -88,18 +91,21 @@ jobs:
               - 'docs/examples/**'
               - 'dagger/**'
               - '.github/actions/dagger/**'
+              - 'dagger.json'
               - '.github/workflows/test.yaml'
             helm_fixtures:
               - 'chart/**'
               - 'test/schema/**'
               - 'dagger/**'
               - '.github/actions/dagger/**'
+              - 'dagger.json'
               - '.github/workflows/test.yaml'
             helm_render:
               - 'chart/**'
               - 'test/render/**'
               - 'dagger/**'
               - '.github/actions/dagger/**'
+              - 'dagger.json'
               - '.github/workflows/test.yaml'
 
   unit:

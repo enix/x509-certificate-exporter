@@ -809,30 +809,30 @@ prometheusServiceMonitor:
   # type: array
   # items: {type: object}
   # @schema
-  # -- Metric relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
+  # -- Metric relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.Endpoint
   metricRelabelings: []
   # @schema
   # type: array
   # items: {type: object}
   # @schema
-  # -- Relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
+  # -- Relabel config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.Endpoint
   relabelings: []
   # @schema
   # enum: [http, https]
   # @schema
-  # -- Scheme config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
+  # -- Scheme config for the ServiceMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.Endpoint
   scheme: http
   # @schema
   # type: object
   # additionalProperties: true
   # @schema
-  # -- BasicAuth credentials for the ServiceMonitor endpoint (Secret key selectors for `username` and `password`). Requires `scheme: https` (the chart refuses to render credentials over plaintext HTTP) and is mutually exclusive with `rbacProxy.enabled`, which authenticates scrapes with the Prometheus ServiceAccount bearer token — the chart refuses to render both. See: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.BasicAuth
+  # -- BasicAuth credentials for the ServiceMonitor endpoint (Secret key selectors for `username` and `password`). Requires `scheme: https` (the chart refuses to render credentials over plaintext HTTP) and is mutually exclusive with `rbacProxy.enabled`, which authenticates scrapes with the Prometheus ServiceAccount bearer token — the chart refuses to render both. See: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.BasicAuth
   basicAuth: {}
   # @schema
   # type: object
   # additionalProperties: true
   # @schema
-  # -- Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig
+  # -- Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.TLSConfig
   tlsConfig: {}
 
 # @schema
@@ -856,30 +856,30 @@ prometheusPodMonitor:
   # type: array
   # items: {type: object}
   # @schema
-  # -- Metric relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
+  # -- Metric relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.Endpoint
   metricRelabelings: []
   # @schema
   # type: array
   # items: {type: object}
   # @schema
-  # -- Relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
+  # -- Relabel config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.Endpoint
   relabelings: []
   # @schema
   # enum: [http, https]
   # @schema
-  # -- Scheme config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.Endpoint
+  # -- Scheme config for the PodMonitor, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.Endpoint
   scheme: http
   # @schema
   # type: object
   # additionalProperties: true
   # @schema
-  # -- BasicAuth credentials for the PodMonitor endpoint (Secret key selectors for `username` and `password`). Requires `scheme: https` (the chart refuses to render credentials over plaintext HTTP) and is mutually exclusive with `rbacProxy.enabled`, which authenticates scrapes with the Prometheus ServiceAccount bearer token — the chart refuses to render both. See: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.BasicAuth
+  # -- BasicAuth credentials for the PodMonitor endpoint (Secret key selectors for `username` and `password`). Requires `scheme: https` (the chart refuses to render credentials over plaintext HTTP) and is mutually exclusive with `rbacProxy.enabled`, which authenticates scrapes with the Prometheus ServiceAccount bearer token — the chart refuses to render both. See: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.BasicAuth
   basicAuth: {}
   # @schema
   # type: object
   # additionalProperties: true
   # @schema
-  # -- Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.TLSConfig
+  # -- Custom TLS configuration, see: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.TLSConfig
   tlsConfig: {}
 
 prometheusRules:

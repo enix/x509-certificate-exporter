@@ -10,7 +10,7 @@ const (
 	golangImage = "golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb"
 	alpineImage = "alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a"
 	helmImage = "alpine/helm:4.3.1@sha256:e3f8d5c462d75470fbb1fce79ad5c20063657096d1f98c0fcea869e2600e2e5e"
-	renovateImage = "renovate/renovate:44.181.4@sha256:e2440463a0fff07e43875643324f8b57f6c3a9a8365332b7183989514f81e9ee"
+	renovateImage = "renovate/renovate:44.200.0@sha256:8639eca545119147ce9114c22315129dd52794b3ea8a6767f8b0bd22606545c4"
 	helmDocsImage     = "jnorwood/helm-docs:v1.14.2@sha256:7e562b49ab6b1dbc50c3da8f2dd6ffa8a5c6bba327b1c6335cc15ce29267979c"
 	helmSchemaImage = "ghcr.io/dadav/helm-schema:v0.24.0@sha256:efa1a88d082728c81eb1734a263b0ec0eb353b99f49dc199f22e2567bf0fef9f"
 	markdownlintImage = "davidanson/markdownlint-cli2:v0.24.0@sha256:70ead7c0352d22d04bbe612cd96b54ec591538d8f4626cafe391bb2ecf3639ca"

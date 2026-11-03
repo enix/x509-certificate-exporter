@@ -30,6 +30,7 @@ data:
       exposePerCertError: {{ .Values.exposePerCertificateErrorMetrics | default false }}
       exposeNotBefore: {{ .Values.exposeNotBeforeMetric }}
       exposeExpired: {{ .Values.exposeExpiredMetric }}
+      exposeSAN: {{ .Values.exposeSANMetric }}
       exposeDiagnostics: {{ .Values.exposeDiagnosticMetrics }}
       {{- if not (kindIs "invalid" .Values.metricLabelsFilterList) }}
       exposeSubjectFields: {{ .Values.metricLabelsFilterList | toJson }}
@@ -138,6 +139,7 @@ data:
       exposePerCertError: {{ $.Values.exposePerCertificateErrorMetrics | default false }}
       exposeNotBefore: {{ $.Values.exposeNotBeforeMetric }}
       exposeExpired: {{ $.Values.exposeExpiredMetric }}
+      exposeSAN: {{ $.Values.exposeSANMetric }}
       exposeDiagnostics: {{ $.Values.exposeDiagnosticMetrics }}
       trimPathComponents: 3
       {{- if not (kindIs "invalid" $.Values.metricLabelsFilterList) }}

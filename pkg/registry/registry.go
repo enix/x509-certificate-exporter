@@ -39,6 +39,10 @@ type Config struct {
 	// config-loading layer; passing the zero value here disables the
 	// metric entirely.
 	ExposeExpired          bool
+	// ExposeSAN gates `x509_cert_san`, which emits one series per
+	// Subject Alternative Name (DNS or IP) on each certificate.
+	// Off by default to keep `/metrics` lean.
+	ExposeSAN              bool
 	// ExposeDiagnostics enables the exporter's self-introspection
 	// metrics (parse / kube API latencies, source scope, namespace
 	// informer queue depth). Off by default.

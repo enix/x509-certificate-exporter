@@ -44,19 +44,6 @@ cluster it observes, but equally happy as a standalone binary.
 
 ---
 
-## ✨ What's new in v4
-
-- **Full rewrite** around a YAML config file and a pluggable architecture — clean foundations for the project to grow on.
-- **Memory-safe Kubernetes watch** — RAM stays flat instead of spiking; on Secret-heavy clusters, memory limits drop ~10×.
-- **Richer PKCS#12 wiring** — full keystore + truststore coverage, flexible passphrase sourcing.
-- **DER consumption** — raw cert / CRL blobs as served by HTTP CRL Distribution Points are now first-class inputs.
-- **JKS / JCEKS support** — Java KeyStore and JCEKS stores.
-- **CRL freshness monitoring** — Certificate Revocation Lists are tracked alongside certs, with alerts before they go stale.
-- **Surface workload metadata** — lift watched resource labels onto emitted certificate series.
-- **Supply-chain hardened** — SLSA Build L3 provenance, cosign-signed binaries, images and chart, SBOM attestations.
-- **Multi-cluster from a single instance** — fan-in metrics from any number of clusters via distinct kubeconfigs.
-- **Per-source observability** — granular health and triage signals, not just a global error counter.
-
 ## 🔍️ What it watches
 
 - **TLS Secrets** of any type — `kubernetes.io/tls`, Opaque bundles,
@@ -82,12 +69,20 @@ cluster it observes, but equally happy as a standalone binary.
 - **PEM chains** — every certificate in a multi-cert bundle becomes its own
   series, so intermediate CAs and trust roots appear alongside leaf certs
   with no extra configuration.
+- **Raw DER** certificates as well as CRLs (`format: der`) — the binary
+  blobs some PKI tooling writes and HTTP CRL Distribution Points serve.
 - **Kubeconfigs** with embedded base64 certificates or PEM file references —
   every `cluster` and `user` block exposed as its own series.
+- **Any number of clusters from a single instance** — each Kubernetes
+  source can point at its own kubeconfig, so one exporter fans in the
+  certificates of several clusters.
 - **Files on disk** — glob patterns (`*`, `**`, `?`), atomic symlink swaps
   detected on the next poll (certbot renewals, kubelet projected `..data/`
   mounts), and dual deployment: inside the exporter pod **or** as a
   node-local DaemonSet for cluster PKI (kubelet, etcd, kube-apiserver).
+- **Your workload metadata** — chosen labels of the watched Secrets,
+  ConfigMaps and caBundle resources are lifted onto the certificate
+  series, so alerts can route to the team that owns them.
 
 ## 🚀 Quick install
 
